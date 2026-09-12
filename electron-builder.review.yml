@@ -1,0 +1,11 @@
+# Local review builds must not reuse the signed app's macOS permission identity.
+appId: ai.kingagent.app.review
+productName: KingAgent Review
+extraMetadata:
+  name: kingagent-review
+directories:
+  output: release-review
+mac:
+  identity: null
+dmg:
+  sign: false

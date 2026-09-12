@@ -1,0 +1,34 @@
+<meta charset="utf-8" />
+<title>KingAgent</title>
+<!-- Caveat and Courier Prime are @font-face'd from vendor/fonts in paper.css.
+     Nami loads nothing over the network to paint itself. -->
+<link rel="stylesheet" href="./vendor/xterm.css" />
+<link rel="stylesheet" href="./paper.css" />
+<link rel="stylesheet" href="./theme-operator.css" />
+<link rel="stylesheet" href="./theme-glass.css" />
+<link rel="stylesheet" href="./theme-graphite.css" />
+<link rel="stylesheet" href="./theme-soft.css" />
+<link rel="stylesheet" href="./theme-dusk.css" />
+<link rel="stylesheet" href="./browser.css" />
+<link rel="stylesheet" href="./browser-annotations.css" />
+<link rel="stylesheet" href="./browser-settings.css" />
+<link rel="stylesheet" href="./usage-pane.css" />
+<div id="root"></div>
+<script>
+  // Frame one wears the saved theme. app.js is a deferred module, so its
+  // applyThemeAttrs() lands well after first paint — without this, every
+  // launch on a non-paper theme flashes the cream base stylesheet first.
+  // Mirrors applyThemeAttrs() in app.js; the theme list and the 'glass'
+  // default must stay in step with it and with src/main/settings.js.
+  try {
+    var t = localStorage.getItem('kingagent-theme') || 'glass';
+    if (t !== 'paper' && ['operator', 'glass', 'graphite', 'soft', 'dusk'].indexOf(t) >= 0) document.body.dataset.theme = t;
+    if (t === 'glass' || t === 'graphite') document.body.setAttribute('data-glass', '');
+    if (t === 'soft' || t === 'dusk') document.body.setAttribute('data-soft', '');
+  } catch (_) {}
+</script>
+<script type="module" src="./app.js"></script>
+<script type="module">
+  import { mountAgentPlatform } from './agent-platform.mjs';
+  try { mountAgentPlatform(); } catch (err) { console.error('[agent-platform] ui unavailable:', err); }
+</script>

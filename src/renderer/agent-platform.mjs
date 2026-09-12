@@ -1,0 +1,151 @@
+// Minimal Agent Platform UI (Phase 2 foundation).
+//
+// A self-contained floating panel: list agents, kick off a task, watch live
+// events and tasks stream in. Deliberately not wired into the desk layout or
+// panels system — that redesign is out of scope. It mounts on its own node,
+// subscribes to the preload's onPlatformEvent stream, and fails closed if the
+// main-process platform is not installed.
+
+const BTN_CLASS = 'agent-platform-toggle';
+const PANEL_CLASS = 'agent-platform-panel';
+
+function mountAgentPlatform() {
+  const api = window.kingagent && window.kingagent.agentPlatform;
+  if (!api) return null; // platform not installed in this build
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .agent-platform-toggle { position: fixed; right: 14px; bottom: 14px; z-index: 9000;
+      font: 12px/1 system-ui, sans-serif; padding: 8px 12px; border: 1px solid rgba(127,127,127,.4);
+      border-radius: 999px; background: rgba(20,20,30,.85); color: #dfe3ff; cursor: pointer; }
+    .agent-platform-panel { position: fixed; right: 14px; bottom: 52px; z-index: 9001;
+      width: 380px; max-height: 60vh; display: flex; flex-direction: column;
+      background: rgba(16,18,26,.96); border: 1px solid rgba(127,127,127,.35); border-radius: 12px;
+      color: #dbe0ff; font: 12px/1.5 system-ui, sans-serif; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+    .agent-platform-panel header { padding: 10px 14px; border-bottom: 1px solid rgba(127,127,127,.25);
+      display: flex; justify-content: space-between; align-items: center; }
+    .agent-platform-panel h1 { margin: 0; font-size: 13px; font-weight: 600; }
+    .agent-platform-close { border: 0; background: transparent; color: #9aa; cursor: pointer; font-size: 14px; }
+    .agent-platform-scroll { overflow-y: auto; padding: 10px 14px; }
+    .agent-platform-panel section + section { margin-top: 14px; }
+    .agent-platform-panel h2 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #9aa3c4; }
+    .agent-platform-panel .row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+    .agent-platform-panel .muted { color: #8b93b8; }
+    .agent-platform-panel .chip { border-radius: 999px; background: rgba(127,127,160,.16); padding: 1px 8px; font-size: 11px; }
+    .agent-platform-panel input[type=text], .agent-platform-panel select {
+      width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 8px;
+      border: 1px solid rgba(127,127,160,.4); background: #10131c; color: #dfe3ff; margin: 4px 0; }
+    .agent-platform-panel button.primary { width: 100%; padding: 7px; border: 0; border-radius: 8px;
+      background: #4c5cff; color: #fff; cursor: pointer; margin-top: 6px; }
+    .agent-platform-panel .events { font-size: 11px; font-family: ui-monospace, monospace; }
+    .agent-platform-panel .events div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .agent-platform-panel .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: #5f677f; margin-right: 6px; }
+    .agent-platform-panel .status-completed { background: #3ddc84; }
+    .agent-platform-panel .status-failed, .agent-platform-panel .status-cancelled { background: #ff5f6d; }
+    .agent-platform-panel .status-executing, .agent-platform-panel .status-analyzing,
+    .agent-platform-panel .status-planning, .agent-platform-panel .status-queued { background: #ffcf5c; }
+  `;
+  document.head.appendChild(style);
+
+  const root = document.createElement('div');
+  root.className = 'agent-platform-toggle';
+  root.textContent = '🤖 Agent Platform';
+  root.setAttribute('role', 'button');
+  root.setAttribute('tabindex', '0');
+  root.setAttribute('aria-expanded', 'false');
+  document.body.appendChild(root);
+
+  const panel = document.createElement('div');
+  panel.className = PANEL_CLASS;
+  panel.style.display = 'none';
+  document.body.appendChild(panel);
+
+  let tasks = [];
+  let agents = [];
+  let tools = [];
+  let events = [];
+  let open = false;
+
+  function refreshTasks() {
+    api.listTasks().then((rows) => { tasks = rows || []; render(); }).catch(() => {});
+  }
+
+  function refreshAgents() {
+    api.listAgents().then((rows) => { agents = rows || []; render(); }).catch(() => {});
+    api.listTools().then((rows) => { tools = rows || []; render(); }).catch(() => {});
+  }
+
+  function render() {
+    if (!open) return;
+    const statusColor = (s) => 'status-' + s;
+    const tasksHtml = tasks.length
+      ? tasks.map((t) => `<div class="row"><span><span class="status-dot ${statusColor(t.state)}"></span>${escapeHtml(t.request.slice(0, 60))}</span><span class="chip muted">${t.state}</span></div>`).join('')
+      : '<div class="muted">No tasks yet.</div>';
+    const agentsHtml = agents
+      .map((a) => `<div class="row"><span>${escapeHtml(a.name)} <span class="muted">(${a.id})</span></span><span class="chip">${(a.capabilities || []).slice(0, 3).join(', ')}</span></div>`)
+      .join('');
+    const toolsHtml = `<div class="muted">${tools.length} tools registered: ${tools.map((t) => t.id).join(', ')}</div>`;
+    const eventsHtml = events.slice(-12).map((e) => `<div>${escapeHtml(e.type)}</div>`).join('');
+
+    panel.innerHTML = `
+      <header><h1>Agent Platform</h1><button class="agent-platform-close" title="Close">✕</button></header>
+      <div class="agent-platform-scroll">
+        <section>
+          <h2>New task</h2>
+          <select id="ap-agent"></select>
+          <input type="text" id="ap-request" placeholder="Describe a task — e.g. scan this workspace" />
+          <button class="primary" id="ap-run">Run task</button>
+        </section>
+        <section><h2>Tasks</h2><div id="ap-tasks">${tasksHtml}</div></section>
+        <section><h2>Agents</h2>${agentsHtml}</section>
+        <section><h2>Tools</h2>${toolsHtml}</section>
+        <section class="events"><h2>Events</h2>${eventsHtml || '<div class="muted">Listen in live…</div>'}</section>
+      </div>`;
+
+    const sel = panel.querySelector('#ap-agent');
+    if (sel) {
+      for (const a of agents) {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        opt.selected = a.id === 'coder';
+        sel.appendChild(opt);
+      }
+    }
+    const run = panel.querySelector('#ap-run');
+    if (run) run.addEventListener('click', () => {
+      const request = panel.querySelector('#ap-request').value.trim();
+      if (!request) return;
+      api.runTask({ request, agentId: sel ? sel.value : 'coder', workspace: null, mode: 'auto' }).catch((err) => pushEvent({ type: `task.error: ${err.message}` }));
+      panel.querySelector('#ap-request').value = '';
+    });
+    panel.querySelector('.agent-platform-close').addEventListener('click', toggle);
+  }
+
+  function pushEvent(ev) {
+    events = events.concat([{ type: ev.type, ts: ev.timestamp }]);
+    if (events.length > 200) events = events.slice(-200);
+    if (ev.type === 'task.completed' || ev.type === 'task.failed' || ev.type === 'task.cancelled') refreshTasks();
+    render();
+  }
+
+  function toggle() {
+    open = !open;
+    panel.style.display = open ? 'flex' : 'none';
+    root.setAttribute('aria-expanded', String(open));
+    if (open) { refreshAgents(); refreshTasks(); }
+  }
+
+  root.addEventListener('click', toggle);
+  root.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  api.onPlatformEvent(pushEvent);
+  refreshAgents();
+  return { api, refresh: refreshTasks };
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+export { mountAgentPlatform };

@@ -1,0 +1,61 @@
+{
+  "name": "kingagent",
+  "productName": "KingAgent",
+  "version": "0.5.1",
+  "description": "KingAgent — AI Agent Operating Platform, by Dainami AI. Open a folder, run Claude Code and other agents as paper tiles.",
+  "main": "src/main/main.js",
+  "author": "Calvin Hia",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MOT1209/KingAgent.git"
+  },
+  "homepage": "https://github.com/MOT1209/KingAgent",
+  "bugs": {
+    "url": "https://github.com/MOT1209/KingAgent/issues"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build:markdown-editor": "node scripts/build-markdown-editor.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "shot": "electron . --demo --screenshot shots/app.png",
+    "fetch-model": "node scripts/fetch-model.mjs",
+    "prepack": "npm run fetch-model",
+    "pack": "electron-builder --dir",
+    "pack:win": "electron-builder --dir --win --publish never",
+    "pack:mac": "electron-builder --dir --mac --publish never",
+    "pack:review": "electron-builder --config electron-builder.review.yml --dir --mac --arm64 --publish never",
+    "prepack:review": "npm run fetch-model",
+    "postpack:review": "codesign --force --deep --sign - \"release-review/mac-arm64/KingAgent Review.app\"",
+    "check-bundle": "node scripts/check-bundle.mjs",
+    "//dist": "predist matters: npm runs pre<name> for any script, so `pack` picked up the weights via prepack while `dist` — the one that builds what users install — quietly shipped without them.",
+    "predist": "npm run fetch-model",
+    "dist": "electron-builder --publish never && npm run fix-update-metadata",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "npm run fetch-model && electron-builder --mac --publish never && npm run fix-update-metadata",
+    "fix-update-metadata": "node scripts/fix-update-metadata.mjs",
+    "install-local": "node scripts/install-local.mjs",
+    "//dist2": "publish never is baked in, not passed: npm appends `-- args` to the end of the whole script string, so with a chained script the flag lands on fix-update-metadata and electron-builder tries to publish anyway. Uploading is a separate step so the update metadata can be corrected first."
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1",
+    "@lydell/node-pty": "^1.2.0-beta.14",
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "@playwright/mcp": "0.0.80",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "electron-updater": "^6.8.9",
+    "onnxruntime-node": "1.21.0",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@milkdown/crepe": "^7.22.1",
+    "@xterm/addon-webgl": "^0.19.0",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "js-yaml": "^4.3.1",
+    "marked": "^18.0.11"
+  },
+  "//deps": "transformers and onnxruntime-node are pinned exactly on purpose: a v3→v4 transformers bump swaps the tokenizer and the wasm-vendoring story, and onnxruntime-node's prebuilt-binary layout moves between napi generations. Re-pin deliberately, never by caret drift. Packaging lives in electron-builder.yml."
+}

@@ -1,0 +1,82 @@
+# Continuous integration: install, validate, test.
+#
+# Two jobs, one per platform the app ships on. Both run the same gate (npm
+# test), because a suite that only passes on the machine that wrote it is not
+# a gate — the Windows job exists precisely because 100+ tests assumed POSIX
+# paths and nobody noticed until someone tried to port.
+#
+# Releases stay in release.yml: tag a v* and the release workflow builds,
+# signs and publishes. This file never publishes.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Syntax-check every main-process module
+        run: node scripts/check-syntax.mjs
+
+      # The gate. Windows runs the same suite as Linux; tests that touch real
+      # OS features (symlinks) declare their needs and skip where the OS or
+      # the session cannot grant them.
+      - run: npm test
+
+  # A Windows packaging dry-run: prove the electron-builder config parses and
+  # an unpacked Windows build assembles on a real Windows runner, without
+  # publishing anything. Slow, so it runs only on main.
+  pack-win:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Whisper weights (~44 MB) are gitignored and fetched at package time;
+      # the cache makes the second run cheap.
+      - name: Cache Whisper weights
+        uses: actions/cache@v4
+        with:
+          path: build/models
+          key: whisper-${{ runner.os }}-${{ hashFiles('scripts/fetch-model.mjs', 'src/main/stt-model.js') }}
+
+      - run: npm run pack:win
+        env:
+          # dir output only; no codesigning, no publish.
+          EP_DRAFT: "false"
+
+      - name: Verify the unpacked build
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem "release/win-unpacked/KingAgent.exe" -ErrorAction SilentlyContinue
+          if (-not $exe) { Write-Error "no win-unpacked/KingAgent.exe produced"; exit 1 }
+          Write-Host "win-unpacked build present:" $exe.FullName
+          # Native modules must be unpacked beside the app, not inside asar.
+          $pty = Get-ChildItem "release/win-unpacked/resources/app.asar.unpacked/node_modules/@lydell/node-pty" -ErrorAction SilentlyContinue
+          if (-not $pty) { Write-Error "node-pty missing from asar.unpacked"; exit 1 }

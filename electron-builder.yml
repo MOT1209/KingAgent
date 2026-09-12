@@ -1,0 +1,170 @@
+appId: ai.kingagent.app
+productName: KingAgent
+
+# KingAgent is Dainami's, and without this line electron-builder said otherwise. With
+# no `copyright` it builds NSHumanReadableCopyright out of `author`, so every
+# shipped bundle carried "Copyright © 2026 Calvin Hia" in its Info.plist and in
+# the About panel, a string nobody had written anywhere. The year is the
+# release's, so it is written out rather than taken from the build machine's
+# clock. main.js sets the same string on the About panel for dev runs.
+copyright: Copyright © 2026 Dainami AI
+directories:
+  output: release
+  buildResources: build
+
+# Releases go to this repo, and that is the point.
+#
+# Installers and update metadata go to this repo's own releases. An app that
+# updates itself has to read its feed from somewhere public, and this repo is
+# public, so no token ships inside a copy of KingAgent and CI needs no PAT — the
+# built-in GITHUB_TOKEN reaches its own repo.
+publish:
+  provider: github
+  owner: MOT1209
+  repo: KingAgent
+  # Drafts, deliberately. A build lands where it can be looked at and the notes
+  # written before anyone can download it, and pressing Publish stays a human
+  # decision — the moment it goes live is the moment every installed KingAgent
+  # starts offering it. Set releaseType: release here if that ever becomes tedious.
+  releaseType: draft
+
+files:
+  - src/**/*
+  - package.json
+  - '!**/*.map'
+
+  # --- weight, in descending order of how much it saves -------------------
+  # The ORT tarball carries every platform, ~170 MB of it unreachable: win32 +
+  # linux is DirectML and CUDA a Mac can never load, darwin is a Windows
+  # machine's dead weight. Each exclusion is now scoped to the *other* build so
+  # a Windows installer keeps the win32 binaries it needs to transcribe.
+  - '!node_modules/onnxruntime-node/bin/napi-v3/win32/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v3/linux/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v3/darwin/**'
+  # ...and the windows slice is carved to the arch being built, same as the mac
+  # one below. electron-builder supports the ${arch} substitution on win32.
+  - '!node_modules/onnxruntime-node/bin/napi-v3/win32/!(${arch})/**'
+
+  # 68 MB: transformers declares onnxruntime-web as a hard dependency, but the
+  # build we actually load (dist/transformers.node.mjs) imports only node:*,
+  # onnxruntime-common, onnxruntime-node and sharp. Nothing reaches for -web.
+  - '!node_modules/onnxruntime-web/**'
+
+  # 28 MB: of that dist we need exactly one file. The rest is the browser build,
+  # its 21.6 MB ORT wasm, and source maps — none of it reachable from main.
+  - '!node_modules/@huggingface/transformers/dist/!(transformers.node.mjs)'
+
+# whisper-tiny.en, so a fresh install transcribes with no network and no
+# account. main.js copies this into userData on first launch: the app bundle is
+# read-only, and a later model upgrade has to land somewhere writable.
+# Populated by `npm run fetch-model` (wired to prepack).
+extraResources:
+  - from: build/models
+    to: models
+    filter: ['**/*']
+
+# Native binaries cannot be dlopen'd from inside an asar archive.
+asarUnpack:
+  - '**/node_modules/onnxruntime-node/bin/**'
+  - '**/node_modules/@lydell/node-pty/**'
+  - '**/*.node'
+
+# No version in the installer's name, on purpose. A pinned download link of the
+# shape releases/latest/download/<artifact> can only resolve if the newest
+# release holds an asset with exactly that name. Put the version back in and
+# the link dies at the next release — silently, because GitHub answers a
+# missing asset with its own 404 page rather than anything the site could
+# notice. The version is still in the release title, the tag, and the app's
+# About.
+artifactName: ${productName}-${arch}.${ext}
+
+# --- Windows ----------------------------------------------------------------
+# NSIS is what a person downloads; portable is the unzip-and-run copy for
+# machines without install rights. The per-machine one lives in Program Files
+# and writes no registry keys beyond its own uninstall entry.
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    - target: portable
+      arch: [x64]
+  # Alternate rank, same reasoning as the mac block below: appearing in every
+  # file's Open With list is noise. Explorer offers KingAgent; making it the
+  # default stays a deliberate act in Settings > Default apps.
+  fileAssociations:
+    - ext: [md, markdown, mdx]
+      name: Markdown document
+      role: editor
+      rank: alternate
+    - ext: [txt, text]
+      name: Plain text document
+      role: editor
+      rank: alternate
+  # electron-builder derives this from productName when unset; naming it here
+  # keeps the Start-menu entry stable across renames.
+  shortcutName: KingAgent
+
+# NSIS behaviour. oneClick: false gives the install wizard, which is what the
+# file associations above need to be offered as a choice rather than taken.
+# perMachine: false keeps it in the user's AppData, so no UAC prompt and no
+# admin rights — the same privilege story as the mac drag-install.
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  # The updater can swap a per-user install without elevation, which is the
+  # whole reason it is per-user.
+  deleteAppDataOnUninstall: false
+
+# --- macOS ------------------------------------------------------------------
+# Preserved from Nami: same targets, same signing and notarization wiring, same
+# Open With restraint.
+mac:
+  category: public.app-category.developer-tools
+  target:
+    # What a person downloads. Carries the quarantine flag, gets judged by
+    # Gatekeeper, and is what the website links to.
+    - target: dmg
+      arch: [arm64, x64]
+    # What the updater installs, and the only thing it can install: on macOS
+    # electron-updater hands the swap to Squirrel.Mac, which unpacks a zip of
+    # the .app. A release with only dmgs on it has nothing an update can use.
+    # Nobody clicks this file; it exists for latest-mac.yml to point at.
+    - target: zip
+      arch: [arm64, x64]
+  # What KingAgent offers to open. Declaring a type only puts it in Finder's
+  # "Open With" — it never takes a default; the person still picks one.
+  #
+  # The list is short on purpose. These are documents the workbench renders as
+  # a tile today and that a workbench plausibly owns. Images, video, audio and
+  # PDF belong to Preview, and .json / .yml belong to an editor. Keep this in
+  # step with OPEN_EXT in src/main/open-with.js, which decides where the file
+  # lands.
+  #
+  # rank Alternate, not electron-builder's default of Default: a workbench does
+  # not own markdown. Alternate keeps KingAgent in the Open With list without
+  # ever winning the type on its own.
+  fileAssociations:
+    - ext: [md, markdown, mdx]
+      name: Markdown document
+      role: Editor
+      rank: Alternate
+    - ext: [txt, text]
+      name: Plain text document
+      role: Editor
+      rank: Alternate
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: >-
+      KingAgent uses your microphone so you can dictate into a session instead
+      of typing.
+
+# The dmg is what the user downloads, so it is what carries the quarantine flag
+# and what Gatekeeper judges first. electron-builder signs the app and leaves the
+# container unsigned, which reads as "unidentified developer" before anyone has
+# seen the app. Sign it here; notarize it in the hook below.
+dmg:
+  sign: true
+afterAllArtifactBuild: scripts/notarize-dmg.mjs
