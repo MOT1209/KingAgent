@@ -57,7 +57,7 @@ test('quiet new-tab page is blank, not a product tour', () => {
   assert.match(views, /setBackgroundColor\(dark \? '#1f1f1f' : '#fffdf6'\)/);
   assert.match(views, /function paintBlank/);
   assert.match(views, /browserNewTab/);
-  assert.match(views, /namiThemeIsDark/);
+  assert.match(views, /kingagentThemeIsDark/);
   assert.doesNotMatch(views, /Quit Chrome completely and try again/);
   assert.match(views, /Allow Keychain access/);
   assert.match(css, /\.browser-profile-result:empty/);
@@ -72,7 +72,7 @@ test('quiet new-tab page is blank, not a product tour', () => {
 test('downloads are asked or auto-saved, never cancelled wholesale', () => {
   assert.doesNotMatch(views, /will-download',\s*\(event\)\s*=>\s*event\.preventDefault\(\)/);
   assert.match(views, /setSavePath/);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-dl-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kingagent-dl-'));
   try {
     fs.writeFileSync(path.join(dir, 'report.pdf'), 'x');
     assert.equal(uniqueDownloadPath(dir, 'notes.txt'), path.join(dir, 'notes.txt'));

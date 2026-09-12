@@ -1,4 +1,4 @@
-// Streamable HTTP MCP, with a distinct bearer URL per Nami session. Browser
+// Streamable HTTP MCP, with a distinct bearer URL per KingAgent session. Browser
 // tools are Microsoft's Playwright MCP, connected to our scoped CDP transport.
 const http = require('node:http');
 const { randomBytes } = require('node:crypto');
@@ -9,14 +9,14 @@ const { createCdpBridge } = require('./browser-cdp');
 const { clean } = require('./browser-policy');
 const ALLOWED_TOOLS = new Set(['browser_snapshot', 'browser_navigate', 'browser_navigate_back', 'browser_click', 'browser_type', 'browser_fill_form', 'browser_hover', 'browser_drag', 'browser_press_key', 'browser_select_option', 'browser_wait_for', 'browser_evaluate', 'browser_tabs', 'browser_handle_dialog', 'browser_console_messages', 'browser_network_requests']);
 const MESSAGE_TOOLS = [
-  { name: 'nami_sessions', description: 'List sessions you may message on this Nami desk.', inputSchema: { type: 'object', properties: {} } },
-  { name: 'nami_send_message', description: 'Leave a message in an allowed peer session inbox. Does not submit a terminal prompt.', inputSchema: { type: 'object', properties: { to: { type: 'string' }, text: { type: 'string' } }, required: ['to', 'text'] } },
-  { name: 'nami_inbox', description: 'Read and acknowledge messages sent to this session.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'kingagent_sessions', description: 'List sessions you may message on this KingAgent desk.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'kingagent_send_message', description: 'Leave a message in an allowed peer session inbox. Does not submit a terminal prompt.', inputSchema: { type: 'object', properties: { to: { type: 'string' }, text: { type: 'string' } }, required: ['to', 'text'] } },
+  { name: 'kingagent_inbox', description: 'Read and acknowledge messages sent to this session.', inputSchema: { type: 'object', properties: {} } },
 ];
 const result = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
-const NAMI_TOOLS = [
-  { name: 'nami_browser_screenshot', description: 'Read a screenshot of an exact shared Nami Browser tab. Returns the visible page image, title, URL and access time. Never uses an external browser.', inputSchema: { type: 'object', properties: { tabId: { type: 'string' } }, required: ['tabId'] } },
-  { name: 'nami_browser_tabs', description: 'List the exact Nami Browser tabs currently shared with this session. Use these tab IDs for screenshots.', inputSchema: { type: 'object', properties: {} } },
+const KINGAGENT_TOOLS = [
+  { name: 'kingagent_browser_screenshot', description: 'Read a screenshot of an exact shared KingAgent Browser tab. Returns the visible page image, title, URL and access time. Never uses an external browser.', inputSchema: { type: 'object', properties: { tabId: { type: 'string' } }, required: ['tabId'] } },
+  { name: 'kingagent_browser_tabs', description: 'List the exact KingAgent Browser tabs currently shared with this session. Use these tab IDs for screenshots.', inputSchema: { type: 'object', properties: {} } },
   { name: 'kingagent_read_annotation_image', description: 'Read an explicitly inserted KingAgent annotation image by its opaque ID. No arbitrary files.', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'kingagent_read_session_context', description: 'Read the latest published visible context of an explicitly linked KingAgent session. Terminal snapshots can be incomplete. Does not send a message or start a turn.', inputSchema: { type: 'object', properties: { sourceId: { type: 'string' } }, required: ['sourceId'] } },
 ];
@@ -30,14 +30,14 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       const { createConnection } = require('@playwright/mcp');
       const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
       const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
-      const server = await createConnection({}, async () => { throw new Error('No page is needed to list Nami Browser tools.'); });
-      const client = new Client({ name: 'nami-schema', version: '1.0.0' });
+      const server = await createConnection({}, async () => { throw new Error('No page is needed to list KingAgent Browser tools.'); });
+      const client = new Client({ name: 'kingagent-schema', version: '1.0.0' });
       const [a, b] = InMemoryTransport.createLinkedPair();
       try { await server.connect(a); await client.connect(b);
         return (await client.listTools()).tools.filter(t => ALLOWED_TOOLS.has(t.name)).map(tool => {
           const inputSchema = structuredClone(tool.inputSchema);
           if (inputSchema.properties) delete inputSchema.properties.filename;
-          return { ...tool, description: 'Nami Browser only. ' + tool.description, inputSchema };
+          return { ...tool, description: 'KingAgent Browser only. ' + tool.description, inputSchema };
         });
       } finally { await client.close(); await server.close(); }
     })();
@@ -68,7 +68,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       const entries = () => route.revoked || route.updating ? [] : [...views.values()].filter((e) => access.allows(route.id, e.id));
       if (!entries().length) throw new Error('No browser tabs are shared with this session.');
       const bridge = await createCdpBridge({ entries, create: async (url) => {
-        const first = entries().find(e=>!e.record?.local); if (!first) throw new Error('Open the website in Nami and grant its browser tab access first. Local HTML permission does not include signed-in browser profiles.');
+        const first = entries().find(e=>!e.record?.local); if (!first) throw new Error('Open the website in KingAgent and grant its browser tab access first. Local HTML permission does not include signed-in browser profiles.');
         const e = await create(first.window, { id: 'browser-' + randomBytes(8).toString('hex'), owner: route.id, profileId: first.profileId, url });
         access.get(route.id).views.add(e.id); send(e, 'created', { owner: route.id, profileId: first.profileId, url }); return e;
       }, close: remove, onCommand: (id) => route.touched?.add(id) });
@@ -80,7 +80,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
       route.outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kingagent-browser-'));
       const server = await createConnection({ browser: { contextOptions: { viewport: null } }, outputDir: route.outputDir, timeouts: { action: 10000, navigation: 15000 } }, async () => browser.contexts()[0]);
-      const client = new Client({ name: 'nami', version: '1.0.0' });
+      const client = new Client({ name: 'kingagent', version: '1.0.0' });
       route.client = client;
       const [a, b] = InMemoryTransport.createLinkedPair(); await server.connect(a); await client.connect(b);
       if (route.revoked) throw new Error('Connection revoked.');
@@ -93,14 +93,14 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
     if (message.method === 'initialize') { route.connected = true; route.initializedAt = Date.now(); return { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'kingagent-browser', version: '1.0.0' } }; }
     if (message.method === 'ping') return {};
     if (message.method === 'tools/list') {
-      return { tools: [...await toolSchema(), ...NAMI_TOOLS, ...MESSAGE_TOOLS] };
+      return { tools: [...await toolSchema(), ...KINGAGENT_TOOLS, ...MESSAGE_TOOLS] };
     }
     if (message.method !== 'tools/call') throw new Error('Unsupported MCP method.');
     const { name, arguments: args = {} } = message.params || {};
-    if (route.updating || route.revoked) throw new Error('Nami Browser access is being updated. Try again.');
-    if (name === 'nami_sessions') return result((s.peers || []).filter((id) => access.sessions.has(id)).map((id) => ({ id, title: access.get(id).title })));
-    if (name === 'nami_inbox') { const messages = s.inbox.splice(0); return result(messages); }
-    if (name === 'nami_send_message') {
+    if (route.updating || route.revoked) throw new Error('KingAgent Browser access is being updated. Try again.');
+    if (name === 'kingagent_sessions') return result((s.peers || []).filter((id) => access.sessions.has(id)).map((id) => ({ id, title: access.get(id).title })));
+    if (name === 'kingagent_inbox') { const messages = s.inbox.splice(0); return result(messages); }
+    if (name === 'kingagent_send_message') {
       if (!(s.peers || []).includes(args.to)) throw new Error('This session is not an allowed recipient.');
       const target = access.get(args.to), text = clean(args.text, 16000);
       if (!text.trim()) throw new Error('Write a message.');
@@ -109,7 +109,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       notifyMessage?.(target.windowId, { sessionId: args.to, message: msg });
       return result({ delivered: true });
     }
-    if (name === 'nami_browser_tabs') return result([...s.views].flatMap(id => { const e = views.get(id); return e ? [{ id, title: e.view.webContents.getTitle(), url: e.filePath || e.view.webContents.getURL() }] : []; }));
+    if (name === 'kingagent_browser_tabs') return result([...s.views].flatMap(id => { const e = views.get(id); return e ? [{ id, title: e.view.webContents.getTitle(), url: e.filePath || e.view.webContents.getURL() }] : []; }));
     if (name === 'kingagent_read_annotation_image') {
       if (!images) throw new Error('Annotation images are unavailable.');
       return images.read(args.id, route.id);
@@ -118,14 +118,14 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       if (!contexts) throw new Error('Session context is unavailable.');
       return result(contexts.read(route.id, args.sourceId));
     }
-    if (name === 'nami_browser_screenshot') {
+    if (name === 'kingagent_browser_screenshot') {
       const e = views.get(args.tabId);
-      if (!e || !access.allows(route.id, e.id)) throw new Error('This Nami Browser tab is not shared with the session.');
+      if (!e || !access.allows(route.id, e.id)) throw new Error('This KingAgent Browser tab is not shared with the session.');
       const captured = { title: e.view.webContents.getTitle(), url: e.filePath || e.view.webContents.getURL(), capturedAt: Date.now() };
       const documentId = e.documentId, documentEpoch = e.documentEpoch;
       let picture;
       try { picture = await e.view.webContents.capturePage(); }
-      catch (_) { const message = 'The browser image is unavailable. Reveal the tab in Nami and try again.'; activity(route, e.id, name, message); throw new Error(message); }
+      catch (_) { const message = 'The browser image is unavailable. Reveal the tab in KingAgent and try again.'; activity(route, e.id, name, message); throw new Error(message); }
       if (route.revoked || route.updating || !access.allows(route.id, e.id)) throw new Error('Browser access changed during capture.');
       if (views.get(e.id) !== e || e.documentId !== documentId || e.documentEpoch !== documentEpoch || e.view.webContents.isDestroyed() || (e.filePath || e.view.webContents.getURL()) !== captured.url) throw new Error('The browser page changed during capture. Try the screenshot again.');
       if (picture.isEmpty()) throw new Error('The browser image is unavailable. Reveal the tab and try again.');
@@ -134,9 +134,9 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       activity(route, e.id, name, undefined, captured);
       return { content: [{ type: 'text', text: JSON.stringify(route.activity[e.id]) }, { type: 'image', mimeType: 'image/png', data: bytes.toString('base64') }] };
     }
-    if ((name==='browser_navigate'||(name==='browser_tabs'&&args.action==='new')) && [...s.views].every(id=>views.get(id)?.record?.local)) throw new Error('Open the website in Nami and grant its browser tab access first. Local HTML permission does not include signed-in browser profiles.');
+    if ((name==='browser_navigate'||(name==='browser_tabs'&&args.action==='new')) && [...s.views].every(id=>views.get(id)?.record?.local)) throw new Error('Open the website in KingAgent and grant its browser tab access first. Local HTML permission does not include signed-in browser profiles.');
     if(name==='browser_tabs' && args.action==='close' && [...s.views].some(id=>views.get(id)?.pendingCount>0)) throw new Error('Review or discard pending annotations before closing browser tabs through the agent.');
-    if (!ALLOWED_TOOLS.has(name)) throw new Error('Tool is not available in Nami.');
+    if (!ALLOWED_TOOLS.has(name)) throw new Error('Tool is not available in KingAgent.');
     if (Object.hasOwn(args, 'filename')) throw new Error('Browser tools return context directly; file output is not enabled.');
     const client = await engine(route);
     route.touched = new Set();

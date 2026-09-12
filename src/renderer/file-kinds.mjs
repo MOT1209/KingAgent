@@ -87,8 +87,8 @@ export function fileUrl(absPath) {
   return 'file://' + String(absPath).split('/').map(encodeURIComponent).join('/');
 }
 
-// A viewed HTML file → its nami-doc:// URL, served from its own folder as root so
-// its relative images resolve while the page stays cross-origin to Nami. Mirrors
+// A viewed HTML file → its kingagent-doc:// URL, served from its own folder as root so
+// its relative images resolve while the page stays cross-origin to KingAgent. Mirrors
 // buildDocUrl in src/main/doc-protocol.js; kept here too because the renderer has
 // no path module and this is the one place a POSIX dirname is enough.
 export function docUrl(absPath) {

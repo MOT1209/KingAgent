@@ -5,10 +5,10 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { exitNote, signalName } = require('../src/main/exit-note.js');
 
-// The bug this replaces: quitting Nami killed every pty with SIGHUP, the tile
+// The bug this replaces: quitting KingAgent killed every pty with SIGHUP, the tile
 // printed "[process exited · 129]", and that reads as a crash. It is the most
 // ordinary event in the app.
-test('a session Nami closed says so, and never shows a number', () => {
+test('a session KingAgent closed says so, and never shows a number', () => {
   assert.equal(exitNote({ code: 129, signal: 1, deliberate: true }), 'session closed');
   assert.equal(exitNote({ code: 0, deliberate: true }), 'session closed');
   assert.ok(!/129/.test(exitNote({ code: 129, deliberate: true })));

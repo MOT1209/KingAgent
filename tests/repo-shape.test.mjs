@@ -36,7 +36,7 @@ try {
 } catch { /* not a repo at all */ }
 const notStandalone = !standalone && 'this folder is not its own git checkout';
 
-// Everything Nami is, everything that builds or explains it. Nothing else.
+// Everything KingAgent is, everything that builds or explains it. Nothing else.
 const ALLOWED_DIRS = new Set([
   'src',       // the program
   'tests',     // proof it works
@@ -52,12 +52,12 @@ const ALLOWED_ROOT = new Set([
   'KINGAGENT-WINDOWS-PORT-REPORT.md',
 ]);
 
-test('nothing is published from outside the folders that make Nami', { skip: notStandalone }, () => {
+test('nothing is published from outside the folders that make KingAgent', { skip: notStandalone }, () => {
   const stray = tracked.filter((f) => f.includes('/')
     ? !ALLOWED_DIRS.has(f.split('/')[0])
     : !ALLOWED_ROOT.has(f));
   assert.deepEqual(stray, [], stray.length
-    ? `These are tracked but belong to no part of Nami:\n  ${stray.join('\n  ')}\n\n`
+    ? `These are tracked but belong to no part of KingAgent:\n  ${stray.join('\n  ')}\n\n`
       + 'Working notes, agent definitions, scratch and source art go in a folder\n'
       + '.gitignore covers. If one of these really does belong to the product,\n'
       + 'add its folder to ALLOWED_DIRS in this file, deliberately.'

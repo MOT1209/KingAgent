@@ -121,20 +121,20 @@ test('writeCodexBlock appends once, then replaces only between markers', () => {
   writeCodexBlock({ file: '/proj/.codex/config.toml', masters: { notion: NOTION }, io });
   const first = io.files['/proj/.codex/config.toml'];
   assert.match(first, /^# theirs\nmodel = "gpt-5"\n/);
-  assert.match(first, /# nami:connections start/);
+  assert.match(first, /# kingagent:connections start/);
   writeCodexBlock({ file: '/proj/.codex/config.toml', masters: { linear: LINEAR }, io });
   const second = io.files['/proj/.codex/config.toml'];
   assert.match(second, /model = "gpt-5"/);
   assert.match(second, /mcp_servers\.linear/);
   assert.ok(!second.includes('mcp_servers.notion'), 'old block fully replaced');
-  assert.equal(second.split('# nami:connections start').length, 2, 'one block only');
+  assert.equal(second.split('# kingagent:connections start').length, 2, 'one block only');
 });
 
 test('writeCodexBlock creates the file when missing and refuses on two start markers', () => {
   const io = memIo();
   writeCodexBlock({ file: '/x/config.toml', masters: { notion: NOTION }, io });
   assert.match(io.files['/x/config.toml'], /mcp_servers\.notion/);
-  const twice = '# nami:connections start\n# nami:connections end\n# nami:connections start\n# nami:connections end\n';
+  const twice = '# kingagent:connections start\n# kingagent:connections end\n# kingagent:connections start\n# kingagent:connections end\n';
   const io2 = memIo({ '/x/config.toml': twice });
   const res = writeCodexBlock({ file: '/x/config.toml', masters: {}, io: io2 });
   assert.equal(res.ok, false);

@@ -6,22 +6,22 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 if (!process.versions.electron) {
   const { spawnSync } = require('node:child_process');
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-profile-restart-'));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'kingagent-profile-restart-'));
   try {
     for (const mode of ['write', 'read']) {
       const result = spawnSync(require('electron'), [__filename, mode], {
-        env: { ...process.env, NAMI_RESTART_FIXTURE: directory }, encoding: 'utf8', timeout: 30000,
+        env: { ...process.env, KINGAGENT_RESTART_FIXTURE: directory }, encoding: 'utf8', timeout: 30000,
       });
       process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || '');
       assert.equal(result.error, undefined, result.error?.message);
       assert.equal(result.status, 0, `Electron ${mode} failed: ${result.signal || result.status}`);
     }
-    console.log('PASS: named Nami browser profile and persistent fixture login survive complete Electron exit and a new process.');
+    console.log('PASS: named KingAgent browser profile and persistent fixture login survive complete Electron exit and a new process.');
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 } else {
   const { app, BrowserWindow } = require('electron');
-  const directory = process.env.NAMI_RESTART_FIXTURE;
-  if (!directory || !path.basename(directory).startsWith('nami-profile-restart-')) throw new Error('Use the Node test runner to create the private fixture directory.');
+  const directory = process.env.KINGAGENT_RESTART_FIXTURE;
+  if (!directory || !path.basename(directory).startsWith('kingagent-profile-restart-')) throw new Error('Use the Node test runner to create the private fixture directory.');
   const mode = process.argv.at(-1);
   app.setPath('userData', directory);
   app.whenReady().then(async () => {
@@ -50,17 +50,17 @@ if (!process.versions.electron) {
       const session = browser.views.get('fixture-page').view.webContents.session;
       const url = 'http://127.0.0.1:38999/';
       if (mode === 'write') {
-        await session.cookies.set({ url, name: 'nami_fixture_login', value: 'synthetic-signed-in-state', httpOnly: true, expirationDate: Math.floor(Date.now() / 1000) + 3600 });
+        await session.cookies.set({ url, name: 'kingagent_fixture_login', value: 'synthetic-signed-in-state', httpOnly: true, expirationDate: Math.floor(Date.now() / 1000) + 3600 });
         await session.cookies.flushStore();
         session.flushStorageData();
         console.log('PASS: first Electron process saved a named profile and an expiring synthetic login cookie.');
       } else {
-        const [cookie] = await session.cookies.get({ url, name: 'nami_fixture_login' });
+        const [cookie] = await session.cookies.get({ url, name: 'kingagent_fixture_login' });
         assert.equal(cookie?.value, 'synthetic-signed-in-state');
         assert.equal(cookie.httpOnly, true); assert.equal(cookie.session, false);
         assert.ok(cookie.expirationDate > Date.now() / 1000);
         await invoke('browser:create', { id: 'personal-page', profileId: 'default', url: 'about:blank' });
-        assert.deepEqual(await browser.views.get('personal-page').view.webContents.session.cookies.get({ url, name: 'nami_fixture_login' }), []);
+        assert.deepEqual(await browser.views.get('personal-page').view.webContents.session.cookies.get({ url, name: 'kingagent_fixture_login' }), []);
         console.log('PASS: second Electron process recovered the fixture login only in its matching named profile.');
       }
     } catch (error) { console.error(error); process.exitCode = 1; }

@@ -49,7 +49,7 @@ function agyStore(home, cwd, id, mtime) {
   const base = path.join(home, '.gemini', 'antigravity-cli');
   put(path.join(base, 'cache', 'last_conversations.json'), JSON.stringify({ [cwd]: id }));
   const db = path.join(base, 'conversations', id + '.db');
-  put(db, 'not really sqlite — existence and mtime are all Nami reads');
+  put(db, 'not really sqlite — existence and mtime are all KingAgent reads');
   setMtime(db, mtime);
 }
 

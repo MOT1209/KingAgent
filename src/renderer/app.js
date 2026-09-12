@@ -1,6 +1,6 @@
 import { createMcpSetup, CONNECT_OVERLAYS } from './mcp-setup.mjs';
 import { usagePaneHtml, wireUsagePane as wireUsageContent } from './usage-pane.mjs';
-// Nami — the agent workbench, by Dainami (renderer, terminal-first).
+// KingAgent — the agent workbench, by Dainami (renderer, terminal-first).
 // Every session is a real PTY (claude / shell / any harness), shown as a paper tile in a grid you
 // can focus, reorder, and expand. Workspace is a live explorer + paper editor. Vanilla DOM; tiles
 // (xterm + editors) are managed incrementally so live processes survive re-renders.
@@ -164,7 +164,7 @@ function statusColors() { return STATUS_COLORS[currentTheme()]; }
 // SF Mono in every theme's terminal, Courier Prime everywhere else.
 //
 // Courier Prime is a typewriter face: thin strokes, low x-height, wide letters.
-// It is what makes Nami's chrome look hand-made and it is the worst thing about
+// It is what makes KingAgent's chrome look hand-made and it is the worst thing about
 // reading a dense terminal — an agent's output is small, dense, and rarely
 // re-read carefully, which is the opposite of what that face is for. The glass
 // themes already made this trade; the rest now follow.
@@ -401,7 +401,7 @@ function dropPathOnPanel(p, path, isDir) {
   S.winId = b.winId || 0;
   S.version = b.version || ''; S.updatedAt = b.updatedAt || null;
   // The wordmark's caption. Rendered empty by buildShell and filled here, so
-  // the lockup is never laid out twice — the stack is sized by Nami above it,
+  // the lockup is never laid out twice — the stack is sized by KingAgent above it,
   // and a build that somehow reports no version simply shows nothing.
   if (S.version) { const bv = q('#brand-ver'); if (bv) bv.textContent = 'v' + S.version; }
   S.review = !!b.review;
@@ -450,7 +450,7 @@ function dropPathOnPanel(p, path, isDir) {
     savePanels();
   });
 
-  // A one-shot command Nami ran on the user's behalf has landed. The shell is
+  // A one-shot command KingAgent ran on the user's behalf has landed. The shell is
   // still alive and still theirs — this is the command reporting, not the tile
   // ending. See src/main/run-done.js for how the shell says so.
   api.onTermCommandDone(({ id, code }) => {
@@ -461,7 +461,7 @@ function dropPathOnPanel(p, path, isDir) {
   api.onTermExit(({ id, code, note }) => {
     const p = S.panels.find((x) => x.id === id); if (!p) return;
     p.exited = true; p.status = 'exited';
-    // main writes the note, because only it knows whether Nami ended this
+    // main writes the note, because only it knows whether KingAgent ended this
     // session or the process did. `code` stays in the payload for older paths.
     const said = note || `exited · ${code}`;
     const t = tileEls.get(id); if (t && t.term) t.term.write(`\r\n\x1b[38;2;141;128;101m[${said}]\x1b[0m\r\n`);
@@ -480,7 +480,7 @@ function dropPathOnPanel(p, path, isDir) {
   });
 
   // /resume inside a tile lands claude in a different conversation than the one
-  // nami pinned at spawn. Storing the id it actually moved to is what makes the
+  // KingAgent pinned at spawn. Storing the id it actually moved to is what makes the
   // tile come back as that conversation next launch instead of an empty one.
   api.onSessionSid(({ id, sid }) => {
     const p = S.panels.find((x) => x.id === id); if (!p || !sid || p.sid === sid) return;
@@ -551,7 +551,7 @@ function showScene(name) {
       rec.cwFeed({ type: 'user', text: 'compare the agents we support and what is left to test' });
       rec.cwFeed({ type: 'message', text: '## Agent roster\n\nAll six connect over the same channel — **one renderer, zero per-agent code**.\n\n'
         + '| Agent | Commands | Modes | Chat |\n|---|---|---|---|\n| claude | 96 | 6 | yes |\n| kimi | 35 | 4 | yes |\n| codex | 6 | 3 | yes |\n| grok | 97 | — | yes |\n\n'
-        + '### Still to verify\n\n- long replies with *mixed* formatting\n  - nested points like this one\n  - links inside bold — **[works now](https://dainami.ai)**\n- [x] tables render clean\n- [ ] half-streamed table mid-reply\n\n'
+        + '### Still to verify\n\n- long replies with *mixed* formatting\n  - nested points like this one\n  - links inside bold — **[works now](https://github.com/MOT1209/KingAgent)**\n- [x] tables render clean\n- [ ] half-streamed table mid-reply\n\n'
         + '> Note: raw HTML in a reply stays escaped — it can never run.\n\n'
         + 'Run the probe again after any CLI update: `tools/acp-probe.mjs`\n\n'
         + '```sh\nfor a in claude kimi codex grok; do\n  probe "$a" && echo "$a ok"\ndone\n```\n\n~~hermes pending~~ — verified 26 Aug.' });
@@ -777,7 +777,7 @@ function showScene(name) {
 // ===========================================================================
 //  The menu bar, from this side
 // ===========================================================================
-// Every Nami item in the application menu arrives here as a string. The rule
+// Every KingAgent item in the application menu arrives here as a string. The rule
 // this file keeps is that a menu item never has its own implementation: it
 // calls the same function the keyboard or the button already called, so there
 // is one behaviour per command and the menu only adds a label to it.
@@ -1729,7 +1729,7 @@ async function addTileToSession(p) {
   const ok = await insertSessionText(target.id, text, { focus: true });
   toast(ok ? 'Added to ' + (target.title || 'the session') + '.' : 'Could not add that here.');
 }
-// Leave Nami for the Mac's browser: a saved HTML file through the file
+// Leave KingAgent for the Mac's browser: a saved HTML file through the file
 // channel, a website through the url one. Main guards both — a .md, a
 // file:// that is not HTML, a custom scheme: none of them gets out.
 async function openOutside(p) {
@@ -1947,7 +1947,7 @@ function availabilityTag(i) {
   if (i.availability === 'agent') {
     const a = (S.agents || []).find((x) => x.id === i.ownerAgent);
     const who = (a && a.name) || i.ownerAgent;
-    return { text: who + ' only', tone: 'mute', title: `${who} reads this folder itself. Nami's sessions here won't see it unless you copy it in.` };
+    return { text: who + ' only', tone: 'mute', title: `${who} reads this folder itself. KingAgent's sessions here won't see it unless you copy it in.` };
   }
   return { text: 'not wired', tone: 'mute', title: 'It sits in a shared folder that no agent reads. Copy it here to use it.' };
 }
@@ -1972,7 +1972,7 @@ async function refreshPointer(force) {
 }
 function installedAgentIds() { return (S.agents || []).filter((a) => a.found).map((a) => a.id); }
 function agentNameOf(id) { const a = (S.agents || []).find((x) => x.id === id); return a ? a.name : id; }
-// A `## Skills` heading the user wrote themselves. Nami appends below it rather
+// A `## Skills` heading the user wrote themselves. KingAgent appends below it rather
 // than taking it over — their wording is usually better than anything generated
 // from frontmatter, and rewriting prose we didn't author is not a trade worth
 // making. But two Skills sections in one file is worth mentioning once.
@@ -1986,7 +1986,7 @@ function appendForeignNote(list) {
   if (done.includes(dir)) return;
   const note = document.createElement('div');
   note.className = 'ptr-note';
-  note.innerHTML = `<span class="pn-msg">AGENTS.md also has a Skills section you wrote. Nami left it alone and put its own list below — tidy up whenever you like.</span>
+  note.innerHTML = `<span class="pn-msg">AGENTS.md also has a Skills section you wrote. KingAgent left it alone and put its own list below — tidy up whenever you like.</span>
     <button class="pn-x" title="Got it">✕</button>`;
   list.appendChild(note);
   q('.pn-x', note).onclick = (e) => {
@@ -2224,7 +2224,7 @@ function emptyDeskHtml() {
 }
 
 // Hands off to the save panel in main, then through the ordinary switch path —
-// a folder Nami made is not a special kind of folder once it exists.
+// a folder KingAgent made is not a special kind of folder once it exists.
 async function makeFolderDialog() {
   const info = await api.makeFolder();
   if (!info) return;
@@ -2245,7 +2245,7 @@ function renderGrid() {
     // does the thing. The folder-open one used to be the exception — it told you
     // to press a key and offered nothing to click, which is the one state in the
     // app where the next step was homework. Its hint also still named Claude Code
-    // alone, from when that was the only session Nami could start.
+    // alone, from when that was the only session KingAgent could start.
     els.grid.innerHTML = S.project
       ? `<div class="lane-empty"><div class="polaroid">nothing open</div>
       <div><div class="big">Start a session</div>
@@ -3456,7 +3456,7 @@ function oscLinkHandler(p) {
 }
 async function startProcess(p, cols, rows) {
   if (p.started) return; p.started = true;
-  // A name nami chose deliberately rides down into claude, so the conversation
+  // A name KingAgent chose deliberately rides down into claude, so the conversation
   // reads the same from every other surface that lists it.
   const name = shouldPushName(p.titleSource) ? p.title : null;
   await api.termCreate({ id: p.id, cwd: p.cwd, cols, rows, kind: p.kind, command: p.command, program: p.program, args: p.args, seed: p.seed, cont: p.cont, sid: p.sid, acpSid: p.acpSid, name, watchDone: !!p.watchDone });
@@ -3883,7 +3883,7 @@ function mountEditor(p, rec) {
         // The page renders from the buffer, not the file, so Edit → Read shows
         // unsaved changes — the same live round trip markdown has. Sandboxed
         // exactly like the standalone viewer: scripts run, but the page has an
-        // opaque origin and cannot reach Nami. The injected <base> makes the
+        // opaque origin and cannot reach KingAgent. The injected <base> makes the
         // page's own relative images and stylesheets resolve beside the file;
         // the parser hoists it into <head> wherever the document starts.
         read.innerHTML = '';
@@ -3894,16 +3894,16 @@ function mountEditor(p, rec) {
           // buffer in an opaque sandbox — the change shows live, its relative
           // images do not (an opaque origin cannot fetch file://), and they
           // return the moment you save. allow-scripts only; no same-origin,
-          // because a srcdoc page shares Nami's file:// origin and the flag
+          // because a srcdoc page shares KingAgent's file:// origin and the flag
           // would let it read the app.
           f.setAttribute('sandbox', 'allow-scripts');
           const text = p.text || '';
           const dir = 'file://' + String(p.filePath).split('/').slice(0, -1).map(encodeURIComponent).join('/') + '/';
           f.srcdoc = /<base[\s>]/i.test(text) ? text : `<base href="${dir}">` + text;
         } else {
-          // Saved → served from nami-doc://, its own origin. Relative images
+          // Saved → served from kingagent-doc://, its own origin. Relative images
           // load, and allow-same-origin is safe: "same origin" is the page's
-          // nami-doc origin, cross-origin to Nami, so it still cannot reach the
+          // kingagent-doc origin, cross-origin to KingAgent, so it still cannot reach the
           // app (proved by the hostile-page test). connect-src 'none' in the
           // served CSP stops it sending anything it read anywhere.
           f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
@@ -3912,7 +3912,7 @@ function mountEditor(p, rec) {
         read.appendChild(f);
       } else {
         // Images in a doc resolve like the HTML Read tab's do: doc-relative
-        // paths through nami-doc:// (its containment gate refuses .. escapes),
+        // paths through kingagent-doc:// (its containment gate refuses .. escapes),
         // remote and data URLs as themselves. Absolute paths stay links — a
         // document does not get to display arbitrary files from the disk.
         read.innerHTML = renderMarkdown(p.text || '', {
@@ -3984,8 +3984,8 @@ function mountViewer(p, rec) {
   else if (p.sub === 'video') wrap.innerHTML = `<div class="vw-stage vw-stage--dark"><video src="${esc(url)}" controls playsinline></video></div>`;
   else if (p.sub === 'audio') wrap.innerHTML = `<div class="vw-stage vw-stage--pad"><div class="vw-glyph">♪</div><div class="vw-name">${esc(p.title)}</div><audio src="${esc(url)}" controls></audio></div>`;
   else if (p.sub === 'pdf') wrap.innerHTML = `<iframe class="vw-pdf" src="${esc(url)}"></iframe>`;
-  // Served from nami-doc://, the page's own origin — relative images load and
-  // allow-same-origin is safe because that origin is cross-origin to Nami (see
+  // Served from kingagent-doc://, the page's own origin — relative images load and
+  // allow-same-origin is safe because that origin is cross-origin to KingAgent (see
   // the Read tab in mountEditor for the full reasoning). html routes to the
   // editor now, so this branch is a fallback; it uses the same safe path.
   else if (p.sub === 'html') wrap.innerHTML = `<iframe class="vw-pdf vw-html" sandbox="allow-scripts allow-same-origin" src="${esc(docUrl(p.filePath))}"></iframe>`;
@@ -4466,7 +4466,7 @@ function panelSnapshot() {
     if (p.kind === 'card') return { kind: 'card', item: p.item, ...own(p), ...size(p) };
     // A one-shot that has run comes back as a plain terminal, not as its
     // command. Restoring the command re-ran it: leave an install tile on the
-    // desk, quit, and Nami piped curl into bash again on the next launch, and
+    // desk, quit, and KingAgent piped curl into bash again on the next launch, and
     // the one after that. A session is worth restoring; an errand is not.
     if (p.oneShot && (p.commandDone || p.exited)) {
       return { kind: 'shell', title: p.title, titleSource: p.titleSource, code: p.code, chipKind: p.chipKind, cwd: p.cwd, ...size(p) };
@@ -4569,7 +4569,7 @@ function startPanel(opts) {
   // A session born with a generic name ("Claude session") takes its name from
   // the first real prompt the user submits, then from claude itself. Only a
   // flow says 'flow' outright (agentSession) — everything else lands on the
-  // weak sources, so a name nami merely guessed is never pushed into claude,
+  // weak sources, so a name KingAgent merely guessed is never pushed into claude,
   // and a snapshot saved before any of this existed stays upgradable.
   seedTitleSource(p);
   // Every claude panel owns a conversation id from birth (--session-id), so a
@@ -5142,7 +5142,7 @@ async function finishAgentInstall(p, code) {
 
   if (!ok) {
     setTileNote(p, `<span class="tn-tx"><b>${esc(name)} is still not on this Mac.</b>
-      ${code === 0 ? 'The command ran to the end but left nothing Nami can find — the output above should say why.'
+      ${code === 0 ? 'The command ran to the end but left nothing KingAgent can find — the output above should say why.'
         : `The install exited with <b>${esc(String(code))}</b>.`}</span>
       <span class="tn-bt"><button class="btn btn--small" id="tn-docs">Read the guide</button>
       <button class="btn btn--small" id="tn-retry">Try again</button></span>`, 'warn');
@@ -5243,7 +5243,7 @@ async function ensureDelivered(item, toolId) {
   const before = await api.agentDelivery({ projectPath: S.project.path, slug: item.slug, agentIds: [toolId] });
   const was = (before && before[0]) || null;
   // `here` is not a skip: the copy regenerates so a dialect fix (opencode's
-  // mode, say) reaches copies delivered before it. Marked files are Nami's to
+  // mode, say) reaches copies delivered before it. Marked files are KingAgent's to
   // rewrite; `theirs` and `none` stay untouched as ever.
   if (!was || was.state === 'theirs' || was.state === 'none' || was.state === 'via') return was;
   // Report what delivery actually did, not what it was asked to do. Saying
@@ -5287,7 +5287,7 @@ function deliveryNote(item, toolId, was) {
   if (!isMaster(item)) return `${item.slug} — ${tool}'s own agent, from ${shortHome(item.filePath)}.`;
   if (!was) return `${item.slug} on ${tool}.`;
   if (was.state === 'theirs') {
-    return `${item.slug} on ${tool} — your own ${baseNameOf(was.file)} is there and Nami left it alone, `
+    return `${item.slug} on ${tool} — your own ${baseNameOf(was.file)} is there and KingAgent left it alone, `
       + `so this runs your file, not agents/${item.slug}.md.`;
   }
   if (was.state === 'failed') {
@@ -5323,7 +5323,7 @@ async function reallyLaunchAgent(item, toolId) {
   // own idiom. Both are probe-backed — see agent-launch.mjs.
   const launch = agentLaunch(toolId, item.slug);
   // `"<Name> session"` rather than the slug, because isGenericTitle keys on
-  // that word: a name Nami merely assembled has to stay weak enough for the
+  // that word: a name KingAgent merely assembled has to stay weak enough for the
   // first prompt, and then Claude's own transcript name, to replace it. Calling
   // the tile `ui-polisher` froze every ⌘K session under a name nothing could
   // improve. Not agentSession(): that stamps titleSource 'flow', the rung that
@@ -5420,7 +5420,7 @@ function toolListHtml(item) {
   }).join('');
   return `<div class="tool-list">${rows}
     <div class="tool-foot">Copies are regenerated from <b>agents/${esc(item.slug)}.md</b>.
-      Files without Nami's marker are somebody's hand work and are never touched.</div></div>`;
+      Files without KingAgent's marker are somebody's hand work and are never touched.</div></div>`;
 }
 
 const PICKER_SECTIONS = ['Project agents', 'In this project'];
@@ -5846,7 +5846,7 @@ function voiceFootHtml() {
     <span class="set-result" id="set-result">${esc(o.test || 'say something and KingAgent will type it back')}</span>`;
 }
 function voiceFlag(p) {
-  // Ready on a key Nami never saved means the key arrived on the environment
+  // Ready on a key KingAgent never saved means the key arrived on the environment
   // this run was launched with. That is true right now and worth saying, but it
   // is not durable: user-path.js merges the login shell's PATH into a Dock
   // launch and nothing else, so from the Dock the variable is absent and this
@@ -5883,7 +5883,7 @@ function voiceRowBodyHtml(p) {
         <span class="sv-help go-keys" data-keyenv="${esc(p.keyEnv)}">add it in Keys</span></div>
       ${p.keyHelpUrl ? `<div class="sv-help" data-url="${esc(p.keyHelpUrl)}">where do I find my key?</div>` : ''}</div>`;
   }
-  // Usable, but on a key Nami is not holding. The row says where it came from
+  // Usable, but on a key KingAgent is not holding. The row says where it came from
   // and what would make it survive the next launch.
   if (p.needsKey && p.ready && !p.keySaved) {
     return `<div class="set-opt-body"><div class="setup-note">Working from ${esc(p.keyEnv)} in the environment KingAgent was started in.
@@ -6010,7 +6010,7 @@ function wireLookPane(modal) {
 const REPO_URL = 'https://github.com/MOT1209/KingAgent';
 // The doc pages the quick start points at. One page per row, so a reader lands
 // on the answer to the row they pressed rather than on a contents page they
-// then have to search. Kept next to REPO_URL so every outward link Nami has is
+// then have to search. Kept next to REPO_URL so every outward link KingAgent has is
 // read in one place.
 const DOCS = {
   home: 'https://github.com/MOT1209/KingAgent/tree/main/docs',
@@ -6021,16 +6021,16 @@ const DOCS = {
 };
 // Where the app sends people who want the person rather than the program.
 //
-// Nami has no telemetry and is not getting any — "nothing leaves your Mac" is
+// KingAgent has no telemetry and is not getting any — "nothing leaves your Mac" is
 // one of the three reasons anyone trusts it, and it cannot be un-spent. So the
 // UTM is the entire measurement story: it costs nothing, it is visible to
-// anyone who reads the link, and dainami.ai's own analytics reads it at the
+// anyone who reads the link, and GitHub's own page views read it at the
 // other end. `where` names the surface, so "does the empty desk ever get
 // clicked" has an answer without a single byte leaving the machine.
 //
-// GitHub links stay bare on purpose: there is no analytics there to read them.
-const makerUrl = (where) => `https://dainami.ai/links?utm_source=kingagent-app&utm_medium=${where}`;
-const teamsUrl = (where) => `https://dainami.ai/?utm_source=kingagent-app&utm_medium=${where}&utm_campaign=teams`;
+// GitHub links stay bare on purpose: the UTM is inert there, harmless but unread.
+const makerUrl = (where) => `https://github.com/MOT1209/KingAgent?utm_source=kingagent-app&utm_medium=${where}`;
+const teamsUrl = (where) => `https://github.com/MOT1209/KingAgent/discussions?utm_source=kingagent-app&utm_medium=${where}&utm_campaign=teams`;
 function updatedOn(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -6113,7 +6113,7 @@ function wireAboutPane(modal) {
 // ---- Models ----------------------------------------------------------------
 // ---- Keys — named secrets every session inherits ---------------------------
 // One obvious place to paste API keys. Each saved key is exported into the
-// environment of every session Nami spawns (shell env still wins), and the
+// environment of every session KingAgent spawns (shell env still wins), and the
 // Voice providers read the same store — never a second place to paste.
 // Agent CLIs (Claude Code, OpenCode…) carry their own logins — no API key here,
 // except Grok, whose API-key path is the XAI_API_KEY env var.
@@ -6524,13 +6524,13 @@ function renderConnectCustom() {
     const w = chosenAgent(o);
     if (!o.text.trim() || !w) return;
     closeOverlay();
-    // The agent registers into the master; Nami fans it out when the session
+    // The agent registers into the master; KingAgent fans it out when the session
     // ends — the same rhythm as agent- and skill-building sessions.
     const onExit = S.project
       ? () => { refreshServices(); api.deliverServices({ projectPath: S.project.path, agentIds: installedAgentIds() }).then(() => refreshServices()); }
       : undefined;
     agentSession(w, { title: 'build: connector', code: 'BC', seed:
-      `Build an MCP connector for this: ${o.text.trim()}. When it works, register it for this project by adding one entry to connections.json at the project root, under the standard "mcpServers" key (create the file if it is missing) — Nami copies it to every installed agent's own config from there. Then tell me what tools it exposes.`, onExit });
+      `Build an MCP connector for this: ${o.text.trim()}. When it works, register it for this project by adding one entry to connections.json at the project root, under the standard "mcpServers" key (create the file if it is missing) — KingAgent copies it to every installed agent's own config from there. Then tell me what tools it exposes.`, onExit });
     toast('Your agent is on it. It appears under MCP in the Library when it lands.');
   };
 }
@@ -6546,7 +6546,7 @@ let overlayStill = false;
 // ---- quick start -----------------------------------------------------------
 //
 // The one place in the window that answers "what is this and what do I do now".
-// Nami had no such place: the Help menu is five outbound links, and the person
+// KingAgent had no such place: the Help menu is five outbound links, and the person
 // this is for does not look in the menu bar.
 //
 // A checklist, not a tour. Coach marks have to be maintained across four themes
@@ -6662,7 +6662,7 @@ function overlay(cls, inner, opts) {
 }
 
 // ---- folders ---------------------------------------------------------------
-// A file opened with Nami from Finder. Either it already lives on this desk —
+// A file opened with KingAgent from Finder. Either it already lives on this desk —
 // then it is just a tile — or the desk has to change folders first. That switch
 // is the one the user is allowed to refuse, so the file waits in S.pendingOpen
 // until the answer is known rather than being forced onto a foreign desk.
@@ -6810,7 +6810,7 @@ function toast(msg) { els.toastRoot.innerHTML = `<div class="toast"><span class=
 // ===========================================================================
 // A card in the corner, never a modal. Someone mid-sentence with an agent does
 // not want the app in front of them, and an update is the least urgent thing
-// Nami has to say — so it waits, and "Not now" means not this version, ever.
+// KingAgent has to say — so it waits, and "Not now" means not this version, ever.
 
 const SKIPPED_UPDATE = 'kingagent-skipped-update';
 
@@ -6863,7 +6863,7 @@ function paintUpdate(state, ev) {
     // There is a button now, and there did not used to be. Waiting for a quit
     // was the whole design — an update should never end a session somebody is
     // in the middle of — but on a real machine it lost every time: the app
-    // takes its time closing, Squirrel waits for it, and reopening Nami inside
+    // takes its time closing, Squirrel waits for it, and reopening KingAgent inside
     // that window cancels the install with nothing said. So the wait stays as
     // the quiet default and this is the way to make it happen on purpose.
     els.updateRoot.innerHTML = `<div class="update-note">
@@ -6885,7 +6885,7 @@ function paintUpdate(state, ev) {
     return;
   }
 
-  // The one warning this feature owes anybody. Installing restarts Nami, and
+  // The one warning this feature owes anybody. Installing restarts KingAgent, and
   // restarting ends every session — so when there is work in flight, say what
   // will be lost and make them say yes to it.
   if (state === 'confirm') {
@@ -6927,9 +6927,9 @@ function paintUpdate(state, ev) {
 }
 
 // ===========================================================================
-//  The one time Nami asks for anything
+//  The one time KingAgent asks for anything
 // ===========================================================================
-// Nami is free, and the only thing that helps anyone find it is a star. But the
+// KingAgent is free, and the only thing that helps anyone find it is a star. But the
 // app has no account, no telemetry and no way to reach the person using it —
 // which is the point — so the ask has to happen here, and it gets exactly one
 // chance. Once. Dismissed is forever, same as a skipped update.
@@ -6937,14 +6937,14 @@ function paintUpdate(state, ev) {
 // Counted in launches rather than sessions on purpose. Five sessions can all
 // happen in one sitting on the first afternoon, when nobody owes you anything
 // yet; five separate launches means somebody came back, which is the only
-// evidence available that Nami earned its place. Nothing is sent anywhere to
+// evidence available that KingAgent earned its place. Nothing is sent anywhere to
 // learn this — it is a number in localStorage on one machine.
 
 const STAR_ASKED = 'kingagent-star-asked';
 const LAUNCH_TALLY = 'kingagent-launches';
 const ASK_AFTER_LAUNCHES = 5;
 // Long enough that the bar is never part of the app opening. Someone who just
-// launched Nami is going somewhere; this waits until they have arrived.
+// launched KingAgent is going somewhere; this waits until they have arrived.
 const ASK_AFTER_MS = 90_000;
 
 function tallyLaunch() {

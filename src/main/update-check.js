@@ -1,4 +1,4 @@
-// Is there a newer Nami than the one running?
+// Is there a newer KingAgent than the one running?
 //
 // Notify-only on purpose: this asks GitHub what the latest release is, and if
 // it is newer, main tells the renderer to show a bar. Clicking opens the dmg in

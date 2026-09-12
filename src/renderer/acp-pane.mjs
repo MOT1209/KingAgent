@@ -65,7 +65,7 @@ export function mountChatPane(p, rec, hooks) {
     if (!hooks.browserConnection) return {};
     try {
       const connection = await hooks.browserConnection(p);
-      return { mcpServers: connection?.mcpServers || (connection?.url ? [{ name: 'nami-browser', type: 'http', url: connection.url, headers: [] }] : []) };
+      return { mcpServers: connection?.mcpServers || (connection?.url ? [{ name: 'kingagent-browser', type: 'http', url: connection.url, headers: [] }] : []) };
     } catch (_) { return {}; }
   }
 
@@ -222,7 +222,7 @@ export function mountChatPane(p, rec, hooks) {
     }
     return { ok: true, imageMode };
   };
-  composer.setSkills((window.__namiSkills || []).length ? window.__namiSkills : [
+  composer.setSkills((window.__kingagentSkills || []).length ? window.__kingagentSkills : [
     { name: 'collector', description: 'pulls structured data off pages' },
     { name: 'engineer', description: 'edits the repo, runs tests, opens a PR' },
     { name: 'researcher', description: 'reads the web and writes a brief' },

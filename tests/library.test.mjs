@@ -27,7 +27,7 @@ before(() => {
   write(path.join(home, '.claude/plugins/cache/market/superpowers/1.0.0/skills/tdd/SKILL.md'), '---\nname: tdd\ndescription: Test first\n---\nbody\n');
   write(path.join(home, '.claude/plugins/cache/market/superpowers/1.0.0/agents/critic.md'), '---\nname: critic\ndescription: Plugin agent\n---\nbody\n');
 
-  // the project's own neutral folder — the only place Nami writes
+  // the project's own neutral folder — the only place KingAgent writes
   write(path.join(project, 'skills/meeting-notes/SKILL.md'), '---\nname: meeting-notes\ndescription: Transcript into decisions\n---\nbody\n');
   // one row per tool that keeps skills of its own
   write(path.join(home, '.agents/skills/hyperframes/SKILL.md'), '---\nname: hyperframes\ndescription: Render video\n---\nbody\n');

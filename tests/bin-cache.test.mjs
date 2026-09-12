@@ -25,7 +25,7 @@ test('an agent that was not found is remembered as nothing', () => {
 });
 
 // A scan that no longer finds an agent must clear it. Otherwise uninstalling an
-// agent inside Nami leaves a path that spawns ENOENT for the rest of the run —
+// agent inside KingAgent leaves a path that spawns ENOENT for the rest of the run —
 // worse than the bare name, which would at least fail the same way every time.
 test('a later scan that loses an agent clears the old path', () => {
   forgetBins();
@@ -139,7 +139,7 @@ test('resolveSpawnProgram survives the empty and the strange', () => {
 });
 
 // ---- spawn flags -----------------------------------------------------------
-// grok paints a full-screen TUI by default, which sits on top of the Nami
+// grok paints a full-screen TUI by default, which sits on top of the KingAgent
 // theme instead of inside it; --minimal makes it print into the tile's own
 // scrollback. The flag deliberately does NOT live on the panel's `command`:
 // agentForCommand matches p.command against bare binary names, so the flag

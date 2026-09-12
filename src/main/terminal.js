@@ -31,7 +31,7 @@ function resolveShell({ platform = process.platform, env = process.env, where = 
     const row = shells.find((s) => s.program === program) || { args: (c) => [c] };
     return { program, args: row.args || ((c) => [c]), kind: 'windows', id: row.id || program };
   }
-  // macOS (and Linux): the user's own shell, as Nami always did. A GUI
+  // macOS (and Linux): the user's own shell, as KingAgent always did. A GUI
   // launch inherits no SHELL, so zsh is the floor — see platform.js.
   const sh = loginShell(platform, env);
   return { program: sh.file, args: sh.args, kind: 'unix', id: sh.file };

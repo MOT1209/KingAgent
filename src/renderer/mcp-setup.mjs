@@ -1,6 +1,6 @@
 // Library MCP connect sheets. Injected deps so parent wiring in app.js is a
 // handful of calls; this file owns click → key → connected and the guided
-// Gmail/Drive session. Nami Browser is not a catalog entry and is never
+// Gmail/Drive session. KingAgent Browser is not a catalog entry and is never
 // written to connections.json from here.
 
 import { knowsCopy } from './receivers.mjs';
@@ -48,7 +48,7 @@ export function connectCatalogHtml({ catalog, connectedIds, esc }) {
         <span class="code" data-kind="service">${esc(s.code)}</span>
         <span class="sv-name">${esc(s.name)}</span>
         <span class="sv-desc">${esc(s.desc)}</span>
-        ${s.id === 'kie' ? '<span class="sv-by">by Dainami</span>' : ''}
+        ${s.id === 'kie' ? '<span class="sv-by">by KingAgent</span>' : ''}
         <span class="sv-go">${connectedIds.has(s.id) ? '<span class="ok">●</span> connected' : 'connect →'}</span>
       </div>`).join('')}</div>
     <div class="svc-custom" id="svc-own" tabindex="0">
@@ -249,7 +249,7 @@ export function createMcpSetup(deps) {
     const pickBtn = q('#sv-pick-folder', modal);
     if (pickBtn) pickBtn.onclick = async () => { const info = await api.pickFolder(); if (info) { o.values.folder = info.path; q('#sv-folder-note', modal).textContent = info.pathShort; } };
     const install = svc.kind === 'install';
-    const installDirOf = () => '~/.nami/connectors/' + svc.docs.split('/').pop();
+    const installDirOf = () => '~/.kingagent/connectors/' + svc.docs.split('/').pop();
     if (install && o.installed === undefined) {
       q('#sv-connect', modal).textContent = 'Install first';
       api.statPath({ token: installDirOf() + '/dist/index.js' }).then((st) => {

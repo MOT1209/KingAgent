@@ -16,7 +16,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const base = () => ({
   settings: {},
   isPackaged: true,
-  env: { NAMI_PING_URL: PING_OVERRIDE },
+  env: { KINGAGENT_PING_URL: PING_OVERRIDE },
   version: '0.2.0',
   arch: 'arm64',
   randomUUID: () => '00000000-0000-4000-8000-000000000009',
@@ -53,8 +53,8 @@ test('a dev run sends nothing', () => {
   assert.equal(pingPlan({ ...base(), env: {} }), null, 'no override on a packaged build either');
 });
 
-test('NAMI_PING_URL lets a dev run ping anyway — at that url', () => {
-  const plan = pingPlan({ ...base(), isPackaged: false, env: { NAMI_PING_URL: 'http://localhost:8788/api/ping' } });
+test('KINGAGENT_PING_URL lets a dev run ping anyway — at that url', () => {
+  const plan = pingPlan({ ...base(), isPackaged: false, env: { KINGAGENT_PING_URL: 'http://localhost:8788/api/ping' } });
   assert.equal(plan.url, 'http://localhost:8788/api/ping');
 });
 

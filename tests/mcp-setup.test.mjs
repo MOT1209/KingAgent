@@ -38,7 +38,7 @@ test('catalogServices never surfaces kingagent-browser even if it is stuffed in'
   assert.deepEqual(cat.map((s) => s.id), ['notion', 'gmail']);
 });
 
-test('guided seed tells the agent to register connections.json mcpServers, then Nami delivers', () => {
+test('guided seed tells the agent to register connections.json mcpServers, then KingAgent delivers', () => {
   const s = guidedSetupSeed(GMAIL);
   assert.match(s, /Walk me through connecting Gmail/);
   assert.match(s, /GongRzhe\/Gmail-MCP-Server/);

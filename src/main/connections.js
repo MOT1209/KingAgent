@@ -2,10 +2,10 @@
 // installed agent's own config. Pure fs through an injectable io — the
 // library.js discipline — so every decision below is unit-testable.
 //
-// The master file IS the standard `mcpServers` shape, not a Nami format:
+// The master file IS the standard `mcpServers` shape, not a KingAgent format:
 // Claude, Cursor, Gemini and Kimi read that block word for word, so delivery to
 // them is a plain merge, and the file keeps working by copy-paste even without
-// Nami. Only OpenCode (its own JSON dialect) and Codex (TOML) need translating;
+// KingAgent. Only OpenCode (its own JSON dialect) and Codex (TOML) need translating;
 // Hermes is detected but not written — its YAML is hand-owned and its CLI is
 // interactive, so honesty ("add it in Hermes") beats a risky write.
 //
@@ -80,7 +80,7 @@ function guardIgnore({ projectPath, io }) {
 }
 
 function upsertMaster({ scope, projectPath, homeDir, id, entry, io = fsIo }) {
-  if (reservedServiceId(id)) return { ok: false, error: 'Nami Browser is not a catalog connection.' };
+  if (reservedServiceId(id)) return { ok: false, error: 'KingAgent Browser is not a catalog connection.' };
   const file = masterPath({ scope, projectPath, homeDir });
   if (!file) return { ok: false, error: 'Open a folder first — a project connection lives in the project.' };
   const doc = readJson(file, io) || {};
@@ -117,8 +117,8 @@ function toOpencode(entry) {
 // Rendering only these three shapes (command/args, env table, url) keeps this a
 // formatter, not a TOML library — and everything it emits is round-trippable.
 
-const CODEX_START = '# nami:connections start';
-const CODEX_END = '# nami:connections end';
+const CODEX_START = '# kingagent:connections start';
+const CODEX_END = '# kingagent:connections end';
 
 function tomlStr(v) { return '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'; }
 

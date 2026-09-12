@@ -27,7 +27,7 @@ function isSafeRemovePath(p, home) {
 function planRemoval({ id, binPath, home }) {
   const agent = agentById(id);
   const lc = agent && agent.lifecycle;
-  if (!lc) return { mode: 'none', reason: 'Nami does not know how to remove this one.' };
+  if (!lc) return { mode: 'none', reason: 'KingAgent does not know how to remove this one.' };
 
   if (lc.uninstall) {
     return {

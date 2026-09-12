@@ -56,10 +56,10 @@ const release = (over = {}) => ({
   prerelease: false,
   html_url: 'https://github.com/mrdainami/nami/releases/tag/v0.2.0',
   assets: [
-    { name: 'Nami-0.2.0-arm64.dmg', browser_download_url: 'https://example.test/arm64.dmg' },
-    { name: 'Nami-0.2.0.dmg', browser_download_url: 'https://example.test/x64.dmg' },
-    { name: 'Nami-0.2.0-setup-arm64.exe', browser_download_url: 'https://example.test/arm64.exe' },
-    { name: 'Nami-0.2.0-setup-x64.exe', browser_download_url: 'https://example.test/x64.exe' },
+    { name: 'KingAgent-0.2.0-arm64.dmg', browser_download_url: 'https://example.test/arm64.dmg' },
+    { name: 'KingAgent-0.2.0.dmg', browser_download_url: 'https://example.test/x64.dmg' },
+    { name: 'KingAgent-0.2.0-setup-arm64.exe', browser_download_url: 'https://example.test/arm64.exe' },
+    { name: 'KingAgent-0.2.0-setup-x64.exe', browser_download_url: 'https://example.test/x64.exe' },
   ],
   ...over,
 });

@@ -16,7 +16,7 @@ test('the note greets the folder by name', () => {
 });
 
 test('the note teaches the two things that stop people', () => {
-  const md = startHereNote('Nami');
+  const md = startHereNote('KingAgent');
   // The boundary, stated as the promise itself. This is the sentence that earns
   // the trust the whole app runs on, so it is pinned: a rewrite that quietly
   // drops it should fail here rather than ship.
@@ -26,13 +26,13 @@ test('the note teaches the two things that stop people', () => {
   assert.ok(md.includes('Needs your OK'), 'should name the approval card');
 });
 
-test('the note says Nami is not itself the agent', () => {
-  const md = startHereNote('Nami');
+test('the note says KingAgent is not itself the agent', () => {
+  const md = startHereNote('KingAgent');
   assert.match(md, /your own (Claude|ChatGPT)|subscription|account/i);
 });
 
 test('the note carries the full twelve example asks', () => {
-  const md = startHereNote('Nami');
+  const md = startHereNote('KingAgent');
   const bullets = md.split('\n').filter((l) => /^[-*] /.test(l));
   // Twelve is not decoration: the quick start's row 4 button says "See 12
   // examples" and opens this note. If the list shrinks, that button starts

@@ -1,16 +1,16 @@
-// The rule that keeps an agent-written HTML page from reaching into Nami.
+// The rule that keeps an agent-written HTML page from reaching into KingAgent.
 //
 // A source assertion, from a real mistake caught by hand. The page runs in an
-// iframe; whether it can read Nami depends on the pairing of its origin and its
+// iframe; whether it can read KingAgent depends on the pairing of its origin and its
 // sandbox flags:
 //
-//   file:// or srcdoc + allow-same-origin  → SAME origin as Nami → can read it.
+//   file:// or srcdoc + allow-same-origin  → SAME origin as KingAgent → can read it.
 //     This is the hole. file:// URLs are one origin in Chromium, and a srcdoc
 //     inherits its embedder's. A page granted it read parent.document out of
 //     the app. Forbidden.
 //
 //   kingagent-doc:// + allow-same-origin        → the page's OWN origin, cross-origin
-//     to Nami → cannot read it, and its relative images load. This is the safe
+//     to KingAgent → cannot read it, and its relative images load. This is the safe
 //     way to get fidelity, and the only place allow-same-origin is allowed.
 //
 // So the check is not "never allow-same-origin" — it is "allow-same-origin only
@@ -58,7 +58,7 @@ test('allow-same-origin appears only on a kingagent-doc source', () => {
   for (const f of frames) {
     if (f.sandbox.split(/\s+/).includes('allow-same-origin')) {
       assert.equal(f.source, 'kingagent-doc',
-        `allow-same-origin on a ${f.source} iframe would let it read Nami`);
+        `allow-same-origin on a ${f.source} iframe would let it read KingAgent`);
     }
   }
 });

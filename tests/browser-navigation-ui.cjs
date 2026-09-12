@@ -1,4 +1,4 @@
-// Real native chrome/menu/profile interactions on a disposable Nami desk.
+// Real native chrome/menu/profile interactions on a disposable KingAgent desk.
 const { app, BrowserWindow, webContents, dialog } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -31,7 +31,7 @@ app.whenReady().then(async()=>{
   const click=s=>run(`document.querySelector(${JSON.stringify(s)}).click()`);
   const native=async(selector)=>until(async()=>{for(const w of webContents.getAllWebContents().filter(w=>w.getURL().endsWith('browser-overlay.html'))){try{if(await w.executeJavaScript(`!!document.querySelector(${JSON.stringify(selector)})`))return w;}catch{}}});
   async function pointer(w,selector){const r=await w.executeJavaScript(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);for(const type of ['mouseDown','mouseUp'])w.sendInputEvent({type,x:Math.round(r.x*w.getZoomFactor()),y:Math.round(r.y*w.getZoomFactor()),button:'left',clickCount:1});await pause(100);}
-  const shot=async name=>{if(!process.env.NAMI_REVIEW_DIR)return;await run('Promise.all([...document.querySelectorAll(".modal")].flatMap(m=>m.getAnimations()).map(a=>a.finished.catch(()=>{})))');await pause(300);const views=new Map(win.contentView.children.filter(v=>v.webContents&&v.webContents!==win.webContents).map((view,i)=>[i,{window:win,view}]));fs.mkdirSync(process.env.NAMI_REVIEW_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.NAMI_REVIEW_DIR,name+'.png'),await captureWindow(win,views));};
+  const shot=async name=>{if(!process.env.KINGAGENT_REVIEW_DIR)return;await run('Promise.all([...document.querySelectorAll(".modal")].flatMap(m=>m.getAnimations()).map(a=>a.finished.catch(()=>{})))');await pause(300);const views=new Map(win.contentView.children.filter(v=>v.webContents&&v.webContents!==win.webContents).map((view,i)=>[i,{window:win,view}]));fs.mkdirSync(process.env.KINGAGENT_REVIEW_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.KINGAGENT_REVIEW_DIR,name+'.png'),await captureWindow(win,views));};
   await click('[data-browser-action="menu"]');const menu=await native('.browser-menu');
   const before=await page.executeJavaScript('ticks');await until(async()=>await page.executeJavaScript('ticks')>before);assert.ok(win.contentView.children.some(v=>v.webContents===page&&v.getVisible()),'page stays visible under menu');
   await shot('browser-menu-glass');await pointer(menu,'.browser-menu button');

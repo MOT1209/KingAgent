@@ -34,7 +34,7 @@ test('capture crops clamp viewport edges and convert CSS coordinates at page zoo
 });
 
 test('annotation image IDs never read arbitrary files and retain granted references', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-image-test-'));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'kingagent-image-test-'));
   try {
     const store = new AnnotationImageStore(directory);
     const png = Buffer.from('89504e470d0a1a0a00', 'hex');
@@ -74,7 +74,7 @@ test('screenshot refuses pixels if its document changes while capture is pending
   const gateway = await createBrowserMcp({ access, views: new Map([['view', view]]) });
   try {
     const { url } = await gateway.connection('reader');
-    const output = await fetch(url, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'nami_browser_screenshot', arguments: { tabId: 'view' } } }) }).then(r => r.json());
+    const output = await fetch(url, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'kingagent_browser_screenshot', arguments: { tabId: 'view' } } }) }).then(r => r.json());
     assert.match(output.error.message, /page changed during capture/);
     assert.deepEqual(gateway.status('reader').activities, []);
   } finally { await gateway.close(); }
@@ -94,11 +94,11 @@ test('queued peer calls cannot use old permissions while a browser operation dra
     const { url } = await gateway.connection('reader');
     let id = 0;
     const rpc = params => fetch(url, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method: 'tools/call', params }) }).then(r => r.json());
-    const screenshot = rpc({ name: 'nami_browser_screenshot', arguments: { tabId: 'view' } });
+    const screenshot = rpc({ name: 'kingagent_browser_screenshot', arguments: { tabId: 'view' } });
     await started;
     const refresh = gateway.refresh('reader', () => { access.get('reader').peers = []; });
-    const message = rpc({ name: 'nami_send_message', arguments: { to: 'peer', text: 'Old permission must not deliver this.' } });
-    const list = rpc({ name: 'nami_sessions' });
+    const message = rpc({ name: 'kingagent_send_message', arguments: { to: 'peer', text: 'Old permission must not deliver this.' } });
+    const list = rpc({ name: 'kingagent_sessions' });
     await new Promise(resolve => setTimeout(resolve, 50));
     finish({ isEmpty: () => false, toPNG: () => Buffer.from('image') });
     const [shotResult, messageResult, listResult] = await Promise.all([screenshot, message, list]);

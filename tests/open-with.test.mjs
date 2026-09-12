@@ -73,7 +73,7 @@ test('with no windows at all, one is made for the parent folder', () => {
 });
 
 // The two lists have to agree or the app advertises a type it then refuses to
-// route: Finder offers Nami for the file, macOS launches it, and open-with.js
+// route: Finder offers KingAgent for the file, macOS launches it, and open-with.js
 // drops the path on the floor because the extension is not in OPEN_EXT.
 test('electron-builder declares exactly the extensions open-with routes', () => {
   const yml = readFileSync(new URL('../electron-builder.yml', import.meta.url), 'utf8');

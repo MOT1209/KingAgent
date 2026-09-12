@@ -43,7 +43,7 @@ test('an allowed popup is painted, shares the profile, and cannot spawn or wande
   assert.match(views, /did-create-window[\s\S]*?will-navigate/);
 });
 
-test('light and dark follow Nami, not the Mac, and websites are told', () => {
+test('light and dark follow KingAgent, not the Mac, and websites are told', () => {
   const views = read('src/main/browser-views.js');
   const fn = views.slice(views.indexOf('function blankIsDark'), views.indexOf('\n}', views.indexOf('function blankIsDark')));
   assert.doesNotMatch(fn, /shouldUseDarkColors/, 'the Mac has no vote');
@@ -56,7 +56,7 @@ test('a tab calls itself Chrome, because underneath it is', () => {
   const electron = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.212 Electron/43.3.0 Safari/537.36';
   assert.equal(browserUserAgent(electron), 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.212 Safari/537.36');
   // a packaged build also carries the app name before Chrome/
-  const named = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Nami/0.5.0 Chrome/150.0.0.0 Electron/43.3.0 Safari/537.36';
+  const named = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) KingAgent/0.5.0 Chrome/150.0.0.0 Electron/43.3.0 Safari/537.36';
   assert.equal(browserUserAgent(named), 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36');
   // the engine version is never invented
   assert.match(browserUserAgent(electron), /Chrome\/150\.0\.7871\.212/);

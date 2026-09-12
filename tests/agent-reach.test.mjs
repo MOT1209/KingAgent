@@ -18,7 +18,7 @@ const ALL = ['claude', 'codex', 'opencode', 'antigravity', 'kimi', 'hermes'];
 
 // ---- reach ------------------------------------------------------------------
 
-test('a master reaches every tool Nami can write a dialect for, and not Hermes', () => {
+test('a master reaches every tool KingAgent can write a dialect for, and not Hermes', () => {
   const r = reachOf(master());
   assert.deepEqual([...r].sort(), ['antigravity', 'claude', 'codex', 'grok', 'kimi', 'opencode']);
   assert.ok(!r.includes('hermes'), 'Hermes reads no agent format');

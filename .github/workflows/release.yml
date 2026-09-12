@@ -158,7 +158,7 @@ jobs:
       - name: Report what shipped
         if: always()
         run: |
-          for app in release/mac*/Nami.app; do
+          for app in release/mac*/KingAgent.app; do
             [ -d "$app" ] || continue
             echo "== $app"
             codesign -dv "$app" 2>&1 | grep -E 'Identifier|TeamIdentifier' || echo "  unsigned"

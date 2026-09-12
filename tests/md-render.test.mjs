@@ -10,7 +10,7 @@ const FIXTURE = [
   'title: release notes',
   'owner: cal',
   '---',
-  'Nami 0.9 — cards update',
+  'KingAgent 0.9 — cards update',
   '=======================',
   '',
   'Second heading',
@@ -49,7 +49,7 @@ test('frontmatter becomes one quiet meta block, never rules-and-junk', () => {
 
 test('setext underlines make real headings', () => {
   const html = renderMarkdown(FIXTURE);
-  assert.match(html, /<h1>Nami 0\.9 — cards update<\/h1>/);
+  assert.match(html, /<h1>KingAgent 0\.9 — cards update<\/h1>/);
   assert.match(html, /<h2>Second heading<\/h2>/);
   assert.ok(!/=====/.test(html), 'the underline itself must not survive as text');
 });

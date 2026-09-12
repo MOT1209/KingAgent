@@ -26,10 +26,10 @@ const fs = require('fs');
 const path = require('path');
 const { KNOWN_AGENTS, POINTER_FILE, contextFilesFor } = require('./agents-detect.js');
 
-const START = '<!-- nami:skills start -->';
-const END = '<!-- nami:skills end -->';
+const START = '<!-- kingagent:skills start -->';
+const END = '<!-- kingagent:skills end -->';
 
-// Three lines, and they buy something specific: Nami never has to be right about
+// Three lines, and they buy something specific: KingAgent never has to be right about
 // which agents read AGENTS.md on their own. Where one already does, this is
 // harmless duplication; where it doesn't, this is the reason the skill works.
 const STUB = `# Project notes\nRead AGENTS.md — the working rules and the list of skills are there.\n`;
@@ -78,10 +78,10 @@ function findMarkers(text) {
   const starts = [];
   let at = text.indexOf(START);
   while (at !== -1) { starts.push(at); at = text.indexOf(START, at + START.length); }
-  if (starts.length > 1) throw new Error('AGENTS.md has more than one Nami skills block — remove the extra one and try again.');
+  if (starts.length > 1) throw new Error('AGENTS.md has more than one KingAgent skills block — remove the extra one and try again.');
   if (!starts.length) return null;
   const end = text.indexOf(END, starts[0]);
-  if (end === -1) throw new Error('AGENTS.md has an unclosed Nami skills marker — restore or remove it and try again.');
+  if (end === -1) throw new Error('AGENTS.md has an unclosed KingAgent skills marker — restore or remove it and try again.');
   return { start: starts[0], end: end + END.length };
 }
 

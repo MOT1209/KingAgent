@@ -1,6 +1,6 @@
 // Which conversation is a running claude ACTUALLY in?
 //
-// Nami pins a conversation id at spawn (`claude --session-id <uuid>`) and builds
+// KingAgent pins a conversation id at spawn (`claude --session-id <uuid>`) and builds
 // the transcript path from it. That holds right up until the user types /resume
 // inside the tile and picks an older conversation: claude switches to that
 // conversation's id and never writes a line to the pinned one. Measured on a
@@ -17,7 +17,7 @@
 // the restored tile comes back as an empty conversation.
 //
 // Claude publishes the truth in ~/.claude/sessions/<pid>.json, written within
-// seconds of spawn and kept current. Nami owns the pty, so it knows the pid.
+// seconds of spawn and kept current. KingAgent owns the pty, so it knows the pid.
 // IO is injected so this stays testable without a live claude.
 const fs = require('fs');
 const os = require('os');

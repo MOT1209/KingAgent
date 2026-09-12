@@ -27,7 +27,7 @@ test('agent file inside the project .claude root goes to trash', async () => {
   assert.deepEqual(f.trashed, [pP('.claude/agents/scribe.md')]);
 });
 
-// The project's own skills/ is where Nami writes, so it has to be deletable —
+// The project's own skills/ is where KingAgent writes, so it has to be deletable —
 // and it is a plain folder name, not a dotted one, so the guard list had to
 // learn it rather than matching a .claude prefix by luck.
 test('a skill in the project\'s own skills/ folder is deletable', async () => {

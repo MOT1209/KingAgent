@@ -1,4 +1,4 @@
-// The silent ping: one anonymous "somebody launched Nami today" note per
+// The silent ping: one anonymous "somebody launched KingAgent today" note per
 // launch, caught by dainami.ai and deduped server-side to one row per user
 // per day. Spec: dainami-cli specs/2026-08-13-nami-tracking.md.
 //
@@ -13,12 +13,12 @@
 // those ends as "not sent", never as anything a user has to read.
 //
 // Dev runs never ping (their launches are not users), except when
-// NAMI_PING_URL points somewhere on purpose — which is also how the endpoint
+// KINGAGENT_PING_URL points somewhere on purpose — which is also how the endpoint
 // gets tested by hand against wrangler dev or production.
 
 // KingAgent carries no telemetry endpoint of its own yet. The upstream
-// Nami endpoint is deliberately unset here — a renamed fork must not report
-// launches to the original project's counter. Setting NAMI_PING_URL turns
+// KingAgent endpoint is deliberately unset here — a renamed fork must not report
+// launches to the original project's counter. Setting KINGAGENT_PING_URL turns
 // the mechanism back on for a KingAgent endpoint when one exists; nothing
 // else in this file changes.
 const PING_URL = '';
@@ -27,7 +27,7 @@ const PING_URL = '';
 //   { url, payload: { id, version, arch, first }, mintedId } — or null for
 // "this launch does not ping" (a dev run without an override).
 function pingPlan({ settings = {}, isPackaged, env = {}, version, arch, randomUUID } = {}) {
-  const override = typeof env.NAMI_PING_URL === 'string' && env.NAMI_PING_URL.trim();
+  const override = typeof env.KINGAGENT_PING_URL === 'string' && env.KINGAGENT_PING_URL.trim();
   // No endpoint and no override: this build does not ping, full stop.
   if (!PING_URL && !override) return null;
   if (!isPackaged && !override) return null;

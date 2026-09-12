@@ -1,6 +1,6 @@
 // Where each agent's program actually lives, according to the last scan.
 //
-// Nami answers "is this agent installed" properly in exactly one place:
+// KingAgent answers "is this agent installed" properly in exactly one place:
 // agents-detect asks the user's interactive login shell (`command -v claude`)
 // and, if that comes back empty, walks the documented install folders. That
 // answer knows about nvm, volta, asdf, mise, bun and any PATH line the user
@@ -10,7 +10,7 @@
 // hardcoded list of five paths, so a claude installed through a version manager
 // was "ready" in the launcher and "isn't installed on this Mac yet" one click
 // later in the card view. The one-shot adapters spawned a bare name against the
-// login PATH captured once at app start, so an agent installed *inside* Nami
+// login PATH captured once at app start, so an agent installed *inside* KingAgent
 // stayed unspawnable until the app was restarted.
 //
 // So the scan writes here, and everything that spawns reads here. Deliberately
@@ -113,11 +113,11 @@ function resolveSpawnProgram(command) {
 }
 
 // ---- spawn flags -----------------------------------------------------------
-// Flags Nami always adds when it spawns a given agent, as opposed to anything
+// Flags KingAgent always adds when it spawns a given agent, as opposed to anything
 // the user or the resume path asked for.
 //
 // grok is the only entry and --minimal is the reason the table exists: without
-// it grok paints a full-screen TUI over the Nami theme instead of printing
+// it grok paints a full-screen TUI over the KingAgent theme instead of printing
 // into the tile's own scrollback the way claude does. It is session-scoped,
 // so nothing is written to the user's ~/.grok/config.toml.
 //

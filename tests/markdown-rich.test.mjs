@@ -31,7 +31,7 @@ test('Markdown image URLs resolve beside the note without double-encoding spaces
   assert.equal(markdownImageUrl('/p/docs/note.md', '/Users/me/image.png'), null);
 });
 
-test('text colours are restricted to Nami tokens or safe CSS colours', () => {
+test('text colours are restricted to KingAgent tokens or safe CSS colours', () => {
   assert.equal(colourSpan('coral', 'important'), '<span style="color:var(--red-ink)">important</span>');
   assert.equal(colourSpan('#445566', '<unsafe>'), '<span style="color:#445566">&lt;unsafe&gt;</span>');
   assert.equal(colourSpan('url(javascript:alert(1))', 'nope'), 'nope');

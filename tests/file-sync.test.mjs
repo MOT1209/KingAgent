@@ -8,7 +8,7 @@
 //   · zero bytes is refused           — a truncated read is not a document
 //   · an append leaves the head alone — which is what keeps the caret still
 //
-// Nami is single-writer. This is not a sync engine and must never grow into
+// KingAgent is single-writer. This is not a sync engine and must never grow into
 // one: the whole point is that a wrong answer here loses somebody's typing.
 
 import test from 'node:test';

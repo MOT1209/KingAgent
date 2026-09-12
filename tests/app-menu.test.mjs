@@ -46,7 +46,7 @@ test('the Electron leftovers are gone', () => {
 
 // The regression this feature nearly shipped, and the reason the test is louder
 // than the rest. The conventional Mac File menu holds `role: 'close'`, which
-// binds ⌘W, and Nami binds ⌘W to close the active *pane*. A menu accelerator
+// binds ⌘W, and KingAgent binds ⌘W to close the active *pane*. A menu accelerator
 // outranks a renderer keydown, so the conventional item would silently turn
 // "close this tile" into "close the window", taking every other session in it.
 // Nothing in the app would look broken; the key would just do the wrong thing.
@@ -75,7 +75,7 @@ test('six menus on macOS, in the order a Mac user reads them', () => {
 
 test('off macOS there is no app submenu, so File exists to hold quit', () => {
   const win = build({ platform: 'win32' });
-  assert.ok(!win.some((m) => m.label === 'Nami'), 'built a mac app submenu off mac');
+  assert.ok(!win.some((m) => m.label === 'KingAgent'), 'built a mac app submenu off mac');
   const file = win.find((m) => m.label === 'File');
   assert.ok(menuRoles([file]).includes('quit'), 'nothing would quit the app');
 });
@@ -155,7 +155,7 @@ test('every url the menu opens is https, and only the repo is opened twice', () 
   for (const url of opened) assert.match(url, /^https:\/\//, `${url} is not https`);
 });
 
-// Nami appended utms to its own site's pages so help-menu traffic could be told
+// KingAgent appended utms to its own site's pages so help-menu traffic could be told
 // apart; KingAgent has no site of its own. Every help-menu link points at the
 // repo, docs and license included, and none carries a utm — the honest form of
 // the same measurement rule.
@@ -172,7 +172,7 @@ test('nothing points at a page that does not exist', () => {
   for (const url of Object.values(LINKS)) assert.ok(!url.includes('/teams'), url);
 });
 
-// Nami's copy has no em dashes in it. The menu bar is the most-read copy in the
+// KingAgent's copy has no em dashes in it. The menu bar is the most-read copy in the
 // app, so the rule is enforced rather than remembered.
 test('no label in the menu bar contains an em dash', () => {
   for (const item of menuItems(build())) {

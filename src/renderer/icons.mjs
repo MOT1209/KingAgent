@@ -1,4 +1,4 @@
-// Nami — vendored brand marks + type glyphs for the code chips.
+// KingAgent — vendored brand marks + type glyphs for the code chips.
 // Brand paths are from simple-icons (CC0 1.0), fetched once and inlined so the
 // app stays fully self-contained. Everything draws in currentColor, so the
 // chips keep their paper tints and both themes re-ink the glyphs for free.

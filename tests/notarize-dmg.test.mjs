@@ -10,9 +10,9 @@ import { refreshUpdateMetadata } from '../scripts/notarize-dmg.mjs';
 // Stapling rewrites the dmg after electron-builder has already recorded its
 // hash, and an auto-updater checks a download against that record. A stale
 // entry does not slow an update down, it stops one working at all — so these
-// tests are about the file that decides whether Nami can ever update itself.
+// tests are about the file that decides whether KingAgent can ever update itself.
 
-function fixture(bytes, { url = 'Nami-1.0.0-arm64.dmg', recordedSha = 'stale', recordedSize = 1 } = {}) {
+function fixture(bytes, { url = 'KingAgent-1.0.0-arm64.dmg', recordedSha = 'stale', recordedSize = 1 } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-staple-'));
   const dmg = path.join(dir, url);
   fs.writeFileSync(dmg, bytes);
@@ -57,14 +57,14 @@ test('everything else in the file is left alone', () => {
   const doc = f.read();
   assert.equal(doc.version, '1.0.0');
   assert.equal(doc.releaseDate, '2026-01-01T00:00:00.000Z');
-  assert.equal(doc.path, 'Nami-1.0.0-arm64.dmg');
+  assert.equal(doc.path, 'KingAgent-1.0.0-arm64.dmg');
 });
 
 test('an entry for a dmg we did not staple is untouched', () => {
   const bytes = Buffer.from('only one of these was stapled');
   const f = fixture(bytes);
   const doc = yaml.load(fs.readFileSync(path.join(f.dir, 'latest-mac.yml'), 'utf8'));
-  doc.files.push({ url: 'Nami-1.0.0.dmg', sha512: 'someone-elses', size: 99 });
+  doc.files.push({ url: 'KingAgent-1.0.0.dmg', sha512: 'someone-elses', size: 99 });
   fs.writeFileSync(path.join(f.dir, 'latest-mac.yml'), yaml.dump(doc));
 
   refreshUpdateMetadata([f.dmg]);
@@ -76,7 +76,7 @@ test('an entry for a dmg we did not staple is untouched', () => {
 
 test('a missing latest-mac.yml is not an error', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-staple-'));
-  const dmg = path.join(dir, 'Nami-1.0.0-arm64.dmg');
+  const dmg = path.join(dir, 'KingAgent-1.0.0-arm64.dmg');
   fs.writeFileSync(dmg, 'no metadata beside me');
   assert.doesNotThrow(() => refreshUpdateMetadata([dmg]));
 });

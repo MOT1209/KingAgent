@@ -1,4 +1,4 @@
-// What a Nami user can connect. Registry only: no IO here. Package names, env
+// What a KingAgent user can connect. Registry only: no IO here. Package names, env
 // vars, and key pages verified against their READMEs and the npm registry
 // 2026-08-08 (re-verify on change).
 //
@@ -66,9 +66,9 @@ for (const s of KNOWN_SERVICES) {
 }
 function serviceById(id) { return KNOWN_SERVICES.find((s) => s.id === id) || null; }
 
-// Guided services (Gmail, Drive) finish by writing the master. Nami delivers
+// Guided services (Gmail, Drive) finish by writing the master. KingAgent delivers
 // from there; the agent must not write each notebook itself, and must never
-// write nami-browser into connections.json.
-const GUIDED_FINISH = 'When it works, register it for this project by adding one entry to connections.json at the project root, under the standard "mcpServers" key (create the file if it is missing) — Nami copies it to every installed agent\'s own config from there.';
+// write kingagent-browser into connections.json.
+const GUIDED_FINISH = 'When it works, register it for this project by adding one entry to connections.json at the project root, under the standard "mcpServers" key (create the file if it is missing) — KingAgent copies it to every installed agent\'s own config from there.';
 
 module.exports = { KNOWN_SERVICES, serviceById, GUIDED_FINISH };

@@ -1,12 +1,12 @@
 // Where a file opened from Finder lands.
 //
-// macOS hands the app a path and nothing else. Nami is folder-shaped — a tile
+// macOS hands the app a path and nothing else. KingAgent is folder-shaped — a tile
 // always sits on some folder's desk — so every incoming path has to be turned
 // into a (window, folder) pair before anything can render. That decision is
 // the whole of this module: pure, no Electron, so the four cases below are
 // testable without a running app.
 //
-// Kept deliberately short. Only the types Nami already renders as a document,
+// Kept deliberately short. Only the types KingAgent already renders as a document,
 // and only the ones a person would plausibly want a workbench to own. Images,
 // video, audio and PDF are Preview's; .json and .yml belong to an editor.
 // Being listed in "Open With" for everything is noise, not a feature.

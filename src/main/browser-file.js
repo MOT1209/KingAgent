@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-// The renderer can ask for a local page to leave Nami's sandbox, so this gate
+// The renderer can ask for a local page to leave KingAgent's sandbox, so this gate
 // is intentionally narrower than "anything a browser might display". A real,
 // absolute HTML file is the product use-case; every other scheme, extension,
 // missing path and directory is refused before shell.openExternal sees it.

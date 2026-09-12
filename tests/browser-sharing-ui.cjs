@@ -21,7 +21,7 @@ app.whenReady().then(async()=>{
     await until(()=>!page.isLoading());
     const nativeClick=async(wc,sel)=>{const r=JSON.parse(await wc.executeJavaScript(`JSON.stringify(document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect())`));for(const type of ['mouseDown','mouseUp'])wc.sendInputEvent({type,x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),button:'left',clickCount:1});await pause(90);};
     const overlay=async(sel)=>{for(const wc of webContents.getAllWebContents().filter(w=>w.getURL().endsWith('/browser-overlay.html')))if(await wc.executeJavaScript(`!!document.querySelector(${JSON.stringify(sel)})`).catch(()=>false))return wc;};
-    const shot=async name=>{if(!process.env.NAMI_REVIEW_DIR)return;await pause(450);win.webContents.invalidate();await pause(100);const views=new Map(win.contentView.children.filter(v=>v.webContents&&v.webContents!==win.webContents).map((view,i)=>[i,{window:win,view}]));fs.mkdirSync(process.env.NAMI_REVIEW_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.NAMI_REVIEW_DIR,name+'.png'),await captureWindow(win,views));};
+    const shot=async name=>{if(!process.env.KINGAGENT_REVIEW_DIR)return;await pause(450);win.webContents.invalidate();await pause(100);const views=new Map(win.contentView.children.filter(v=>v.webContents&&v.webContents!==win.webContents).map((view,i)=>[i,{window:win,view}]));fs.mkdirSync(process.env.KINGAGENT_REVIEW_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.KINGAGENT_REVIEW_DIR,name+'.png'),await captureWindow(win,views));};
     const status=await run('kingagent.browserStatus()');
     const [owner,peer]=status.sessions,tab=status.views[0];
     assert.ok(owner&&peer&&tab);

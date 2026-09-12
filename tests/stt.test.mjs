@@ -64,7 +64,7 @@ test('settings key beats an env key for the same provider', () => {
 
 // ---- status -----------------------------------------------------------------
 
-test('status reports every provider, and only a key saved in Nami counts as saved', () => {
+test('status reports every provider, and only a key saved in KingAgent counts as saved', () => {
   const s = status({ settings: {}, env: { OPENAI_API_KEY: 'sk-env' }, deps: { engine: fakeEngine() } });
   assert.deepEqual(s.providers.map((p) => p.id), ['local', 'openai', 'elevenlabs']);
   const oa = s.providers.find((p) => p.id === 'openai');

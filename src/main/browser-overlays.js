@@ -20,7 +20,7 @@ function wireBrowserOverlays(ipcMain) {
       w.on('close', async event => {
         if(approved || !records.pendingCount)return;
         event.preventDefault(); if(asking)return; asking=true;
-        try { const result=await dialog.showMessageBox(w,{type:'question',message:'Discard pending browser annotations and close Nami?',detail:'These temporary notes have not been inserted into a session.',buttons:['Keep notes','Discard and close'],defaultId:0,cancelId:0});
+        try { const result=await dialog.showMessageBox(w,{type:'question',message:'Discard pending browser annotations and close KingAgent?',detail:'These temporary notes have not been inserted into a session.',buttons:['Keep notes','Discard and close'],defaultId:0,cancelId:0});
           if(result.response===1&&!w.isDestroyed()){approved=true;w.close();}
         } finally {asking=false;}
       });

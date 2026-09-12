@@ -30,7 +30,7 @@ app.whenReady().then(async () => {
         ...[['5 hours', 73, 'Shared account allowance'], ['7 days', 52, 'Shared account allowance'], ['5 hours', 100, 'Spark']].map(([windowLabel, remaining, scopeLabel], i) => ({ id: 'codex:' + i, accountId: 'codex:configured', providerName: 'Codex', accountName: 'Configured CLI account', windowLabel, remaining, scopeLabel, source: 'Codex', checkedAt: now, resetsAt: now + 3600000, status: 'reported' })),
         { id: 'claude:stale', accountId: 'claude:status-line', providerName: 'Claude', accountName: 'Status-line account', windowLabel: '5 hours', remaining: null, status: 'stale', detail: 'Use Claude to refresh its status line.' },
         ...['OpenCode', 'Grok', 'Antigravity', 'Hermes'].map((name) => ({ id: name, name, status: 'unavailable', remaining: null, detail: 'No connected quota adapter.' })),
-      ], claudeCommand: 'nami-review-fixture', feedDirectory: '/review/usage' };
+      ], claudeCommand: 'kingagent-review-fixture', feedDirectory: '/review/usage' };
     });
     await until(() => evaluate('!!document.querySelector(".browser-viewport")'));
     const section = async (name) => {
@@ -39,10 +39,10 @@ app.whenReady().then(async () => {
       await pause(220);
     };
     const screenshot = async (name) => {
-      if (!process.env.NAMI_REVIEW_DIR) return;
-      fs.mkdirSync(process.env.NAMI_REVIEW_DIR, { recursive: true });
+      if (!process.env.KINGAGENT_REVIEW_DIR) return;
+      fs.mkdirSync(process.env.KINGAGENT_REVIEW_DIR, { recursive: true });
       win.webContents.invalidate(); await pause(160);
-      fs.writeFileSync(path.join(process.env.NAMI_REVIEW_DIR, name + '.png'), (await win.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(process.env.KINGAGENT_REVIEW_DIR, name + '.png'), (await win.webContents.capturePage()).toPNG());
     };
     const checkBounds = async () => {
       const findings = await evaluate(`(() => {
@@ -77,9 +77,9 @@ app.whenReady().then(async () => {
       win.webContents.send('menu:command', 'theme:' + theme); await pause(120);
       for (const name of ['browser', 'usage']) { await section(name); await checkBounds(); await screenshot(name + '-' + theme); }
       await click('.ov-x'); await pause(120);
-      if (process.env.NAMI_REVIEW_DIR) {
+      if (process.env.KINGAGENT_REVIEW_DIR) {
         const bounds = await evaluate(`(() => { const r = document.querySelector('.footer').getBoundingClientRect(); return { x: Math.floor(r.x), y: Math.floor(r.y), width: Math.floor(r.width), height: Math.floor(r.height) }; })()`);
-        fs.writeFileSync(path.join(process.env.NAMI_REVIEW_DIR, 'shortcuts-footer-' + theme + '.png'), (await win.webContents.capturePage(bounds)).toPNG());
+        fs.writeFileSync(path.join(process.env.KINGAGENT_REVIEW_DIR, 'shortcuts-footer-' + theme + '.png'), (await win.webContents.capturePage(bounds)).toPNG());
       }
     }
     for (const zoom of [1.5, 1.75]) {

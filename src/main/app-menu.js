@@ -1,8 +1,8 @@
 // The application menu: six menus, written out by hand, none of them Electron's.
 //
-// Nami shipped with Electron's stock menu, which is why the Nami menu offered
+// KingAgent shipped with Electron's stock menu, which is why the KingAgent menu offered
 // Services, Hide Others and Show All, why Edit offered smart quotes to an app
-// whose text is prompts and paths, and why About Nami opened the grey macOS
+// whose text is prompts and paths, and why About KingAgent opened the grey macOS
 // panel that credited a person instead of the company. Nothing the app can
 // actually do appeared up there: ⌘N, ⌘O, ⌘K, ⌘, and ⌘S all worked with no menu
 // to say so, and a Mac user reads the menu bar to find out what an app can do.
@@ -26,14 +26,14 @@ const SITE = REPO;
 
 // Where the app sends people, and how those visits are told apart later.
 //
-// Nami has no telemetry and is not getting any — "nothing leaves your Mac" is
+// KingAgent has no telemetry and is not getting any — "nothing leaves your Mac" is
 // one of three reasons people trust it. UTMs are the whole measurement story
 // instead: they cost nothing, they are visible to anyone who looks at the link,
 // and they are read by analytics that already exist on the other end. The
 // medium names the surface so "did the Help menu ever get used" has an answer.
 //
 // docs and terms are the site's own pages, so they get the same treatment as
-// dainami.ai. releases stays bare with the other GitHub links.
+// github.com/MOT1209/KingAgent/releases stays bare with the other GitHub links.
 const LINKS = {
   repo: REPO,
   issue: `${REPO}/issues/new`,
@@ -48,7 +48,7 @@ const LINKS = {
 // user finding it.
 //
 // Anything after a colon is an argument: settings:keys, rail:workspace,
-// theme:graphite, open-recent:/Users/x/nami.
+// theme:graphite, open-recent:/Users/x/kingagent.
 const COMMANDS = [
   'about', 'update-check', 'settings',
   'new-session', 'open-folder', 'open-recent', 'new-file', 'new-folder',
@@ -79,8 +79,8 @@ function buildMenuTemplate({
   const cmd = (label, command, extra = {}) => ({ label, ...extra, click: () => send(command) });
   const link = (label, url) => ({ label, click: () => open(url) });
 
-  // Two of these are the whole reason the branch exists. About Nami carries no
-  // role, because `role: 'about'` is the stock panel; it opens Nami's own About
+  // Two of these are the whole reason the branch exists. About KingAgent carries no
+  // role, because `role: 'about'` is the stock panel; it opens KingAgent's own About
   // pane instead, which already knows the version, the day this copy landed,
   // whether a newer one exists and the licence. Settings takes the slot
   // Services used to hold, and ⌘, already did this with no menu to say so.
@@ -97,7 +97,7 @@ function buildMenuTemplate({
 
   // File is new. It is also where ⌘W lives, and the reason this file has a test
   // shouting about it: the conventional Mac File menu holds `role: 'close'`,
-  // which binds ⌘W to Close Window, and Nami binds ⌘W to close the active
+  // which binds ⌘W to Close Window, and KingAgent binds ⌘W to close the active
   // *pane*. A menu accelerator outranks a renderer keydown, so the
   // conventional item would silently turn "close this tile" into "close the
   // window and lose every session in it". Close Pane is routed to the same
@@ -176,7 +176,7 @@ function buildMenuTemplate({
   ];
 
   // role: 'window' rather than a plain label, because that is what tells macOS
-  // to append the list of open windows underneath. Nami is a window per project
+  // to append the list of open windows underneath. KingAgent is a window per project
   // space, so that list is how you get between two folders.
   const windowSubmenu = [
     { role: 'minimize' },
@@ -190,10 +190,10 @@ function buildMenuTemplate({
   // at it. Keyboard Shortcuts stays inside the app, because the answer is
   // already in Settings.
   //
-  // ★ Star Nami lives here and not in the Nami menu on purpose. The Nami menu
+  // ★ Star KingAgent lives here and not in the KingAgent menu on purpose. The KingAgent menu
   // is opened with intent, for Settings or Quit, and an ask parked there taxes
   // every one of those visits. Help is where a Mac user looks for the project
-  // itself, and About Nami already reaches the star in one hop: the pane it
+  // itself, and About KingAgent already reaches the star in one hop: the pane it
   // opens has the star button as its primary action.
   const helpSubmenu = [
     link('KingAgent Docs', LINKS.docs),

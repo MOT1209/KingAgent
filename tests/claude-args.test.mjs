@@ -50,7 +50,7 @@ test('projectSlug matches claude transcript folder naming', () => {
 });
 
 // ---- what actually gets typed on the fallback path -------------------------
-// With no resolvable binary, Nami spawns a shell and types the claude command
+// With no resolvable binary, KingAgent spawns a shell and types the claude command
 // into it. That path used to be reached through a seed marker that made it type
 // a bare `claude`, dropping --session-id, --resume and --name. The id was then
 // never pinned, so the title watcher followed a transcript nothing wrote and

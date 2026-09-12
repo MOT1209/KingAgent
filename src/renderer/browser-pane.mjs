@@ -173,7 +173,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     let currentOrigin=''; try{currentOrigin=new URL(view?.url).origin;}catch{}
     const saved=await run({action:'credentials'});if(state.overlay!==o||!saved)return;
     q('#profile-credentials',host).innerHTML=(saved.credentials||[]).map(c=>`<div class="browser-credential"><span>${esc(c.origin)}<small>${esc(c.username)}</small></span>${canFill&&c.origin===currentOrigin?`<button class="btn btn--small" data-fill="${esc(c.id)}">Fill</button>`:''}<button class="btn btn--small" data-delete="${esc(c.id)}">Delete</button></div>`).join('')||'<p class="note">No saved passwords.</p>';
-    host.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>ask('Delete this saved password from Nami?',async()=>{if(await run({action:'delete-credential',credentialId:b.dataset.delete}))show({...o});}));
+    host.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>ask('Delete this saved password from KingAgent?',async()=>{if(await run({action:'delete-credential',credentialId:b.dataset.delete}))show({...o});}));
     host.querySelectorAll('[data-fill]').forEach(b=>b.onclick=async()=>{if(await run({action:'autofill',id:view.id,credentialId:b.dataset.fill})){close();toast('Filled matching fields. Review the page before submitting.');}});
   }
   async function renderImport() {

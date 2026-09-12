@@ -1,9 +1,9 @@
-// "Did the command Nami typed into that shell finish, and how did it go?"
+// "Did the command KingAgent typed into that shell finish, and how did it go?"
 //
 // A kind:'run' tile is a real interactive login shell with a command written
 // into it. That is deliberate — it sources the user's rc file, it can ask for a
 // sudo password, and it stays alive afterwards so the output can be read. The
-// cost is that the shell, not Nami, owns the command: pty exit only fires when
+// cost is that the shell, not KingAgent, owns the command: pty exit only fires when
 // the *shell* dies, which for an install is usually never. So the install tile
 // sat at a prompt with nothing in the app knowing the install had finished, and
 // the user was told to go and press ⌘N.
@@ -11,11 +11,11 @@
 // The shell can just say. Appending a printf to the command makes it announce
 // its own exit code the moment it lands:
 //
-//   curl … | bash; printf '\033]1337;NamiRunDone=%s\007' "$?"
+//   curl … | bash; printf '\033]1337;KingAgentRunDone=%s\007' "$?"
 //
 // OSC 1337 is a private-use operating system command. xterm.js parses and
 // discards handlers it does not know, so nothing appears in the tile — the same
-// channel Nami already reads claude's session titles from (osc-title.js), used
+// channel KingAgent already reads claude's session titles from (osc-title.js), used
 // the other way round.
 //
 // `;` and not `&&`, so a failed install still reports.
@@ -39,17 +39,17 @@
 //
 // Pure: main.js owns the pty, this owns the parsing.
 
-const OPEN = ']1337;NamiRunDone=';
-const DONE_RE = /\]1337;NamiRunDone=(-?\d{1,5})(?:|\\)/;
+const OPEN = ']1337;KingAgentRunDone=';
+const DONE_RE = /\]1337;KingAgentRunDone=(-?\d{1,5})(?:|\\)/;
 
 // The suffix appended to a run command. Single-quoted so the shell expands
 // nothing in it; "$?" quoted so an empty status cannot swallow the argument.
 function doneSuffix(command) {
-  return `${command}; printf '\\033]1337;NamiRunDone=%s\\007' "$?"`;
+  return `${command}; printf '\\033]1337;KingAgentRunDone=%s\\007' "$?"`;
 }
 
 // The suffix cannot be TYPED into an interactive shell, which is how a run tile
-// used to be driven: a pty echoes its input, so the user watched Nami's own
+// used to be driven: a pty echoes its input, so the user watched KingAgent's own
 // printf scroll past on the end of their install line. Measured in the real
 // app — sentinelVisible: true — and unacceptable in a tile people read.
 //
@@ -76,7 +76,7 @@ function oneShotArgs(shell, command, platform = process.platform) {
   if (platform === 'win32') {
     const ps = `${command}`
       + `; $c = if ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 1 }`
-      + `; Write-Host -NoNewline ("$([char]27)]1337;NamiRunDone=$c$([char]7)")`;
+      + `; Write-Host -NoNewline ("$([char]27)]1337;KingAgentRunDone=$c$([char]7)")`;
     return ['-NoLogo', '-NoExit', '-Command', ps];
   }
   return ['-i', '-c', `${doneSuffix(command)}; exec ${shell} -i`];

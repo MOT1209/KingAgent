@@ -1,4 +1,4 @@
-// Everything Nami assumes about the operating system, in one place.
+// Everything KingAgent assumes about the operating system, in one place.
 //
 // These assumptions used to be scattered as literals: '/bin/zsh' in four call
 // sites, `command -v` inside a template string, three absolute paths where
@@ -6,7 +6,7 @@
 // each was invisible — nothing named them as platform decisions, so a port
 // meant finding them by failure rather than by reading.
 //
-// Nami ships macOS-only on purpose (see the shipping spec), so the darwin
+// KingAgent ships macOS-only on purpose (see the shipping spec), so the darwin
 // column is the one that is exercised and verified. The win32 column is written
 // from the documented install paths of each tool and is NOT verified — it
 // exists so that adding Windows is filling in a table rather than an
@@ -97,7 +97,7 @@ function cacheDir({ platform = process.platform, home = '', env = {}, name = 'ki
   return join(home, 'Library', 'Caches', name);
 }
 
-// The dot-folder in $HOME where KingAgent keeps masters and bundles. Nami used
+// The dot-folder in $HOME where KingAgent keeps masters and bundles. KingAgent used
 // `.nami`; the rename is the brand's, applied deliberately and once.
 const APP_DATA_DIRNAME = '.kingagent';
 
@@ -142,7 +142,7 @@ const DEAD_SHELLS = new Set(['/usr/bin/false', '/bin/false', '/usr/sbin/nologin'
 // interactive one. Login alone is not enough: zsh reads .zshrc only when
 // interactive, and .zshrc is where installers write their PATH lines — bun,
 // opencode and nvm among them. With `-lc` those lines are never read, so a
-// Dock-launched Nami (which inherits no PATH at all) reported perfectly
+// Dock-launched KingAgent (which inherits no PATH at all) reported perfectly
 // well-installed agents as missing. Started from a terminal it looked fine,
 // because the inherited PATH was covering for it.
 function loginShell(platform = process.platform, env = process.env) {
@@ -163,7 +163,7 @@ function loginShell(platform = process.platform, env = process.env) {
 // Where to look when the shell probe comes back empty — a .zshrc that prints a
 // banner, refuses to run without a tty, or does not exist must degrade to a
 // worse answer, never to "you have no agents installed". The running PATH goes
-// first (it is the truth when Nami *was* started from a terminal), then the
+// first (it is the truth when KingAgent *was* started from a terminal), then the
 // documented install location of each CLI we know about.
 function binSearchDirs({ home = '', env = {}, platform = process.platform } = {}) {
   const win = platform === WIN;

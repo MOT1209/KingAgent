@@ -1,4 +1,4 @@
-/* Nami — the paper design system */
+/* KingAgent — the paper design system */
 
 /* The two faces the paper aesthetic is made of. These used to be fetched from
    fonts.googleapis.com on every launch, which cost two things: offline the whole
@@ -223,7 +223,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   font-size: 9px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--faint); white-space: nowrap; pointer-events: none;
 }
-/* the tagline sits on Nami's baseline, not the row's centre — Caveat's lowercase
+/* the tagline sits on KingAgent's baseline, not the row's centre — Caveat's lowercase
    hangs low, so a centred tagline reads as floating high next to it */
 .brand-sub { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
   align-self: flex-end; padding-bottom: 1px; }
@@ -1007,7 +1007,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 /* One line in the bottom-left of the work area, sitting just above the keyboard
    hints — the quietest place on the desk. It was a card with a heading and two
    buttons first, and at that weight it read as something you had to deal with.
-   An update is the least urgent thing Nami has to say, so it says it once, in
+   An update is the least urgent thing KingAgent has to say, so it says it once, in
    the same voice as the hints, and gets out of the way.
 
    Anchored inside .main rather than the sheet so it can never sit on top of the
@@ -1232,7 +1232,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 #btn-theme .uni-i, #btn-settings .uni-i, #btn-help .uni-i { font-size: 17px; line-height: 1; }
 /* The ? gets its own colour so it does not read as a third settings icon.
    Amber is Calvin's call over blue. Worth knowing it is a trade: amber is also
-   Nami's "needs you" — the live badge, the unsaved dot, the approval card — so a
+   KingAgent's "needs you" — the live badge, the unsaved dot, the approval card — so a
    permanent amber chip up here spends a little of that signal. One token to
    change if the ? ever starts reading as an alert. */
 #btn-help {
@@ -1464,7 +1464,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 }
 
 /* Rich Markdown is loaded only after Edit opens. The editor library gets
-   Nami's existing paper variables rather than carrying a fifth theme of its
+   KingAgent's existing paper variables rather than carrying a fifth theme of its
    own, so paper/operator/glass/graphite change this surface exactly once. */
 .ed-rich {
   /* The scroller for the whole Edit page: properties strip + document move as
@@ -1499,7 +1499,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .ed-rich-doc { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
 .ed-rich .milkdown { flex: 1 0 auto; display: flex; flex-direction: column; background: transparent; }
 .ed-rich .milkdown .ProseMirror.editor {
-  /* ProseMirror names its editable element `editor`; Nami's card root has the
+  /* ProseMirror names its editable element `editor`; KingAgent's card root has the
      same class. Reset the card's absolute flex layout here or the document is
      positioned like a second full card, leaving a large empty band above it. */
   position: relative; inset: auto; display: block; flex: 1 0 auto;

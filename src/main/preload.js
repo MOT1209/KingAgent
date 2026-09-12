@@ -72,11 +72,11 @@ contextBridge.exposeInMainWorld('kingagent', {
   // folders, so the file rides along to the window being made instead.
   newWindow: (folder, openFile) => ipcRenderer.invoke('window:new', { folder, openFile: openFile || null }),
 
-  // Finder opened a file with Nami. adopt says the folder has to change first;
+  // Finder opened a file with KingAgent. adopt says the folder has to change first;
   // without it the file already lives on this desk. See src/main/open-with.js.
   onOpenFile: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('open:file', h); return () => ipcRenderer.removeListener('open:file', h); },
 
-  // One channel for the whole menu bar. Every Nami item in it is a string this
+  // One channel for the whole menu bar. Every KingAgent item in it is a string this
   // window turns into the same call the keyboard already made, so the menu adds
   // labels rather than a second way for anything to work.
   onMenuCommand: (cb) => { const h = (_e, cmd) => cb(cmd); ipcRenderer.on('menu:command', h); return () => ipcRenderer.removeListener('menu:command', h); },
@@ -149,7 +149,7 @@ contextBridge.exposeInMainWorld('kingagent', {
   // The panel has to store the new id or the next launch resumes the wrong one.
   onSessionSid: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('session:sid', h); return () => ipcRenderer.removeListener('session:sid', h); },
 
-  // A newer Nami exists — { version, url }. Only ever fires when there is one;
+  // A newer KingAgent exists — { version, url }. Only ever fires when there is one;
   // silence is the normal case and means nothing went wrong.
   onUpdateAvailable: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:available', h); return () => ipcRenderer.removeListener('update:available', h); },
   openUpdate: (url) => ipcRenderer.invoke('update:open', url),

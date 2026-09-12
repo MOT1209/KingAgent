@@ -11,7 +11,7 @@ app.whenReady().then(async () => {
     await new Promise((r) => pageServer.listen(0, '127.0.0.1', r));
     const url = `http://127.0.0.1:${pageServer.address().port}`;
     win = new BrowserWindow({ show: false });
-    await win.loadURL('data:text/html,<title>Nami private renderer</title><p>PRIVATE APP</p>');
+    await win.loadURL('data:text/html,<title>KingAgent private renderer</title><p>PRIVATE APP</p>');
     const page = new WebContentsView({ webPreferences: { sandbox: true, nodeIntegration: false } });
     win.contentView.addChildView(page); page.setBounds({ x: 0, y: 0, width: 800, height: 600 }); await page.webContents.loadURL(url);
     const entry = { id: 'v1', owner: 's1', window: win, view: page }, views = new Map([['v1', entry]]);
@@ -52,11 +52,11 @@ app.whenReady().then(async () => {
     await gateway.refresh('s1', () => access.grant('s1', win.webContents.id, ['v1']));
     assert.equal((await gateway.connection('s1')).url, connection.url);
     assert.deepEqual(await call('tools/list'), tools);
-    await assert.rejects(call('tools/call', { name: 'nami_browser_screenshot', arguments: { tabId: 'private' } }), /not shared/);
+    await assert.rejects(call('tools/call', { name: 'kingagent_browser_screenshot', arguments: { tabId: 'private' } }), /not shared/);
     win.showInactive();
     secretPage.setVisible(false);
     await new Promise(resolve => setTimeout(resolve, 250));
-    const image = await call('tools/call', { name: 'nami_browser_screenshot', arguments: { tabId: 'v1' } });
+    const image = await call('tools/call', { name: 'kingagent_browser_screenshot', arguments: { tabId: 'v1' } });
     assert.equal(image.content[1].type, 'image');
     assert.equal(image.content[1].mimeType, 'image/png');
     assert.equal(JSON.parse(image.content[0].text).url, url + '/');
@@ -84,10 +84,10 @@ app.whenReady().then(async () => {
     const closed = await call('tools/call', { name: 'browser_tabs', arguments: { action: 'close', index: 1 } });
     assert.equal(closed.isError, undefined, JSON.stringify(closed));
     assert.equal(access.get('s1').views.size, 1);
-    await call('tools/call', { name: 'nami_send_message', arguments: { to: 's2', text: 'Please review.' } });
+    await call('tools/call', { name: 'kingagent_send_message', arguments: { to: 's2', text: 'Please review.' } });
     assert.equal(access.get('s2').inbox[0].text, 'Please review.');
     assert.equal(delivered.sessionId, 's2');
-    await assert.rejects(call('tools/call', { name: 'nami_send_message', arguments: { to: 'unknown', text: 'No' } }));
+    await assert.rejects(call('tools/call', { name: 'kingagent_send_message', arguments: { to: 'unknown', text: 'No' } }));
     assert.equal((await fetch(connection.url, { method: 'POST', headers: { origin: 'https://example.com' } })).status, 403);
     const running = call('tools/call', { name: 'browser_evaluate', arguments: { function: 'async () => { window.revocationStarted = true; await new Promise(resolve => setTimeout(resolve, 250)); return document.title; }' } });
     const rejected = assert.rejects(running, /access changed/);

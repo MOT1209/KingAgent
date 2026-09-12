@@ -12,22 +12,22 @@ function blankMode(settings) {
   const mode = settings?.browserNewTab;
   return mode === 'dark' || mode === 'light' ? mode : 'system';
 }
-function namiThemeIsDark(settings) {
+function kingagentThemeIsDark(settings) {
   const theme = settings?.theme || '';
   return theme === 'operator' || theme === 'graphite' || theme === 'dusk';
 }
-// "System" means Nami's own theme. It used to fall through to the Mac's dark
-// mode when Nami was light, which on a light desk over a dark Mac gave a dark
+// "System" means KingAgent's own theme. It used to fall through to the Mac's dark
+// mode when KingAgent was light, which on a light desk over a dark Mac gave a dark
 // new tab, then a dark website, then a light desk again — the flicker people
-// reported. Nami is the system the tab lives in.
+// reported. KingAgent is the system the tab lives in.
 function blankIsDark(mode, settings) {
   if (mode === 'dark') return true;
   if (mode === 'light') return false;
-  return namiThemeIsDark(settings);
+  return kingagentThemeIsDark(settings);
 }
 // Websites read prefers-color-scheme from Chromium, which reads it from the
 // Mac unless told otherwise. Tell it, so a page renders in the same mode as
-// the desk around it. Nami's own window styles itself by data-theme and never
+// the desk around it. KingAgent's own window styles itself by data-theme and never
 // consults this, so nothing there moves.
 function syncNativeTheme(settings) {
   try { require('electron').nativeTheme.themeSource = blankIsDark(blankMode(settings), settings) ? 'dark' : 'light'; } catch {}
@@ -79,7 +79,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
   const send = (e, type, data) => { if (!e.window.isDestroyed() && !e.window.webContents.isDestroyed()) e.window.webContents.send('browser:event', { id: e.id, type, ...data }); };
   const mainWindow = (event) => {
     const w = BrowserWindow.fromWebContents(event.sender);
-    if (!w || event.sender !== w.webContents || event.senderFrame !== w.webContents.mainFrame) throw new Error('Browser action is not from Nami.');
+    if (!w || event.sender !== w.webContents || event.senderFrame !== w.webContents.mainFrame) throw new Error('Browser action is not from KingAgent.');
     return w;
   };
   const find = (w, id) => { const e = views.get(id); if (!e || e.window !== w) throw new Error('Browser view is no longer available.'); return e; };
@@ -208,7 +208,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
   }
   async function remove(id, { notify = true, confirmed = false } = {}) {
     const e = views.get(id); if (!e) return;
-    if (e.pendingCount && !confirmed) throw new Error('This tab has pending annotations. Review or discard them in Nami before closing the tab.');
+    if (e.pendingCount && !confirmed) throw new Error('This tab has pending annotations. Review or discard them in KingAgent before closing the tab.');
     views.delete(id);
     for (const s of access.sessions.values()) s.views.delete(id);
     if (notify) send(e, 'closed', {});
@@ -229,7 +229,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
       if (!serialized) return { ok: true, ...await action(w, args) };
       if (identityChange) pendingIdentityChanges++;
       const run = mutations.then(() => {
-        if (w.isDestroyed() || ev.sender.isDestroyed()) throw new Error('The Nami window has closed.');
+        if (w.isDestroyed() || ev.sender.isDestroyed()) throw new Error('The KingAgent window has closed.');
         return action(w, args);
       }).finally(() => { if (identityChange) pendingIdentityChanges--; });
       mutations = run.catch(() => {});
@@ -293,7 +293,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
     }
     else if (action === 'capture') {
       const picture = await wc.capturePage();
-      const result = await dialog.showSaveDialog(w, { title: 'Save browser screenshot', defaultPath: 'nami-browser.png', filters: [{ name: 'PNG image', extensions: ['png'] }] });
+      const result = await dialog.showSaveDialog(w, { title: 'Save browser screenshot', defaultPath: 'kingagent-browser.png', filters: [{ name: 'PNG image', extensions: ['png'] }] });
       if (!result.canceled && result.filePath) fs.writeFileSync(result.filePath, picture.toPNG());
       return { canceled: result.canceled };
     }
@@ -344,7 +344,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
         const created = await create(w, next); send(created, 'profile-changed', { profileId });
       });
     } else if (action === 'clear' || action === 'remove') {
-      if (args.confirmed !== true) throw new Error('Confirm clearing this Nami browser data first.');
+      if (args.confirmed !== true) throw new Error('Confirm clearing this KingAgent browser data first.');
       if (action === 'remove' && profiles.list().length === 1) throw new Error('Keep at least one browser profile.');
       await mutateProfile(profileId, async () => {
         const record = getPartition(w, profileId);
@@ -400,7 +400,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
         if (!sources.length) return { imported: 0, skippedGoogle: 0, skippedEncrypted: 0, decryptUnavailable: false, message: 'No Chromium browser profile was found.' };
         // One profile, named. This used to hand every detected source to the
         // importer at once, which merged whatever the machine happened to have
-        // into a single Nami profile — a blast radius that grew the moment more
+        // into a single KingAgent profile — a blast radius that grew the moment more
         // browsers were detected. Pick the one asked for, or the first.
         const source = sources[Number(args.sourceIndex)] || sources[0];
         const { execFileSync } = require('node:child_process');
@@ -410,8 +410,8 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
           passwordFor: () => chromeKeychainPassword(source.browser, execFileSync),
         });
         const message = result.imported
-          ? 'Copied ' + result.imported + ' cookies from ' + source.browser + ' into this Nami profile. Google cookies skipped. ' + source.browser + ' is unchanged.' + (result.decryptUnavailable ? ' Some cookies used newer encryption and were skipped.' : '')
-          : source.browser + '’s cookie encryption could not be copied. Import a password CSV and sign in inside Nami. ' + source.browser + ' is unchanged.';
+          ? 'Copied ' + result.imported + ' cookies from ' + source.browser + ' into this KingAgent profile. Google cookies skipped. ' + source.browser + ' is unchanged.' + (result.decryptUnavailable ? ' Some cookies used newer encryption and were skipped.' : '')
+          : source.browser + '’s cookie encryption could not be copied. Import a password CSV and sign in inside KingAgent. ' + source.browser + ' is unchanged.';
         return { imported: result.imported, skippedGoogle: result.skippedGoogle, skippedEncrypted: result.skippedEncrypted, decryptUnavailable: result.decryptUnavailable, message };
       });
     } else if (action === 'new-tab') {

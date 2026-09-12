@@ -43,10 +43,10 @@ test('userConfigFields lists what the form must ask', () => {
 });
 
 test('buildEntry substitutes __dirname and user_config, with defaults', () => {
-  const entry = buildEntry({ manifest: MANIFEST, dir: '/home/u/.nami/bundles/weather-mcp', values: { api_key: 'k123' } });
+  const entry = buildEntry({ manifest: MANIFEST, dir: '/home/u/.kingagent/bundles/weather-mcp', values: { api_key: 'k123' } });
   assert.deepEqual(entry, {
     command: 'node',
-    args: ['/home/u/.nami/bundles/weather-mcp/server/index.js', '--units', 'metric'],
+    args: ['/home/u/.kingagent/bundles/weather-mcp/server/index.js', '--units', 'metric'],
     env: { WEATHER_KEY: 'k123' },
   });
 });

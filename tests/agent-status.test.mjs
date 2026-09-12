@@ -208,7 +208,7 @@ test('grok: no token, key or refresh token ever reaches a row', () => {
   }
 });
 
-// XAI_API_KEY is env-only — Grok never writes it to auth.json. Nami passes a
+// XAI_API_KEY is env-only — Grok never writes it to auth.json. KingAgent passes a
 // boolean, never the secret. Same precedence Grok itself uses: a session
 // token in auth.json beats the key.
 test('grok: a stored API key with no auth file is signed in', () => {

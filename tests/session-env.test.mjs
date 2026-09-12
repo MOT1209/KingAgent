@@ -4,10 +4,10 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { stripInheritedClaude } = require('../src/main/session-env.js');
 
-// The bug: launch Nami from a terminal that is itself inside a claude session
-// — `open -a Nami` from such a shell, an `npm start` in a claude tile — and
-// every var that session exported lands in Nami's environment, and from there
-// in every tile Nami spawns. claude reads CLAUDE_CODE_CHILD_SESSION, decides it
+// The bug: launch KingAgent from a terminal that is itself inside a claude session
+// — `open -a KingAgent` from such a shell, an `npm start` in a claude tile — and
+// every var that session exported lands in KingAgent's environment, and from there
+// in every tile KingAgent spawns. claude reads CLAUDE_CODE_CHILD_SESSION, decides it
 // is a nested instance, and turns transcript saving off. The only sign is one
 // grey warning line inside the tile; --resume and the session rail read that
 // transcript, so the loss is silent and total.

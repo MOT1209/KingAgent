@@ -1,4 +1,4 @@
-/* Nami — "operator" theme: dark ops console, one coral accent.
+/* KingAgent — "operator" theme: dark ops console, one coral accent.
    Every rule is scoped under body[data-theme="operator"] so the paper theme
    (paper.css) stays byte-identical. Strategy: remap the paper token names to
    dark values, then patch the rules that hard-code paper-only literals
@@ -124,7 +124,7 @@ body[data-theme="operator"] .nami-mascot {
      18px NAMI wordmark centres on the body, not the whole bounding box */
   transform: translateY(-2px);
 }
-/* paper drops the tagline to Nami's baseline; mono NAMI has no hanging
+/* paper drops the tagline to KingAgent's baseline; mono NAMI has no hanging
    lowercase, so operator keeps it centred */
 body[data-theme="operator"] .brand-sub { align-self: center; padding-bottom: 0; }
 /* --faint is 2.9:1 on the sheet even after the lift — a smudge, not a word.

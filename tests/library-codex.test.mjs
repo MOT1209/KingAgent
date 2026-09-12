@@ -1,10 +1,10 @@
 // Codex was write-only: agent-master.js has written `.codex/agents/<slug>.toml`
 // since the masters landed, but the scanner never read that folder back. So a
-// Codex agent somebody wrote by hand was invisible to Nami, and Codex was the
+// Codex agent somebody wrote by hand was invisible to KingAgent, and Codex was the
 // one installed tool whose own agents could never appear in any list.
 //
 // Reading it back is the same three rules every other folder follows: the
-// marker hides Nami's own copies, a hand-made file is theirs, and the slug is
+// marker hides KingAgent's own copies, a hand-made file is theirs, and the slug is
 // the filename.
 
 import { test, before } from 'node:test';
@@ -88,7 +88,7 @@ test('a master’s tool: reaches the renderer — the picker resolves from meta'
 // file that merely shares the name, in a folder the master never writes to, is
 // a different agent — and OpenCode makes that distinction real: it reads both
 // `.opencode/agent` and `.opencode/agents`, delivery writes the plural, and
-// Nami's own create writes the singular.
+// KingAgent's own create writes the singular.
 
 test('a hand-made file at a master’s copy target is marked as its shadow', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-shadow-'));

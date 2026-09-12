@@ -1,9 +1,9 @@
 // A tile is a new top-level agent. It is never a child of whatever launched
-// Nami — and claude decides which it is purely from the environment.
+// KingAgent — and claude decides which it is purely from the environment.
 //
-// Launch Nami from a shell that is itself inside a claude session (`open -a
-// Nami` from a claude tile, `npm start` in one) and that conversation's
-// variables land in Nami's environment, and from there in every session Nami
+// Launch KingAgent from a shell that is itself inside a claude session (`open -a
+// KingAgent` from a claude tile, `npm start` in one) and that conversation's
+// variables land in KingAgent's environment, and from there in every session KingAgent
 // spawns. claude reads CLAUDE_CODE_CHILD_SESSION, concludes it is nested, and
 // turns transcript saving off so two processes do not write one file. The only
 // sign is a grey warning line inside the tile — and the transcript is what

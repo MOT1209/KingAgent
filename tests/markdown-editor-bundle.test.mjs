@@ -34,7 +34,7 @@ test('the adapter shares one lazy import and one stylesheet across cards', () =>
   assert.match(adapter, /export async function mountMarkdownEditor/);
 });
 
-test('the trimmed editor preserves Nami highlight and colour markdown', () => {
+test('the trimmed editor preserves KingAgent highlight and colour markdown', () => {
   const entry = fs.readFileSync(path.join(root, 'scripts/markdown-editor-entry.mjs'), 'utf8');
   assert.match(entry, /\$markSchema\('namiHighlight'/);
   assert.match(entry, /\$markSchema\('namiColour'/);

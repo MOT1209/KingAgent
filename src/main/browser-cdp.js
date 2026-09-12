@@ -1,5 +1,5 @@
 // A browser-shaped CDP transport over *only* the granted WebContents debuggers.
-// No remote-debugging-port, global Target discovery, or Nami renderer target.
+// No remote-debugging-port, global Target discovery, or KingAgent renderer target.
 const { WebSocketServer } = require('ws');
 const { randomBytes } = require('node:crypto');
 const { browserUrl } = require('./browser-policy');
@@ -38,7 +38,7 @@ async function createCdpBridge({ entries, create, close, onCommand }) {
     send({ method: 'Target.attachedToTarget', params: { sessionId: e.id, targetInfo: info(e), waitingForDebugger: false } });
   }
   async function command(method, params = {}, sid) {
-    if (process.env.NAMI_BROWSER_DEBUG) console.log('[browser-cdp]', method, sid || 'root');
+    if (process.env.KINGAGENT_BROWSER_DEBUG) console.log('[browser-cdp]', method, sid || 'root');
     if (sid) {
       const owner = children.get(sid) || sid, e = allowed(owner);
       if (!attached.has(owner)) throw new Error('Unknown page session.');
@@ -71,7 +71,7 @@ async function createCdpBridge({ entries, create, close, onCommand }) {
       let m;
       try { m = JSON.parse(raw.toString()); if (!Number.isInteger(m.id) || typeof m.method !== 'string') throw new Error('Invalid request');
         const result = await command(m.method, m.params, m.sessionId); send({ id: m.id, sessionId: m.sessionId, result });
-      } catch (error) { if (process.env.NAMI_BROWSER_DEBUG) console.log('[browser-cdp-error]', m?.method, error.message); if (m) send({ id: m.id, sessionId: m.sessionId, error: { code: -32000, message: error.message } }); }
+      } catch (error) { if (process.env.KINGAGENT_BROWSER_DEBUG) console.log('[browser-cdp-error]', m?.method, error.message); if (m) send({ id: m.id, sessionId: m.sessionId, error: { code: -32000, message: error.message } }); }
     });
   });
   return { endpoint: `ws://127.0.0.1:${server.address().port}/${secret}`, close: async () => {

@@ -184,7 +184,7 @@ test('antigravity delivers to the user-scope gemini folder, the only one agy rea
 });
 
 // ---- the tool: hint ---------------------------------------------------------
-// Which tool a master prefers is Nami's own business. It rides in the superset
+// Which tool a master prefers is KingAgent's own business. It rides in the superset
 // frontmatter so it travels with the repo, and it must never reach a copy — no
 // tool has ever heard of the key, and an unknown key in a dialect file is a
 // change in somebody else's format.

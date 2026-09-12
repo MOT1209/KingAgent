@@ -149,7 +149,7 @@ const providerById = (id) => PROVIDERS.find((p) => p.id === id) || null;
 // ---- config -----------------------------------------------------------------
 // A key saved in the app (the shared Keys store, or the legacy per-provider
 // settings field) always beats a stale export in the user's shell profile —
-// what you paste into Nami is what gets used.
+// what you paste into KingAgent is what gets used.
 function sttConfig(settings = {}, env = {}) {
   const shared = (settings.envKeys && typeof settings.envKeys === 'object') ? settings.envKeys : {};
   return {
@@ -211,7 +211,7 @@ function status({ settings = {}, env = {}, deps } = {}) {
       needsKey: p.needsKey, keyEnv: p.keyEnv || null, keyHelpUrl: p.keyHelpUrl || null,
       keyPlaceholder: p.keyPlaceholder || null,
       hasKey: p.needsKey ? !!cfg[p.needsKey] : null,
-      // true only when the user saved a key in Nami — the UI shows it masked
+      // true only when the user saved a key in KingAgent — the UI shows it masked
       keySaved: !!(p.needsKey && (shared[p.keyEnv] || settings[p.needsKey])),
       ready: !!s.ready, reason: s.reason || null,
       downloadBytes: s.downloadBytes || 0, modelId: s.modelId || null,

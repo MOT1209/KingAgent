@@ -42,21 +42,21 @@ test('folder service points the reference filesystem server at the chosen folder
 test('kie (install kind) points config at the built server with the key in env', () => {
   const s = serviceById('kie');
   assert.equal(s.kind, 'install');
-  const c = s.claudeEntry({ token: 'kie_1', installDir: '/Users/x/.nami/connectors/kie-mcp' });
+  const c = s.claudeEntry({ token: 'kie_1', installDir: '/Users/x/.kingagent/connectors/kie-mcp' });
   assert.equal(c.command, 'node');
   assert.ok(c.args[0].endsWith('dist/index.js'));
   assert.equal(c.env.KIE_API_KEY, 'kie_1');
 });
 
-test('Nami Browser is not a catalog entry', () => {
+test('KingAgent Browser is not a catalog entry', () => {
   assert.equal(serviceById('kingagent-browser'), null);
   assert.ok(!KNOWN_SERVICES.some((s) => s.id === 'kingagent-browser' || /kingagent-browser/i.test(s.name)));
 });
 
-test('guided finish contract: write connections.json mcpServers, then Nami delivers', () => {
+test('guided finish contract: write connections.json mcpServers, then KingAgent delivers', () => {
   assert.match(GUIDED_FINISH, /connections\.json/);
   assert.match(GUIDED_FINISH, /mcpServers/);
-  assert.match(GUIDED_FINISH, /Nami copies it to every installed agent's own config/);
+  assert.match(GUIDED_FINISH, /KingAgent copies it to every installed agent's own config/);
   assert.doesNotMatch(GUIDED_FINISH, /kingagent-browser/);
   for (const s of KNOWN_SERVICES.filter((x) => x.kind === 'guided')) {
     assert.ok(s.guide, `${s.id} needs a guide for the sheet`);

@@ -1,4 +1,4 @@
-// Electron integration uses disposable Nami profiles and fake credentials only.
+// Electron integration uses disposable KingAgent profiles and fake credentials only.
 const { app, BrowserWindow, safeStorage, protocol } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -16,7 +16,7 @@ app.whenReady().then(async () => {
     let settings = { browserEnabled: true }, settingsReads = 0, denySettingsWrite = false;
     browser = require('../src/main/browser-views').wireBrowserViews(ipc, { readSettings: () => { settingsReads++; return settings; }, writeSettings: (next) => { if (denySettingsWrite) return { ok: false, error: 'Fixture settings permission denied' }; settings = { ...settings, ...next }; return { ok: true }; } });
     win = new BrowserWindow({ show: false });
-    await win.loadURL('data:text/html,<p>Trusted Nami test window</p>');
+    await win.loadURL('data:text/html,<p>Trusted KingAgent test window</p>');
     const invoke = async (name, args = {}) => {
       const value = await handlers.get(name)({ sender: win.webContents, senderFrame: win.webContents.mainFrame }, args);
       if (!value.ok) throw new Error(value.error); return value;
@@ -42,9 +42,9 @@ app.whenReady().then(async () => {
     const rpc = async (url, method, params) => (await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }) })).json();
     await rpc(grant.url, 'initialize', {});
     await rpc(grant.url, 'tools/list', {});
-    const pendingTool = rpc(grant.url, 'tools/call', { name: 'browser_evaluate', arguments: { function: 'async () => { globalThis.namiPendingTool = true; await new Promise(resolve => setTimeout(resolve, 350)); return "done"; }' } });
-    for (let i = 0; i < 100 && !await personal.executeJavaScript('!!globalThis.namiPendingTool'); i++) await new Promise(resolve => setTimeout(resolve, 20));
-    assert.equal(await personal.executeJavaScript('!!globalThis.namiPendingTool'), true);
+    const pendingTool = rpc(grant.url, 'tools/call', { name: 'browser_evaluate', arguments: { function: 'async () => { globalThis.kingagentPendingTool = true; await new Promise(resolve => setTimeout(resolve, 350)); return "done"; }' } });
+    for (let i = 0; i < 100 && !await personal.executeJavaScript('!!globalThis.kingagentPendingTool'); i++) await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(await personal.executeJavaScript('!!globalThis.kingagentPendingTool'), true);
     // A grant waiting for an old tool must finish before the identity change,
     // then be revoked by it. It must never resume against the replacement tab.
     const renewal = invoke('browser:grant', { id: 's1', viewIds: ['personal'] });

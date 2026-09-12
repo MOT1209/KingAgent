@@ -14,7 +14,7 @@ app.whenReady().then(async () => {
     const handlers = new Map(), events = [];
     browser = require('../src/main/browser-views').wireBrowserViews({ handle: (name, fn) => handlers.set(name, fn), on: ipcMain.on.bind(ipcMain) }, { readSettings: () => ({ browserEnabled: true }), writeSettings: () => ({ ok: true }) });
     win = new BrowserWindow({ width: 850, height: 680 });
-    await win.loadURL('data:text/html,<title>Nami fixture</title>');
+    await win.loadURL('data:text/html,<title>KingAgent fixture</title>');
     const send = win.webContents.send.bind(win.webContents);
     win.webContents.send = (channel, value) => { if (channel === 'browser:event') events.push(value); send(channel, value); };
     const invoke = async (name, args) => { const output = await handlers.get(name)({ sender: win.webContents, senderFrame: win.webContents.mainFrame }, args); if (!output.ok) throw new Error(output.error); return output; };

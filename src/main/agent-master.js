@@ -36,7 +36,7 @@ function isDelivered(text) { return String(text || '').slice(0, 4000).includes(M
 // ---- parse ------------------------------------------------------------------
 // The same forgiving frontmatter read library.js uses, plus the body — kept
 // local so this module stays main-process-pure and testable.
-// `tool` (singular) is Nami's own: which tool this agent was written for. It is
+// `tool` (singular) is KingAgent's own: which tool this agent was written for. It is
 // a hint the picker reads, never a lock, and no dialect renderer touches it —
 // putting an unknown key in somebody else's format is a change to their format.
 // It sits next to `tools` (plural, the permission list) and the exact-match
@@ -151,7 +151,7 @@ function deliveryState({ projectPath, slug, agentIds, io = fsIo, homeDir }) {
   const targets = copyTargets(projectPath, slug, homeDir);
   return (agentIds || []).map((agent) => {
     const t = targets[agent];
-    if (!t) return { agent, slug, state: 'none', reason: `Nami has no agent format for ${agent}` };
+    if (!t) return { agent, slug, state: 'none', reason: `KingAgent has no agent format for ${agent}` };
     if (t.kind === 'via') return { agent, slug, state: 'via', via: t.via };
     if (t.kind === 'none') return { agent, slug, state: 'none', reason: t.reason };
     if (!io.exists(t.file)) return { agent, slug, state: 'soon', file: t.file };
