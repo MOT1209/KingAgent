@@ -61,7 +61,7 @@ export function markdownImageUrl(documentPath, source) {
   if (/^(https?:|data:|blob:)/i.test(src)) return src;
   if (!documentPath || src.startsWith('/') || src.startsWith('~')) return null;
   const dir = String(documentPath).split('/').slice(0, -1).join('/') || '/';
-  return 'nami-doc://doc/' + encodeURIComponent(dir) + '/' + src.split('/').map(encodePathPart).join('/');
+  return 'kingagent-doc://doc/' + encodeURIComponent(dir) + '/' + src.split('/').map(encodePathPart).join('/');
 }
 
 function escapeHtml(value) {

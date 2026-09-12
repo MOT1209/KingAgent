@@ -1,10 +1,12 @@
-// The path rules for the nami-doc:// scheme, kept pure so they can be tested
+// The path rules for the kingagent-doc:// scheme, kept pure so they can be
+// tested
 // without launching Electron — because the rule that matters here is a security
 // boundary, and a security boundary you cannot test in isolation is one you are
 // trusting rather than checking.
 //
 // A viewed HTML page is served from its own origin so its relative images load
-// and it still cannot reach Nami (see main.js and the design note). This file
+// and it still cannot reach KingAgent (see main.js and the design note). This
+// file
 // answers one question for the handler: given a request URL, what real file on
 // disk does it mean, and is that file inside the folder the document was opened
 // from? Anything that resolves outside the root — via .., an absolute path, or a
@@ -13,14 +15,15 @@
 const path = require('path');
 const fs = require('fs');
 
-// A nami-doc URL is  nami-doc://doc/<root>/<rel>  where both parts are
+// A kingagent-doc URL is  kingagent-doc://doc/<root>/<rel>  where both parts
+// are
 // percent-encoded absolute-ish path pieces. Host is always "doc"; the first
 // path segment is the encoded root directory, the rest is the resource within
 // it. Keeping the root in the URL means one handler serves every open document
 // without any shared mutable state.
 function buildDocUrl(root, target) {
   const rel = path.relative(root, target);
-  return 'nami-doc://doc/' + encodeURIComponent(root) + '/' + rel.split(path.sep).map(encodeURIComponent).join('/');
+  return 'kingagent-doc://doc/' + encodeURIComponent(root) + '/' + rel.split(path.sep).map(encodeURIComponent).join('/');
 }
 
 // Parse a request URL back to { root, filePath } or null if it is malformed.
@@ -28,7 +31,7 @@ function buildDocUrl(root, target) {
 function parseDocUrl(urlString) {
   let u;
   try { u = new URL(urlString); } catch (_) { return null; }
-  if (u.protocol !== 'nami-doc:' || u.host !== 'doc') return null;
+  if (u.protocol !== 'kingagent-doc:' || u.host !== 'doc') return null;
   // pathname is  /<encodedRoot>/<rel...>
   const parts = u.pathname.replace(/^\/+/, '').split('/');
   if (parts.length < 1 || !parts[0]) return null;

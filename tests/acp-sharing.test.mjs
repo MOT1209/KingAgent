@@ -7,7 +7,7 @@ function fixture(capabilities = {}) {
   const transport = { send(message) { calls.push(message); queueMicrotask(() => receive({ id: message.id, result: message.method === 'initialize' ? { agentCapabilities: capabilities } : message.method === 'session/new' ? { sessionId: 'fresh-id' } : {} })); }, onMessage(cb) { receive = cb; }, onError() {}, onExit(cb) { exit = cb; }, kill() {} };
   return { client: createAcpClient(transport), calls, exit: () => exit(1), transport };
 }
-const server = { name: 'nami-browser', type: 'http', url: 'http://127.0.0.1:4000/mcp/session', headers: [] };
+const server = { name: 'kingagent-browser', type: 'http', url: 'http://127.0.0.1:4000/mcp/session', headers: [] };
 
 test('ACP passes only advertised MCP transports to new and loaded sessions', async () => {
   const f = fixture({ mcpCapabilities: { http: true }, loadSession: true });

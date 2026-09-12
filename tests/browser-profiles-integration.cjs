@@ -7,7 +7,7 @@ const path = require('node:path');
 const http = require('node:http');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-profile-electron-'));
 app.setPath('userData', root);
-protocol.registerSchemesAsPrivileged([{ scheme: 'nami-doc', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: 'kingagent-doc', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.whenReady().then(async () => {
   let browser, win, server;
   try {
@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
     const url = `http://127.0.0.1:${server.address().port}`;
     await invoke('browser:create', { id: 'personal', owner: 's1', url });
     const personal = browser.views.get('personal').view.webContents;
-    assert.ok(personal.session.storagePath.includes('nami-browser-default'));
+    assert.ok(personal.session.storagePath.includes('kingagent-browser-default'));
     await personal.session.cookies.set({ url, name: 'account', value: 'personal-fake', httpOnly: true });
     const work = (await invoke('browser:profiles', { action: 'create', name: 'Work' })).profile;
     await invoke('browser:create', { id: 'work', owner: 's1', profileId: work.id, url });
@@ -127,7 +127,7 @@ app.whenReady().then(async () => {
     await a.executeJavaScript(`location.href = ${JSON.stringify(url)}`);
     for (let i = 0; i < 50 && !events.some(e => e.id === 'local-a' && e.type === 'new-tab'); i++) await new Promise(resolve => setTimeout(resolve, 20));
     assert.ok(events.some(e => e.id === 'local-a' && e.type === 'new-tab' && e.profileId === 'default'));
-    assert.match(a.getURL(), /^nami-doc:/);
+    assert.match(a.getURL(), /^kingagent-doc:/);
     assert.equal(a.session.storagePath, null);
     const localGrant = await invoke('browser:grant', { id: 's1', viewIds: ['local-a'] });
     const beforeLocalCreate=browser.views.size;

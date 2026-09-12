@@ -39,11 +39,11 @@ app.whenReady().then(async () => {
       const m = await r.json(); if (m.error) throw new Error(m.error.message); return m.result;
     };
     const call = (method, params) => callAt(connection.url, method, params);
-    assert.equal((await call('initialize')).serverInfo.name, 'nami-browser');
-    const contextResult = await call('tools/call', { name: 'nami_read_session_context', arguments: { sourceId: 's2' } });
+    assert.equal((await call('initialize')).serverInfo.name, 'kingagent-browser');
+    const contextResult = await call('tools/call', { name: 'kingagent_read_session_context', arguments: { sourceId: 's2' } });
     assert.equal(JSON.parse(contextResult.content[0].text).content, 'visible terminal context');
     contexts.update({ id: 's2', windowId: win.webContents.id, identity: 'conversation-2', kind: 'chat', content: 'private replacement conversation' });
-    await assert.rejects(call('tools/call', { name: 'nami_read_session_context', arguments: { sourceId: 's2' } }), /not shared/);
+    await assert.rejects(call('tools/call', { name: 'kingagent_read_session_context', arguments: { sourceId: 's2' } }), /not shared/);
 
     const tools = await call('tools/list'); assert.ok(tools.tools.some((t) => t.name === 'browser_snapshot'));
     assert.ok(!tools.tools.some((t) => t.name === 'browser_run_code'));

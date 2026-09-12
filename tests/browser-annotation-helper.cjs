@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
     for (const type of ['mouseDown', 'mouseUp']) wc.sendInputEvent({ type, x: Math.round(rect.x + 10), y: Math.round(rect.y + 10), button: 'left', clickCount: 1 });
     await until(() => selections.length === 1);
     assert.equal(selections[0].locator, '#button'); assert.equal(await evalPage('document.querySelector("button").textContent'), 'Original button');
-    assert.equal(await evalPage('typeof window.dainami'), 'undefined');
+    assert.equal(await evalPage('typeof window.kingagent'), 'undefined');
     wc.send('browser:annotate-mode', { active: true }); await pause(50);
     const annotatingCursor = await evalPage('getComputedStyle(document.body).cursor');
     assert.notEqual(annotatingCursor, 'auto');

@@ -17,8 +17,8 @@ const result = (value) => ({ content: [{ type: 'text', text: JSON.stringify(valu
 const NAMI_TOOLS = [
   { name: 'nami_browser_screenshot', description: 'Read a screenshot of an exact shared Nami Browser tab. Returns the visible page image, title, URL and access time. Never uses an external browser.', inputSchema: { type: 'object', properties: { tabId: { type: 'string' } }, required: ['tabId'] } },
   { name: 'nami_browser_tabs', description: 'List the exact Nami Browser tabs currently shared with this session. Use these tab IDs for screenshots.', inputSchema: { type: 'object', properties: {} } },
-  { name: 'nami_read_annotation_image', description: 'Read an explicitly inserted Nami annotation image by its opaque ID. No arbitrary files.', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
-  { name: 'nami_read_session_context', description: 'Read the latest published visible context of an explicitly linked Nami session. Terminal snapshots can be incomplete. Does not send a message or start a turn.', inputSchema: { type: 'object', properties: { sourceId: { type: 'string' } }, required: ['sourceId'] } },
+  { name: 'kingagent_read_annotation_image', description: 'Read an explicitly inserted KingAgent annotation image by its opaque ID. No arbitrary files.', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
+  { name: 'kingagent_read_session_context', description: 'Read the latest published visible context of an explicitly linked KingAgent session. Terminal snapshots can be incomplete. Does not send a message or start a turn.', inputSchema: { type: 'object', properties: { sourceId: { type: 'string' } }, required: ['sourceId'] } },
 ];
 async function createBrowserMcp({ access, views, create, remove, send, notifyMessage, contexts, images, onActivity }) {
   const routes = new Map(); let serial = Promise.resolve();
@@ -78,7 +78,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       const { createConnection } = require('@playwright/mcp');
       const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
       const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
-      route.outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-browser-'));
+      route.outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kingagent-browser-'));
       const server = await createConnection({ browser: { contextOptions: { viewport: null } }, outputDir: route.outputDir, timeouts: { action: 10000, navigation: 15000 } }, async () => browser.contexts()[0]);
       const client = new Client({ name: 'nami', version: '1.0.0' });
       route.client = client;
@@ -90,7 +90,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
   }
   async function dispatch(route, message) {
     const s = access.get(route.id);
-    if (message.method === 'initialize') { route.connected = true; route.initializedAt = Date.now(); return { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'nami-browser', version: '1.0.0' } }; }
+    if (message.method === 'initialize') { route.connected = true; route.initializedAt = Date.now(); return { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'kingagent-browser', version: '1.0.0' } }; }
     if (message.method === 'ping') return {};
     if (message.method === 'tools/list') {
       return { tools: [...await toolSchema(), ...NAMI_TOOLS, ...MESSAGE_TOOLS] };
@@ -110,11 +110,11 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       return result({ delivered: true });
     }
     if (name === 'nami_browser_tabs') return result([...s.views].flatMap(id => { const e = views.get(id); return e ? [{ id, title: e.view.webContents.getTitle(), url: e.filePath || e.view.webContents.getURL() }] : []; }));
-    if (name === 'nami_read_annotation_image') {
+    if (name === 'kingagent_read_annotation_image') {
       if (!images) throw new Error('Annotation images are unavailable.');
       return images.read(args.id, route.id);
     }
-    if (name === 'nami_read_session_context') {
+    if (name === 'kingagent_read_session_context') {
       if (!contexts) throw new Error('Session context is unavailable.');
       return result(contexts.read(route.id, args.sourceId));
     }
@@ -193,7 +193,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       access.get(id);
       let key = [...routes].find(([, r]) => r.id === id && !r.revoked)?.[0];
       if (!key) { key = '/mcp/' + randomBytes(24).toString('hex'); routes.set(key, { id }); }
-      return { url: `http://127.0.0.1:${server.address().port}${key}`, name: 'nami-browser', transport: 'http' };
+      return { url: `http://127.0.0.1:${server.address().port}${key}`, name: 'kingagent-browser', transport: 'http' };
     },
     isConnected: (id) => [...routes.values()].some((r) => r.id === id && r.connected && !r.revoked),
     status: (id) => { const r = [...routes.values()].find(r => r.id === id && !r.revoked); return { initialized: !!r?.connected, initializedAt: r?.initializedAt || null, activities: Object.values(r?.activity || {}) }; },

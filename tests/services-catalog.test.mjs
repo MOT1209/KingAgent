@@ -49,15 +49,15 @@ test('kie (install kind) points config at the built server with the key in env',
 });
 
 test('Nami Browser is not a catalog entry', () => {
-  assert.equal(serviceById('nami-browser'), null);
-  assert.ok(!KNOWN_SERVICES.some((s) => s.id === 'nami-browser' || /nami-browser/i.test(s.name)));
+  assert.equal(serviceById('kingagent-browser'), null);
+  assert.ok(!KNOWN_SERVICES.some((s) => s.id === 'kingagent-browser' || /kingagent-browser/i.test(s.name)));
 });
 
 test('guided finish contract: write connections.json mcpServers, then Nami delivers', () => {
   assert.match(GUIDED_FINISH, /connections\.json/);
   assert.match(GUIDED_FINISH, /mcpServers/);
   assert.match(GUIDED_FINISH, /Nami copies it to every installed agent's own config/);
-  assert.doesNotMatch(GUIDED_FINISH, /nami-browser/);
+  assert.doesNotMatch(GUIDED_FINISH, /kingagent-browser/);
   for (const s of KNOWN_SERVICES.filter((x) => x.kind === 'guided')) {
     assert.ok(s.guide, `${s.id} needs a guide for the sheet`);
     assert.equal(s.keys.length, 0);

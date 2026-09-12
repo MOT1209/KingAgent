@@ -10,7 +10,7 @@ export const CONNECT_OVERLAYS = new Set([
 ]);
 
 export function catalogServices(catalog) {
-  return (catalog || []).filter((s) => s && s.id !== 'nami-browser');
+  return (catalog || []).filter((s) => s && s.id !== 'kingagent-browser');
 }
 
 // One line: the pty seeder types this then presses Enter.

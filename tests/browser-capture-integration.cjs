@@ -46,7 +46,7 @@ app.whenReady().then(async () => {
       assert.equal(pixels[center + 1], 0);
       await invoke('browser:sync', { sessions: [{ id: 'recipient' }, { id: 'other' }] });
       const connection = await invoke('browser:connection', { id: 'recipient' });
-      const rpc = async endpoint => (await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'nami_read_annotation_image', arguments: { id: captured.image.id } } }) })).json();
+      const rpc = async endpoint => (await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'kingagent_read_annotation_image', arguments: { id: captured.image.id } } }) })).json();
       assert.match((await rpc(connection.url)).error.message, /not shared/);
       await invoke('browser:annotation-image', { action: 'grant', id: captured.image.id, recipientIds: ['recipient'] });
       assert.equal((await rpc(connection.url)).result.content[1].type, 'image');

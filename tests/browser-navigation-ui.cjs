@@ -20,9 +20,9 @@ app.whenReady().then(async()=>{
   win=await until(()=>BrowserWindow.getAllWindows()[0]);const run=s=>win.webContents.executeJavaScript(s).catch(e=>{console.error('Failed expression:',s);throw e;});
   await until(()=>run('!!document.querySelector(".browser-address")'));
   const id=await run('document.querySelector(".browser-tile").dataset.id');
-  assert.equal((await run(`dainami.browserResolve('apple laptops')`)).url,'https://www.google.com/search?q=apple%20laptops');
-  assert.equal((await run(`dainami.browserResolve('youtube.com')`)).url,'https://youtube.com/');
-  assert.equal((await run(`dainami.browserResolve('javascript:alert(1)')`)).ok,false);
+  assert.equal((await run(`kingagent.browserResolve('apple laptops')`)).url,'https://www.google.com/search?q=apple%20laptops');
+  assert.equal((await run(`kingagent.browserResolve('youtube.com')`)).url,'https://youtube.com/');
+  assert.equal((await run(`kingagent.browserResolve('javascript:alert(1)')`)).ok,false);
   await run(`document.querySelector('.browser-address input').value=${JSON.stringify(url.replace('http://',''))};document.querySelector('.browser-address').requestSubmit()`);
   const page=await until(()=>webContents.getAllWebContents().find(w=>w.getURL().startsWith(url)));
   await until(()=>!page.isLoading());
@@ -44,11 +44,11 @@ app.whenReady().then(async()=>{
   await until(()=>run('!!document.querySelector("#profile-new")'));
   await click('#profile-new');await run(`document.querySelector('#profile-name').value='Work';document.querySelector('#profile-name-save').click()`);
   await until(()=>run('document.querySelector("#profile-choice")?.textContent.includes("Work")'));
-  const profiles=await run(`dainami.browserProfiles({action:'list'})`),work=profiles.profiles.find(p=>p.name==='Work');
+  const profiles=await run(`kingagent.browserProfiles({action:'list'})`),work=profiles.profiles.find(p=>p.name==='Work');
   await run(`document.querySelector('#profile-choice').value=${JSON.stringify(work.id)};document.querySelector('#profile-choice').dispatchEvent(new Event('change'))`);
   await until(()=>run(`document.querySelector('#profile-choice')?.value===${JSON.stringify(work.id)}&&!!document.querySelector('#profile-switch')`));
   await shot('browser-profiles-glass');await click('#profile-switch');await click('.browser-profile-confirm .btn--go');
-  await until(()=>run(`dainami.browserStatus().then(r=>r.views.find(v=>v.id===${JSON.stringify(id)})?.profileId===${JSON.stringify(work.id)})`));
+  await until(()=>run(`kingagent.browserStatus().then(r=>r.views.find(v=>v.id===${JSON.stringify(id)})?.profileId===${JSON.stringify(work.id)})`));
   await until(()=>run('!document.querySelector("#profiles-done")'));
   await click('[data-browser-action="menu"]');await run(`document.querySelectorAll('.browser-menu button')[6].click()`);await until(()=>run('!!document.querySelector("#profile-import")'));
   assert.match(await run('document.querySelector(".browser-profile-body").textContent'),/Chrome stays unchanged|not Chrome Sync/);await shot('browser-import-glass');await click('#profiles-done');

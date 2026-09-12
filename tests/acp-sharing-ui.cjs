@@ -18,7 +18,7 @@ app.whenReady().then(async () => {
     const run = code => win.webContents.executeJavaScript(code);
     await run(`(async()=>{
       window.requests=[];window.messages=[];window.contexts=[];window.contextReads=0;window.failImage=true;
-      window.dainami={onAcpMsg:cb=>{messages.push(cb);return()=>{}},onAcpErr:()=>()=>{},onAcpExit:()=>()=>{},acpKill:()=>{},acpStart:async()=>({ok:true}),sessionWatchTitle:()=>{},
+      window.kingagent={onAcpMsg:cb=>{messages.push(cb);return()=>{}},onAcpErr:()=>()=>{},onAcpExit:()=>()=>{},acpKill:()=>{},acpStart:async()=>({ok:true}),sessionWatchTitle:()=>{},
         acpSend:async({id,payload})=>{requests.push({panelId:id,...payload});let result={};
           if(payload.method==='initialize')result={agentCapabilities:id==='image'?{promptCapabilities:{image:true},mcpCapabilities:{http:true},loadSession:true}:{}};
           if(payload.method==='session/new')result={sessionId:id+'-conversation'};
@@ -59,7 +59,7 @@ app.whenReady().then(async () => {
     await until(() => run('!!document.querySelector("#chat .cw-pop .sel")'));
     await run('document.querySelector("#chat .cw-pop .sel").click()');
     await until(() => run('imageRec.sessionContext().identity==="resumed-conversation" && !document.querySelector("#chat .cw-send").hidden'));
-    assert.equal(await run('requests.find(r=>r.panelId==="image"&&r.method==="session/load").params.mcpServers[0].name'), 'nami-browser');
+    assert.equal(await run('requests.find(r=>r.panelId==="image"&&r.method==="session/load").params.mcpServers[0].name'), 'kingagent-browser');
     assert.equal(await run('imageRec.sessionContext().content'), '');
     for (const failure of ['response', 'reject']) {
       const before = await run('requests.filter(r=>r.method==="session/load").length');

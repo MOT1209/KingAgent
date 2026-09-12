@@ -50,23 +50,26 @@ const { browserFileUrl } = require('./browser-file');
 const { wireBrowserViews } = require('./browser-views');
 const stt = require('./stt');
 
-// nami-doc:// — how a viewed HTML page and its neighbouring images are served.
+// kingagent-doc:// — how a viewed HTML page and its neighbouring images are served.
 //
 // A standard, secure scheme so the page gets a real origin of its own, which is
 // what lets an <iframe sandbox="allow-scripts allow-same-origin"> load its
-// relative files while staying cross-origin to Nami's file:// renderer — it can
+// relative files while staying cross-origin to KingAgent's file:// renderer — it
+// can
 // paint itself but cannot read window.parent. Must be declared before the app is
 // ready; the handler that answers requests is installed once it is (below).
 protocol.registerSchemesAsPrivileged([{
-  scheme: 'nami-doc',
+  scheme: 'kingagent-doc',
   privileges: { standard: true, secure: true, supportFetchAPI: false, corsEnabled: false },
 }]);
 
 // The one policy every served response carries: the page may run and style
 // itself (agents inline both) and load its own assets, but connect-src 'none'
 // means it can open no socket, so anything it managed to read it cannot send
-// anywhere. No frame-ancestors on purpose — Nami is a file:// origin embedding a
-// nami-doc:// page, and 'self' there would refuse the very frame we want; the
+// anywhere. No frame-ancestors on purpose — KingAgent is a file:// origin
+// embedding a
+// kingagent-doc:// page, and 'self' there would refuse the very frame we want;
+// the
 // isolation that matters is the cross-origin wall and the sandbox, not this.
 const DOC_CSP = "default-src 'self' data: blob:; img-src 'self' data: blob:; "
   + "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:; "
@@ -74,7 +77,7 @@ const DOC_CSP = "default-src 'self' data: blob:; img-src 'self' data: blob:; "
   + "form-action 'none';";
 
 function installDocProtocol() {
-  protocol.handle('nami-doc', async (request) => {
+  protocol.handle('kingagent-doc', async (request) => {
     const parsed = parseDocUrl(request.url);
     if (!parsed) return new Response('bad request', { status: 400 });
     const file = resolveWithinRoot(parsed.root, parsed.rel);

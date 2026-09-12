@@ -12,7 +12,7 @@ async function createCdpBridge({ entries, create, close, onCommand }) {
   let socket;
   const attached = new Map(), children = new Map();
   const send = (message) => { if (socket?.readyState === 1) socket.send(JSON.stringify(message)); };
-  const info = (e) => ({ targetId: e.targetId || e.id, browserContextId: 'nami', type: 'page', title: e.view.webContents.getTitle(), url: e.view.webContents.getURL(), attached: true, canAccessOpener: false });
+  const info = (e) => ({ targetId: e.targetId || e.id, browserContextId: 'kingagent', type: 'page', title: e.view.webContents.getTitle(), url: e.view.webContents.getURL(), attached: true, canAccessOpener: false });
   function allowed(id) { const e = entries().find((e) => e.id === id || e.targetId === id); if (!e || e.view.webContents.isDestroyed()) throw new Error('Browser view is not shared with this session.'); return e; }
   async function attach(e) {
     if (attached.has(e.id)) return;
@@ -52,11 +52,11 @@ async function createCdpBridge({ entries, create, close, onCommand }) {
       onCommand?.(e.id, method); return result;
     }
     switch (method) {
-      case 'Browser.getVersion': return { protocolVersion: '1.3', product: 'Chrome/' + process.versions.chrome, revision: '', userAgent: 'NamiBrowser' };
+      case 'Browser.getVersion': return { protocolVersion: '1.3', product: 'Chrome/' + process.versions.chrome, revision: '', userAgent: 'KingAgentBrowser' };
       case 'Browser.setDownloadBehavior': return {};
       case 'Browser.getWindowForTarget': allowed(params.targetId); return { windowId: 1, bounds: { left: 0, top: 0, width: 1000, height: 700, windowState: 'normal' } };
       case 'Target.setAutoAttach': for (const e of entries()) await attach(e); return {};
-      case 'Target.getTargetInfo': return { targetInfo: params.targetId ? info(allowed(params.targetId)) : { targetId: 'nami-browser', type: 'browser', title: '', url: '', attached: true } };
+      case 'Target.getTargetInfo': return { targetInfo: params.targetId ? info(allowed(params.targetId)) : { targetId: 'kingagent-browser', type: 'browser', title: '', url: '', attached: true } };
       case 'Target.getTargets': return { targetInfos: entries().map(info) };
       case 'Target.createTarget': { const e = await create(browserUrl(params.url || 'about:blank')); await attach(e); return { targetId: e.targetId }; }
       case 'Target.closeTarget': { const e = allowed(params.targetId); await close(e.id); return { success: true }; }

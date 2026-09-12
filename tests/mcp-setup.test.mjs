@@ -29,10 +29,10 @@ test('the overlay types parent dispatches are the five connect sheets', () => {
   ]);
 });
 
-test('catalogServices never surfaces nami-browser even if it is stuffed in', () => {
+test('catalogServices never surfaces kingagent-browser even if it is stuffed in', () => {
   const cat = catalogServices([
     { id: 'notion', name: 'Notion' },
-    { id: 'nami-browser', name: 'Nami Browser' },
+    { id: 'kingagent-browser', name: 'KingAgent Browser' },
     { id: 'gmail', name: 'Gmail' },
   ]);
   assert.deepEqual(cat.map((s) => s.id), ['notion', 'gmail']);
@@ -46,7 +46,7 @@ test('guided seed tells the agent to register connections.json mcpServers, then 
   assert.match(s, /mcpServers/);
   assert.match(s, /KingAgent copies it to every installed agent's own config/);
   assert.equal(s.includes('\n'), false, 'one line for the pty seeder');
-  assert.doesNotMatch(s, /nami-browser/);
+  assert.doesNotMatch(s, /kingagent-browser/);
 });
 
 test('custom seed uses the same master-register contract', () => {
@@ -56,7 +56,7 @@ test('custom seed uses the same master-register contract', () => {
   assert.match(s, /mcpServers/);
   assert.match(s, /KingAgent copies it to every installed agent's own config/);
   assert.equal(s.includes('\n'), false);
-  assert.doesNotMatch(s, /nami-browser/);
+  assert.doesNotMatch(s, /kingagent-browser/);
 });
 
 test('a failed connect stays Failed and claims nothing was half-written', () => {
@@ -86,14 +86,14 @@ test('file-path peek is a closed details, never a JSON dump', () => {
   assert.doesNotMatch(html, /<details[^>]*\sopen/);
   assert.match(html, /connections\.json \(the master\)/);
   assert.doesNotMatch(html, /"mcpServers"/);
-  assert.doesNotMatch(html, /nami-browser/);
+  assert.doesNotMatch(html, /kingagent-browser/);
 });
 
-test('catalog html hides nami-browser and keeps click-to-connect copy', () => {
+test('catalog html hides kingagent-browser and keeps click-to-connect copy', () => {
   const html = connectCatalogHtml({
     catalog: [
       { id: 'notion', name: 'Notion', desc: 'your notes and docs', code: 'NO' },
-      { id: 'nami-browser', name: 'Nami Browser', desc: 'this Mac\'s browser', code: 'NB' },
+      { id: 'kingagent-browser', name: 'KingAgent Browser', desc: 'this Mac\'s browser', code: 'NB' },
     ],
     connectedIds: new Set(['notion']),
     esc,
@@ -101,11 +101,11 @@ test('catalog html hides nami-browser and keeps click-to-connect copy', () => {
   assert.match(html, /Connect MCP/);
   assert.match(html, /data-id="notion"/);
   assert.match(html, /connected/);
-  assert.doesNotMatch(html, /nami-browser/);
-  assert.doesNotMatch(html, /Nami Browser/);
+  assert.doesNotMatch(html, /kingagent-browser/);
+  assert.doesNotMatch(html, /KingAgent Browser/);
 });
 
-test('this module never dumps nami-browser JSON; browser MCP is not this catalog', () => {
+test('this module never dumps kingagent-browser JSON; browser MCP is not this catalog', () => {
   assert.doesNotMatch(src, /JSON\.stringify/);
   assert.doesNotMatch(src, /type:\s*'http'/);
   assert.doesNotMatch(src, /mcpServers:\s*\{/);

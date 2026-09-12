@@ -22,7 +22,7 @@ test('blank tabs are about:blank or the cream welcome file, never other file URL
 test('browser URLs accept web pages but never privileged schemes or credentials', () => {
   assert.equal(browserUrl('localhost:3000'), 'http://localhost:3000/');
   assert.equal(browserUrl('https://example.com/a'), 'https://example.com/a');
-  for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'nami-doc://doc/a/b', 'https://u:p@example.com', 'data:text/html,x']) assert.throws(() => browserUrl(url));
+  for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'kingagent-doc://doc/a/b', 'https://u:p@example.com', 'data:text/html,x']) assert.throws(() => browserUrl(url));
 });
 test('grant replacement revokes old targets and a window cannot take another grant', () => {
   const a = new Access(); a.register('s1', 1); a.register('s2', 2);

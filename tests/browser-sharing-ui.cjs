@@ -17,17 +17,17 @@ app.whenReady().then(async()=>{
     const click=sel=>run(`document.querySelector(${JSON.stringify(sel)}).click()`);
     win.webContents.on('console-message',e=>{if(e.level==='error')console.error('Renderer:',e.message);});
     await until(()=>run('!!document.querySelector(".browser-viewport")'),'browser mounted');
-    const page=await until(()=>webContents.getAllWebContents().find(w=>w.getURL().startsWith('nami-doc:')));
+    const page=await until(()=>webContents.getAllWebContents().find(w=>w.getURL().startsWith('kingagent-doc:')));
     await until(()=>!page.isLoading());
     const nativeClick=async(wc,sel)=>{const r=JSON.parse(await wc.executeJavaScript(`JSON.stringify(document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect())`));for(const type of ['mouseDown','mouseUp'])wc.sendInputEvent({type,x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),button:'left',clickCount:1});await pause(90);};
     const overlay=async(sel)=>{for(const wc of webContents.getAllWebContents().filter(w=>w.getURL().endsWith('/browser-overlay.html')))if(await wc.executeJavaScript(`!!document.querySelector(${JSON.stringify(sel)})`).catch(()=>false))return wc;};
     const shot=async name=>{if(!process.env.NAMI_REVIEW_DIR)return;await pause(450);win.webContents.invalidate();await pause(100);const views=new Map(win.contentView.children.filter(v=>v.webContents&&v.webContents!==win.webContents).map((view,i)=>[i,{window:win,view}]));fs.mkdirSync(process.env.NAMI_REVIEW_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.NAMI_REVIEW_DIR,name+'.png'),await captureWindow(win,views));};
-    const status=await run('dainami.browserStatus()');
+    const status=await run('kingagent.browserStatus()');
     const [owner,peer]=status.sessions,tab=status.views[0];
     assert.ok(owner&&peer&&tab);
     for(const [i,s] of status.sessions.entries()){
       const program="import os,sys,tty\ntty.setraw(0)\nsys.stdout.write('\\x1b[?2004h');sys.stdout.flush()\nf=open(sys.argv[1],'ab',buffering=0)\nwhile True:f.write(os.read(0,65536))";
-      const r=await run(`dainami.termCreate(${JSON.stringify({id:s.id,kind:'harness',program:'/usr/bin/python3',args:['-c',program,path.join(dir,String(i))],cwd:dir,cols:80,rows:24})})`);assert.equal(r.ok,true);
+      const r=await run(`kingagent.termCreate(${JSON.stringify({id:s.id,kind:'harness',program:'/usr/bin/python3',args:['-c',program,path.join(dir,String(i))],cwd:dir,cols:80,rows:24})})`);assert.equal(r.ok,true);
     }
     await until(()=>run('window.__terms.every(t=>t.modes.bracketedPasteMode)'));
     assert.equal(await run('document.querySelector(".browser-tile .code").textContent.trim()'),'');
@@ -35,14 +35,14 @@ app.whenReady().then(async()=>{
     await until(()=>run('[...document.querySelectorAll(".ctx-item")].some(e=>e.textContent.includes("Share with"))'));
     await run('[...document.querySelectorAll(".ctx-item")].find(e=>e.textContent.includes("Share with")).click()');
     await until(()=>run('!!document.querySelector(".source-chip")'),'shared chip');
-    const c1=await run(`dainami.browserConnection({id:${JSON.stringify(owner.id)}})`);
+    const c1=await run(`kingagent.browserConnection({id:${JSON.stringify(owner.id)}})`);
     assert.ok(c1.url);
-    const grant=await run(`dainami.browserGrant(${JSON.stringify({id:owner.id,viewIds:[tab.id],peers:[]})})`);
+    const grant=await run(`kingagent.browserGrant(${JSON.stringify({id:owner.id,viewIds:[tab.id],peers:[]})})`);
     assert.equal(grant.url,c1.url,'sharing preserves session endpoint');
     await shot('sharing-glass');
     await click('.source-remove');
     await until(()=>run('!document.querySelector(".source-chip")'),'chip removed');
-    assert.ok((await run('dainami.browserStatus()')).views.some(v=>v.id===tab.id),'unshare leaves tab open');
+    assert.ok((await run('kingagent.browserStatus()')).views.some(v=>v.id===tab.id),'unshare leaves tab open');
     await click('.browser-annotate');
     await nativeClick(page,'#preview-action');
     const bubble=await until(()=>overlay('#browser-comment'),'native bubble');

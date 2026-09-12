@@ -87,8 +87,8 @@ test('consecutive quote lines group into one blockquote', () => {
 });
 
 test('images render through the resolver; without one they stay links', () => {
-  const withResolver = renderMarkdown(FIXTURE, { resolveImage: (src) => 'nami-doc://doc/x/' + src });
-  assert.match(withResolver, /<img src="nami-doc:\/\/doc\/x\/shots\/wave\.png" alt="wave">/);
+  const withResolver = renderMarkdown(FIXTURE, { resolveImage: (src) => 'kingagent-doc://doc/x/' + src });
+  assert.match(withResolver, /<img src="kingagent-doc:\/\/doc\/x\/shots\/wave\.png" alt="wave">/);
   const without = renderMarkdown(FIXTURE);
   assert.match(without, /<a href="shots\/wave\.png">wave<\/a>/);
   assert.ok(!/<img/.test(without));

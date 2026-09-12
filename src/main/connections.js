@@ -35,7 +35,7 @@ function validServiceId(id) {
 // Per-session browser MCP (bearer URL). Not a catalog connection; never a
 // master key, never delivered into agent notebooks.
 function reservedServiceId(id) {
-  return id === 'nami-browser';
+  return id === 'kingagent-browser';
 }
 
 function publicMasters(masters) {

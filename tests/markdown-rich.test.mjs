@@ -25,7 +25,7 @@ test('only rich markdown gets the three explicit document modes', () => {
 test('Markdown image URLs resolve beside the note without double-encoding spaces', () => {
   assert.equal(
     markdownImageUrl('/p/docs/note.md', './assets/my%20diagram.png'),
-    'nami-doc://doc/%2Fp%2Fdocs/./assets/my%20diagram.png',
+    'kingagent-doc://doc/%2Fp%2Fdocs/./assets/my%20diagram.png',
   );
   assert.equal(markdownImageUrl('/p/docs/note.md', 'https://example.com/image.png'), 'https://example.com/image.png');
   assert.equal(markdownImageUrl('/p/docs/note.md', '/Users/me/image.png'), null);

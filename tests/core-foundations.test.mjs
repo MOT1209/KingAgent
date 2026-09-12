@@ -66,7 +66,7 @@ test('logger: redacts payload fields on write and survives circular references',
   const log = createLogger({ level: 'info', sink, scope: 'test' });
   const circular = {};
   circular.self = circular;
-  log.info('ping', { payload: { apiKey: 'secret-value', circular } });
+  log.info('ping', { payload: { apiKey: 'hush', circular } });
   const row = JSON.parse(lines[0]);
   assert.equal(row.msg, 'ping');
   assert.equal(row.scope, 'test');

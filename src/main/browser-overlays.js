@@ -36,7 +36,7 @@ function wireBrowserOverlays(ipcMain) {
       if (typeof item.id !== 'string' || typeof item.html !== 'string' || item.html.length > 150000 || ![item.x,item.y,item.width,item.height].every(Number.isFinite) || item.width <= 0 || item.height <= 0) continue;
       let rec = records.get(item.id);
       if (!rec) {
-        const view = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'browser-overlay-preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, partition: 'nami-trusted-overlays' } });
+        const view = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'browser-overlay-preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, partition: 'kingagent-trusted-overlays' } });
         view.setBackgroundColor('#00000000'); view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
         view.webContents.on('will-navigate', e => e.preventDefault());
         rec = { view, window: w, ready: false, pending: null }; records.set(item.id, rec);

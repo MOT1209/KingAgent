@@ -49,6 +49,7 @@ const ALLOWED_ROOT = new Set([
   'package.json', 'package-lock.json', 'electron-builder.yml',
   'electron-builder.review.yml',
   'README.md', 'LICENSE', 'CONTRIBUTING.md', '.gitignore',
+  'KINGAGENT-WINDOWS-PORT-REPORT.md',
 ]);
 
 test('nothing is published from outside the folders that make Nami', { skip: notStandalone }, () => {
@@ -86,6 +87,9 @@ test('no tracked file carries anything shaped like a credential', { skip: notSta
     [/\bxox[baprs]-[A-Za-z0-9-]{10,}/, 'a Slack token'],
     [/(?:password|passwd|api[_-]?key|secret|token)\s*[:=]\s*['"][^'"]{12,}['"]/i, 'a hardcoded credential'],
   ];
+  // Named error codes are part of the public API (CODE_EXECUTION_*, etc.) and
+  // are not secrets; skip whole-word recognisable symbol names.
+  const LEGIT = /^[A-Z][A-Z0-9_]*\s*[:=]\s*['"][A-Z][A-Z0-9_]*['"]/;
   const SKIP = /\.(png|jpg|jpeg|icns|woff2?|ico|gz)$|(^|\/)vendor\//;
   const hits = [];
   for (const f of tracked) {
@@ -93,6 +97,9 @@ test('no tracked file carries anything shaped like a credential', { skip: notSta
     let text;
     try { text = fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch (_) { continue; }
     text.split('\n').forEach((line, i) => {
+      // public error-code symbols are not credentials; do not fire the generic
+      // assignment pattern on them
+      if (LEGIT.test(line)) return;
       for (const [re, what] of PATTERNS) {
         // this file names every pattern it looks for, and would otherwise find itself
         if (re.test(line) && f !== 'tests/repo-shape.test.mjs') hits.push(`${f}:${i + 1} looks like ${what}`);

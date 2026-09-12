@@ -87,7 +87,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
     profiles.get(profileId);
     const key = localId ? 'local:' + w.webContents.id + ':' + localId : profileId;
     if (partitions.has(key)) return partitions.get(key);
-    const record = { key, local: !!localId, session: session.fromPartition((localId ? 'nami-browser-' : 'persist:nami-browser-') + key), roots: new Set() };
+    const record = { key, local: !!localId, session: session.fromPartition((localId ? 'kingagent-browser-' : 'persist:kingagent-browser-') + key), roots: new Set() };
     record.session.setUserAgent(browserUserAgent(record.session.getUserAgent()));
     record.session.setPermissionRequestHandler((wc, permission, callback) => {
       let origin = '';
@@ -113,7 +113,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
       try { mode = profiles.get(e?.profileId || 'default').downloadMode === 'auto' ? 'auto' : 'ask'; } catch {}
       if (mode === 'auto') item.setSavePath(uniqueDownloadPath(app.getPath('downloads'), item.getFilename()));
     });
-    record.session.protocol.handle('nami-doc', async (request) => {
+    record.session.protocol.handle('kingagent-doc', async (request) => {
       const p = parseDocUrl(request.url);
       const file = p && record.roots.has(p.root) && resolveWithinRoot(p.root, p.rel);
       if (!file) return new Response('Not found', { status: 404 });
@@ -214,7 +214,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
     if (notify) send(e, 'closed', {});
     if (!e.window.isDestroyed()) e.window.contentView.removeChildView(e.view);
     if (!e.view.webContents.isDestroyed()) e.view.webContents.close();
-    if (e.record.local) { e.record.roots.clear(); e.record.session.protocol.unhandle('nami-doc'); partitions.delete(e.record.key); await e.record.session.clearStorageData(); }
+    if (e.record.local) { e.record.roots.clear(); e.record.session.protocol.unhandle('kingagent-doc'); partitions.delete(e.record.key); await e.record.session.clearStorageData(); }
   }
   const guarded = (channel, action) => ipcMain.handle(channel, async (ev, args = {}) => {
     try {
@@ -357,7 +357,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
           await record.session.clearAuthCache(); await record.session.cookies.flushStore(); record.roots.clear();
         }
         if (action === 'remove' || args.credentials) profiles.clearCredentials(profileId);
-        if (action === 'remove') { profiles.remove(profileId); record.session.protocol.unhandle('nami-doc'); partitions.delete(profileId); }
+        if (action === 'remove') { profiles.remove(profileId); record.session.protocol.unhandle('kingagent-doc'); partitions.delete(profileId); }
       });
     } else if (action === 'import-passwords') {
       profiles.get(profileId);

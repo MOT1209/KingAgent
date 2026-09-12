@@ -1,4 +1,4 @@
-// The security boundary of the nami-doc:// scheme: a served path must resolve
+// The security boundary of the kingagent-doc:// scheme: a served path must resolve
 // inside the folder its document was opened from, and nowhere else. These are
 // the tests that make that a checked rule rather than a trusted one.
 
@@ -49,10 +49,10 @@ test('a path with spaces and unicode survives the round trip', () => {
   assert.equal(parsed.rel, 'café ☕.png');
 });
 
-test('a non-nami-doc url is rejected', () => {
+test('a non-kingagent-doc url is rejected', () => {
   assert.equal(parseDocUrl('file:///etc/passwd'), null);
   assert.equal(parseDocUrl('http://evil.test/x'), null);
-  assert.equal(parseDocUrl('nami-doc://other/foo'), null); // wrong host
+  assert.equal(parseDocUrl('kingagent-doc://other/foo'), null); // wrong host
 });
 
 // --- the gate ----------------------------------------------------------------

@@ -300,26 +300,26 @@ test('antigravity aliases the gemini notebook, and unknown tools never read as m
   assert.deepEqual(cov.notion.missing, []);
 });
 
-// Nami Browser is a per-session MCP, never a catalog connection. A bearer URL
+// KingAgent Browser is a per-session MCP, never a catalog connection. A bearer URL
 // must not land in connections.json or get copied into every agent's notebook.
-test('nami-browser is reserved and never written to the master', () => {
-  assert.equal(reservedServiceId('nami-browser'), true);
+test('kingagent-browser is reserved and never written to the master', () => {
+  assert.equal(reservedServiceId('kingagent-browser'), true);
   assert.equal(reservedServiceId('notion'), false);
   const io = memIo();
   const res = upsertMaster({
-    scope: 'project', projectPath: PROJ, homeDir: HOME, id: 'nami-browser',
+    scope: 'project', projectPath: PROJ, homeDir: HOME, id: 'kingagent-browser',
     entry: { type: 'http', url: 'http://127.0.0.1:9/secret' }, io,
   });
   assert.equal(res.ok, false);
   assert.ok(!('/proj/connections.json' in io.files), 'file must not be created');
 });
 
-test('readMaster drops a hand-pasted nami-browser so delivery cannot copy it', () => {
+test('readMaster drops a hand-pasted kingagent-browser so delivery cannot copy it', () => {
   const io = memIo({
     '/proj/connections.json': JSON.stringify({
       mcpServers: {
         notion: NOTION,
-        'nami-browser': { type: 'http', url: 'http://127.0.0.1:9/secret' },
+        'kingagent-browser': { type: 'http', url: 'http://127.0.0.1:9/secret' },
       },
     }),
   });
@@ -327,10 +327,10 @@ test('readMaster drops a hand-pasted nami-browser so delivery cannot copy it', (
   assert.deepEqual(Object.keys(masters), ['notion']);
 });
 
-test('deliveryPlan skips nami-browser even if a caller passes it in masters', () => {
+test('deliveryPlan skips kingagent-browser even if a caller passes it in masters', () => {
   const BROWSER = { type: 'http', url: 'http://127.0.0.1:9/secret' };
   const plan = deliveryPlan({
-    masters: { notion: NOTION, 'nami-browser': BROWSER },
+    masters: { notion: NOTION, 'kingagent-browser': BROWSER },
     scope: 'project', agentIds: ['claude', 'codex'],
     projectPath: PROJ, homeDir: HOME,
   });
@@ -340,18 +340,18 @@ test('deliveryPlan skips nami-browser even if a caller passes it in masters', ()
   assert.deepEqual(Object.keys(block.masters), ['notion']);
 });
 
-test('runPlan does not write a nami-browser json entry', async () => {
+test('runPlan does not write a kingagent-browser json entry', async () => {
   const { runPlan } = require('../src/main/connections-deliver.js');
   const io = memIo();
   const results = await runPlan({
     plan: [{
       agent: 'claude', kind: 'json', file: '/proj/.mcp.json', section: 'mcpServers',
-      entries: { notion: NOTION, 'nami-browser': { type: 'http', url: 'http://127.0.0.1:9/secret' } },
+      entries: { notion: NOTION, 'kingagent-browser': { type: 'http', url: 'http://127.0.0.1:9/secret' } },
     }],
     io, execCmd: async () => ({ ok: true }),
   });
   assert.equal(results[0].ok, true);
   const doc = JSON.parse(io.files['/proj/.mcp.json']);
   assert.ok(doc.mcpServers.notion);
-  assert.equal(doc.mcpServers['nami-browser'], undefined);
+  assert.equal(doc.mcpServers['kingagent-browser'], undefined);
 });

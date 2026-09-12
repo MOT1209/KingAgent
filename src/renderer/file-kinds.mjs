@@ -95,5 +95,5 @@ export function docUrl(absPath) {
   const parts = String(absPath).split('/');
   const root = parts.slice(0, -1).join('/') || '/';
   const rel = parts[parts.length - 1];
-  return 'nami-doc://doc/' + encodeURIComponent(root) + '/' + encodeURIComponent(rel);
+  return 'kingagent-doc://doc/' + encodeURIComponent(root) + '/' + encodeURIComponent(rel);
 }

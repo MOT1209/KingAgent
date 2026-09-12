@@ -296,7 +296,7 @@ async function insertAnnotation(payload,destinations) {
     if(rec.insertSessionDraft) {
       const r=await rec.insertSessionDraft({text,images:payload.image?[payload.image]:[]});ok=r?.ok;
     } else {
-      if(payload.image)text+=`\n\nScreenshot file reference: ${JSON.stringify(payload.image.path)}\nNami image ID: ${payload.image.id} (available through nami_read_annotation_image when connected).`;
+      if(payload.image)text+=`\n\nScreenshot file reference: ${JSON.stringify(payload.image.path)}\nKingAgent image ID: ${payload.image.id} (available through kingagent_read_annotation_image when connected).`;
       ok=await insertSessionText(id,text,{focus:false});
     }
     if(ok){inserted.push(id);rememberContext(id,{reference:payload.reference||payload.url,text,insertedAt:Date.now()});}
@@ -349,9 +349,9 @@ function isFileDrag(e) { return dragTypes(e).includes('Files'); }
 // Whether the row is a folder rides as a second *type* rather than as data, for
 // exactly that reason: the canvas has to refuse a folder while you are still
 // holding it, and a hidden payload cannot answer that.
-const PATH_TYPE = 'application/x-nami-path';
-const DIR_TYPE = 'application/x-nami-dir';
-const PANEL_TYPE = 'application/x-nami-panel'; // a file row dragged onto a session row in the rail
+const PATH_TYPE = 'application/x-kingagent-path';
+const DIR_TYPE = 'application/x-kingagent-dir';
+const PANEL_TYPE = 'application/x-kingagent-panel'; // a file row dragged onto a session row in the rail
 function dragTypes(e) { return Array.from((e.dataTransfer && e.dataTransfer.types) || []); }
 function isPathDrag(e) { return dragTypes(e).includes(PATH_TYPE); }
 function isDirDrag(e) { return dragTypes(e).includes(DIR_TYPE); }
@@ -1976,7 +1976,7 @@ function agentNameOf(id) { const a = (S.agents || []).find((x) => x.id === id); 
 // than taking it over — their wording is usually better than anything generated
 // from frontmatter, and rewriting prose we didn't author is not a trade worth
 // making. But two Skills sections in one file is worth mentioning once.
-const FOREIGN_DISMISSED = 'nami-foreign-skills-dismissed';
+const FOREIGN_DISMISSED = 'kingagent-foreign-skills-dismissed';
 function appendForeignNote(list) {
   const st = S.pointer;
   const dir = S.project && S.project.path;
@@ -3402,7 +3402,7 @@ function wireTerminalMenu(p, rec) {
       // here keeps the menu and the modifier on one implementation.
       return { ...it, run: () => openTermLink(hit.link, hit.st, { altKey: it.label === REVEAL_LABEL }) };
     });
-    if (hit.link.kind === 'url') items.unshift({ label: 'Open in Nami browser', run: () => { browsers.open(urlTarget(hit.link.text), null, p.id); setView('split'); } });
+    if (hit.link.kind === 'url') items.unshift({ label: 'Open in KingAgent browser', run: () => { browsers.open(urlTarget(hit.link.text), null, p.id); setView('split'); } });
     showMenu(e.clientX, e.clientY, items);
   });
 }
@@ -5198,7 +5198,7 @@ function focusedPanel() { return S.panels.find((x) => x.id === S.activeId) || nu
 
 // One string per agent, so a habit is remembered per agent rather than globally
 // — the same shape as the launcher's Cards/Terminal memory.
-const TOOL_KEY = (item) => 'nami.agenttool.' + item.id;
+const TOOL_KEY = (item) => 'kingagent.agenttool.' + item.id;
 function rememberedTool(item) { try { return localStorage.getItem(TOOL_KEY(item)) || ''; } catch (_) { return ''; } }
 function rememberTool(item, toolId) { try { localStorage.setItem(TOOL_KEY(item), toolId); } catch (_) {} }
 
@@ -5843,7 +5843,7 @@ function voicePaneHtml() {
 function voiceFootHtml() {
   const o = S.overlay, active = voiceRows().find((p) => p.id === pickedVoiceId());
   return `<button class="btn" id="set-mic" ${active && active.ready ? '' : 'disabled'}>◉ Test the mic</button>
-    <span class="set-result" id="set-result">${esc(o.test || 'say something and Nami will type it back')}</span>`;
+    <span class="set-result" id="set-result">${esc(o.test || 'say something and KingAgent will type it back')}</span>`;
 }
 function voiceFlag(p) {
   // Ready on a key Nami never saved means the key arrived on the environment
@@ -5886,8 +5886,8 @@ function voiceRowBodyHtml(p) {
   // Usable, but on a key Nami is not holding. The row says where it came from
   // and what would make it survive the next launch.
   if (p.needsKey && p.ready && !p.keySaved) {
-    return `<div class="set-opt-body"><div class="setup-note">Working from ${esc(p.keyEnv)} in the environment Nami was started in.
-        Open Nami from the Dock and it will not be there.
+    return `<div class="set-opt-body"><div class="setup-note">Working from ${esc(p.keyEnv)} in the environment KingAgent was started in.
+        Open KingAgent from the Dock and it will not be there.
         <span class="sv-help go-keys" data-keyenv="${esc(p.keyEnv)}">Save it in Keys</span> to make it stick.</div></div>`;
   }
   if (p.id === 'local' && !p.ready && p.downloadBytes) {
@@ -6013,11 +6013,11 @@ const REPO_URL = 'https://github.com/MOT1209/KingAgent';
 // then have to search. Kept next to REPO_URL so every outward link Nami has is
 // read in one place.
 const DOCS = {
-  home: 'https://nami.dainami.ai/docs/',
-  start: 'https://nami.dainami.ai/docs/start/',
-  pickAgent: 'https://nami.dainami.ai/docs/pick-an-agent/',
-  examples: 'https://nami.dainami.ai/docs/examples/',
-  permissions: 'https://nami.dainami.ai/docs/permissions/',
+  home: 'https://github.com/MOT1209/KingAgent/tree/main/docs',
+  start: 'https://github.com/MOT1209/KingAgent/blob/main/docs/design.md',
+  pickAgent: 'https://github.com/MOT1209/KingAgent/blob/main/docs/architecture.md',
+  examples: 'https://github.com/MOT1209/KingAgent/blob/main/README.md',
+  permissions: 'https://github.com/MOT1209/KingAgent/blob/main/docs/security.md',
 };
 // Where the app sends people who want the person rather than the program.
 //
@@ -6029,8 +6029,8 @@ const DOCS = {
 // clicked" has an answer without a single byte leaving the machine.
 //
 // GitHub links stay bare on purpose: there is no analytics there to read them.
-const makerUrl = (where) => `https://dainami.ai/links?utm_source=nami-app&utm_medium=${where}`;
-const teamsUrl = (where) => `https://dainami.ai/?utm_source=nami-app&utm_medium=${where}&utm_campaign=teams`;
+const makerUrl = (where) => `https://dainami.ai/links?utm_source=kingagent-app&utm_medium=${where}`;
+const teamsUrl = (where) => `https://dainami.ai/?utm_source=kingagent-app&utm_medium=${where}&utm_campaign=teams`;
 function updatedOn(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -6073,8 +6073,8 @@ function aboutPaneHtml() {
       <a class="ab-link" href="#" data-url="${REPO_URL}/blob/master/LICENSE">MIT licence <span class="arr">↗</span></a>
     </div>
     <hr class="ab-rule" />
-    <div class="ab-made">Made by <a class="ab-link" href="#" data-url="${makerUrl('about')}">Cal</a>, in Nami.</div>
-    <div class="ab-copy">© 2026 Dainami AI · MIT licensed</div>
+    <div class="ab-made">Made by <a class="ab-link" href="#" data-url="${makerUrl('about')}">Cal</a>, in KingAgent.</div>
+    <div class="ab-copy">© 2026 KingAgent · MIT licensed</div>
     <div class="ab-team">
       <button class="btn btn--quiet" data-url="${teamsUrl('about')}">Want KingAgent for your team? →</button>
     </div>`;
@@ -6291,7 +6291,7 @@ function renderConnectCatalog() {
         <span class="code" data-kind="service">${esc(s.code)}</span>
         <span class="sv-name">${esc(s.name)}</span>
         <span class="sv-desc">${esc(s.desc)}</span>
-        ${s.id === 'kie' ? '<span class="sv-by">by Dainami</span>' : ''}
+        ${s.id === 'kie' ? '<span class="sv-by">by Calvin Hia</span>' : ''}
         <span class="sv-go">${connectedIds.has(s.id) ? '<span class="ok">●</span> connected' : 'connect →'}</span>
       </div>`).join('')}</div>
     <div class="svc-custom" id="svc-own" tabindex="0">
@@ -6432,7 +6432,7 @@ function renderConnectForm() {
   // Install kind (kie): two honest clicks. First click installs in a visible
   // terminal tile; reopening the sheet finds the build and offers Connect.
   const install = svc.kind === 'install';
-  const installDirOf = () => '~/.nami/connectors/' + svc.docs.split('/').pop();
+  const installDirOf = () => '~/.kingagent/connectors/' + svc.docs.split('/').pop();
   if (install && o.installed === undefined) {
     q('#sv-connect', modal).textContent = 'Install first';
     api.statPath({ token: installDirOf() + '/dist/index.js' }).then((st) => {
@@ -6562,7 +6562,7 @@ const DEMOS = {
   'getting-started': '',   // first launch → folder → agent → first ask → approve
   'a-real-job': '',        // plain English in, two panes running, a file out
 };
-const QS_DONE = 'nami-quickstart-done';
+const QS_DONE = 'kingagent-quickstart-done';
 function qsDone() {
   try { return new Set(JSON.parse(localStorage.getItem(QS_DONE) || '[]')); } catch { return new Set(); }
 }
@@ -6576,7 +6576,7 @@ function quickStartRows() {
   return [
     {
       n: 1, title: 'Pick one folder to work in',
-      sub: 'Nami only ever looks inside it. No folder yet? It will make you one.',
+      sub: 'KingAgent only ever looks inside it. No folder yet? It will make you one.',
       done: !!S.project,
       acts: S.project ? [] : [{ label: 'Make me a folder', go: true, run: () => { closeOverlay(); makeFolderDialog(); } }],
     },
@@ -6589,8 +6589,8 @@ function quickStartRows() {
       ],
     },
     {
-      n: 3, title: 'Nami can run multiple agents for you',
-      sub: 'Claude Code signs in with your Claude account, Codex with your ChatGPT one. No Nami account, no second bill.',
+      n: 3, title: 'KingAgent can run multiple agents for you',
+      sub: 'Claude Code signs in with your Claude account, Codex with your ChatGPT one. No KingAgent account, no second bill.',
       acts: [{ label: 'Which should I pick?', run: () => api.openUrl(DOCS.pickAgent) }],
     },
     {
@@ -6812,7 +6812,7 @@ function toast(msg) { els.toastRoot.innerHTML = `<div class="toast"><span class=
 // not want the app in front of them, and an update is the least urgent thing
 // Nami has to say — so it waits, and "Not now" means not this version, ever.
 
-const SKIPPED_UPDATE = 'nami-skipped-update';
+const SKIPPED_UPDATE = 'kingagent-skipped-update';
 
 // What the bar is currently saying. `offered` is what update-check found, and
 // survives every repaint — the failure state needs its url to fall back to a
@@ -6940,8 +6940,8 @@ function paintUpdate(state, ev) {
 // evidence available that Nami earned its place. Nothing is sent anywhere to
 // learn this — it is a number in localStorage on one machine.
 
-const STAR_ASKED = 'nami-star-asked';
-const LAUNCH_TALLY = 'nami-launches';
+const STAR_ASKED = 'kingagent-star-asked';
+const LAUNCH_TALLY = 'kingagent-launches';
 const ASK_AFTER_LAUNCHES = 5;
 // Long enough that the bar is never part of the app opening. Someone who just
 // launched Nami is going somewhere; this waits until they have arrived.
@@ -6972,7 +6972,7 @@ function paintStarAsk() {
   // An update is always the more important thing in this slot, and it must
   // never be displaced by a favour. If one is showing, the moment has passed.
   if (!els.updateRoot || offered || localStorage.getItem(STAR_ASKED)) return;
-  // Green, not amber: amber in Nami means *needs you*, and this does not.
+  // Green, not amber: amber in KingAgent means *needs you*, and this does not.
   els.updateRoot.innerHTML = `<div class="update-note">
     <span class="un-dot un-done"></span>
     <span class="un-msg un-ask">Enjoying KingAgent? A star helps other people find it.</span>
