@@ -24,11 +24,12 @@ name: ship
 #            Unsigned for now: no Apple credentials are wired up, so the macOS
 #            builds are downloadable but Gatekeeper has things to say, and
 #            Squirrel.Mac will not swap an unsigned app — the bar still offers
-#            the dmg. The mac job forwards CSC_LINK / CSC_KEY_PASSWORD and the
-#            APPLE_API_* pair from repository secrets, dormant until set; the
-#            build step runs under bash even on the Windows runner, so the same
-#            $VERSION reads an environment variable on both shells (pwsh would
-#            demand $env:VERSION).
+#            the dmg. A step in the mac job defines the CSC_LINK / CSC_KEY_PASSWORD
+#            and APPLE_API_* variables only when the secrets exist; until they do,
+#            electron-builder can not sign (its auto discovery finds no identity on
+#            the runner image). The build step runs under bash even on the Windows
+#            runner, so the same $VERSION reads an environment variable on both
+#            shells (pwsh would demand $env:VERSION).
 #
 #   publish  releases what landed as a non-prerelease release under the
 #            computed tag — after verifying a complete, self-consistent set is
@@ -110,18 +111,25 @@ jobs:
             run-build: npm run fetch-model && npx electron-builder --win --publish never -c.extraMetadata.version=$VERSION
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
-      # Dormant until the secrets exist: with no CSC_LINK the mac build signs
-      # nothing, and scripts/notarize-dmg.mjs skips in silence when the
-      # APPLE_API_* keys are absent. Set them in the repository settings once
-      # and the same workflow signs with electron-builder and staples every
-      # dmg through notarytool — nothing in the config or workflow changes.
-      CSC_LINK: ${{ secrets.CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
     steps:
       - uses: actions/checkout@v4
+      - name: Configure macOS signing env
+        # Defining CSC_LINK at all matters — even as an empty string it sends
+        # electron-builder down the p12 keystore path and it dies with "not a
+        # file" against the project dir, and the runner image has no Developer
+        # ID identity for auto discovery to fall back on either. So the signing
+        # variables are only defined by this step, which runs only when
+        # CSC_LINK exists. With them in place electron-builder signs from the
+        # p12 and scripts/notarize-dmg.mjs staples every dmg via notarytool;
+        # without them the build stays unsigned exactly as before.
+        if: secrets.CSC_LINK != ''
+        shell: bash
+        run: |
+          echo "CSC_LINK=${{ secrets.CSC_LINK }}" >> "$GITHUB_ENV"
+          echo "CSC_KEY_PASSWORD=${{ secrets.CSC_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "APPLE_API_KEY=${{ secrets.APPLE_API_KEY }}" >> "$GITHUB_ENV"
+          echo "APPLE_API_KEY_ID=${{ secrets.APPLE_API_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "APPLE_API_ISSUER=${{ secrets.APPLE_API_ISSUER }}" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 24
