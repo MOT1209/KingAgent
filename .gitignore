@@ -3,6 +3,7 @@ dist/
 release/
 release-review/
 shots/
+coverage/
 # 42MB of Whisper weights, fetched by `npm run fetch-model` at package time
 build/models/
 .DS_Store
@@ -23,7 +24,7 @@ _local/
 *.p12
 *.mobileprovision
 
-# Working notes and agent tooling: mine, not the product's. These are how Nami
+# Working notes and agent tooling: mine, not the product's. These are how KingAgent
 # gets built, not how it is used, and the specs in particular carry decisions
 # about shipping and audience that were written as private notes. They stay on
 # this machine. Everything a contributor needs is in README, CONTRIBUTING and
