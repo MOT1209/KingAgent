@@ -96,7 +96,11 @@ jobs:
       - name: Compute the next version
         id: version
         run: |
-          LATEST=$(gh api repos/MOT1209/KingAgent/releases/latest --jq '.tag_name' 2>/dev/null || true)
+          # Version from the tag list, not releases/latest: drafts and deleted
+          # releases make releases/latest vanish or jump around, but the tags
+          # they left behind still count, and rolling bumps must stay monotonic
+          # or installed copies see no update to fetch.
+          LATEST=$(gh api repos/MOT1209/KingAgent/tags --paginate --jq '[.[].name] | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))) | max_by(split(".") | map(tonumber))' 2>/dev/null || true)
           BASE=$(node -p "require('./package.json').version")
           if [ -n "$LATEST" ] && [[ "$LATEST" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             BASE=${LATEST#v}
