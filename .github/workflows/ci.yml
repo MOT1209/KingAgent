@@ -28,10 +28,16 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci
+
+      # The zsh-backed run-done tests are part of the gate, and a bare Ubuntu
+      # image ships no shell to run them on, so install the one they need.
+      - name: Install zsh
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y zsh
 
       - name: Syntax-check every main-process module
         run: node scripts/check-syntax.mjs
@@ -53,7 +59,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci

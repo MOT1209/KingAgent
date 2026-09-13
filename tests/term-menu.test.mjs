@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { termMenuItems } from '../src/renderer/term-menu.mjs';
-import { IS_WINDOWS } from './test-utils.mjs';
 
 // The src names the reveal target per platform: Finder on macOS, File Explorer
-// elsewhere. The menu shape is the point, so the label follows the platform.
-const reveal = IS_WINDOWS ? 'Reveal in File Explorer' : 'Reveal in Finder';
+// everywhere else — Linux has no Finder, and only the label differs-elsewhere.
+// The menu shape is the point, so the label follows the source rule exactly.
+const reveal = process.platform === 'darwin' ? 'Reveal in Finder' : 'Reveal in File Explorer';
 
 const labels = (items) => items.filter((i) => i !== '-').map((i) => i.label);
 const copyRows = (items) => items.filter((i) => i !== '-' && i.copy != null);

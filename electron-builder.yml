@@ -79,15 +79,16 @@ asarUnpack:
 artifactName: ${productName}-${arch}.${ext}
 
 # --- Windows ----------------------------------------------------------------
-# NSIS is what a person downloads; portable is the unzip-and-run copy for
-# machines without install rights. The per-machine one lives in Program Files
-# and writes no registry keys beyond its own uninstall entry.
+# NSIS is what a person downloads; the combined installer (x64 + arm64) and the
+# per-arch ones share a stable name so the pinned download links never die.
+# `portable` is deliberately absent: its artifactName collides with the x64 NSIS
+# file (same ${arch}, same .exe), the later build silently overwrites it, and
+# latest.yml then records a size the file never has — every auto-update checks
+# its checksum against that dead number.
 win:
   target:
     - target: nsis
       arch: [x64, arm64]
-    - target: portable
-      arch: [x64]
   # Alternate rank, same reasoning as the mac block below: appearing in every
   # file's Open With list is noise. Explorer offers KingAgent; making it the
   # default stays a deliberate act in Settings > Default apps.
@@ -100,15 +101,14 @@ win:
       name: Plain text document
       role: editor
       rank: alternate
-  # electron-builder derives this from productName when unset; naming it here
-  # keeps the Start-menu entry stable across renames.
-  shortcutName: KingAgent
-
-# NSIS behaviour. oneClick: false gives the install wizard, which is what the
+  # NSIS behaviour. oneClick: false gives the install wizard, which is what the
 # file associations above need to be offered as a choice rather than taken.
 # perMachine: false keeps it in the user's AppData, so no UAC prompt and no
 # admin rights — the same privilege story as the mac drag-install.
 nsis:
+  # electron-builder derives this from productName when unset; naming it here
+  # keeps the Start-menu entry stable across renames.
+  shortcutName: KingAgent
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

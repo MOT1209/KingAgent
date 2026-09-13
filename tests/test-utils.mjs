@@ -41,9 +41,10 @@ export async function symlinksSupported() {
   return symlinkProbe;
 }
 
-// /bin/zsh is macOS's stock shell and not typically installed on Windows.
+// /bin/zsh is macOS's stock shell and not typically installed on Windows or on
+// a bare Linux runner. Ask the filesystem instead of assuming: a real probe is
+// the only answer that survives every CI image some future workflow runs.
 export const HAS_ZSH = (() => {
-  if (process.platform !== 'win32') return true;
   try { fs.accessSync('/bin/zsh', fs.constants.X_OK); return true; } catch { return false; }
 })();
 

@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { IS_WINDOWS } from './test-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const { isNewer, releaseFromApi, checkForUpdate, updateStatus } = require('../src/main/update-check.js');
@@ -64,21 +63,22 @@ const release = (over = {}) => ({
   ...over,
 });
 
-// The asset the app should hand out on this platform: the arm64 dmg on macOS,
-// the x64 NSIS setup exe on Windows — arm64 exes exist but are skipped on
-// purpose there.
-const bestAsset = IS_WINDOWS ? 'https://example.test/x64.exe' : 'https://example.test/arm64.dmg';
+// The asset the app should hand out on this platform, mirroring the source's
+// rule (update-check.js): macOS gets the dmg (arm64 named, x64 bare), every
+// other platform gets the x64 NSIS setup exe.
+const IS_MAC = process.platform === 'darwin';
+const bestAsset = IS_MAC ? 'https://example.test/arm64.dmg' : 'https://example.test/x64.exe';
 
 test('reads the version off the tag', () => {
   assert.equal(releaseFromApi(release()).version, '0.2.0');
 });
 
 test('offers the installer built for this machine', () => {
-  // Windows never picks the arm64 exe, even when asked for arm64
+  // Windows and Linux always take the x64 exe, whatever arch they are asked for
   assert.equal(releaseFromApi(release(), 'arm64').url,
-    IS_WINDOWS ? 'https://example.test/x64.exe' : 'https://example.test/arm64.dmg');
+    IS_MAC ? 'https://example.test/arm64.dmg' : 'https://example.test/x64.exe');
   assert.equal(releaseFromApi(release(), 'x64').url,
-    IS_WINDOWS ? 'https://example.test/x64.exe' : 'https://example.test/x64.dmg');
+    IS_MAC ? 'https://example.test/x64.dmg' : 'https://example.test/x64.exe');
 });
 
 test('falls back to the release page when no dmg matches', () => {

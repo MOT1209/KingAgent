@@ -41,7 +41,7 @@ function readTree(dir, depth, maxDepth) {
   const rows = [];
   let entries;
   try { entries = visibleEntries(dir, false).slice(0, 40); }
-  catch (_) { return rows; }
+  catch (e) { if (process.env.CI) console.error('workspace-tree readTree could not read', dir, e.code, e.message); return rows; }
 
   for (const { entry, isDirectory } of entries) {
     const full = path.join(dir, entry.name);
@@ -69,7 +69,7 @@ function listDirectory(dir, all = false) {
         meta: metadata(full, isDirectory),
       };
     });
-  } catch (_) { return null; }
+  } catch (e) { if (process.env.CI) console.error('workspace-tree listDirectory could not read', dir, e.code, e.message); return null; }
 }
 
 module.exports = { IGNORE, fmtSize, listDirectory, readTree };

@@ -1,4 +1,4 @@
-import { test, before, after } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -10,31 +10,29 @@ const { listDirectory, readTree } = require('../src/main/workspace-tree.js');
 
 // Windows only lets a session create symlinks with Developer Mode or an
 // elevated shell. Whether they exist changes what the two link tests prove, so
-// the probe is done once, here, where the links are built.
+// the probe happens here, at module scope: test options are evaluated when the
+// test is registered, so a probe inside `before` is always too late and the
+// skip flag would never be honest.
+const base = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-workspace-tree-'));
+after(() => fs.rmSync(base, { recursive: true, force: true }));
+
+const skill = path.join(base, 'skill-target');
+const file = path.join(base, 'file-target.md');
+const root = path.join(base, 'workspace');
+fs.mkdirSync(root);
+fs.mkdirSync(skill);
+fs.writeFileSync(path.join(skill, 'SKILL.md'), '# Skill\n');
+fs.writeFileSync(file, '# File\n');
+fs.writeFileSync(path.join(root, 'ordinary.txt'), 'ordinary\n');
 let symlinks = true;
-let root = '';
-
-before(() => {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'nami-workspace-tree-'));
-  after(() => fs.rmSync(base, { recursive: true, force: true }));
-
-  const skill = path.join(base, 'skill-target');
-  const file = path.join(base, 'file-target.md');
-  root = path.join(base, 'workspace');
-  fs.mkdirSync(root);
-  fs.mkdirSync(skill);
-  fs.writeFileSync(path.join(skill, 'SKILL.md'), '# Skill\n');
-  fs.writeFileSync(file, '# File\n');
-  fs.writeFileSync(path.join(root, 'ordinary.txt'), 'ordinary\n');
-  try {
-    fs.symlinkSync(skill, path.join(root, 'linked-skill'));
-    fs.symlinkSync(file, path.join(root, 'linked-file.md'));
-    fs.symlinkSync(path.join(base, 'missing'), path.join(root, 'broken-link'));
-  } catch {
-    // sessions without symlink privilege still exercise everything else
-    symlinks = false;
-  }
-});
+try {
+  fs.symlinkSync(skill, path.join(root, 'linked-skill'));
+  fs.symlinkSync(file, path.join(root, 'linked-file.md'));
+  fs.symlinkSync(path.join(base, 'missing'), path.join(root, 'broken-link'));
+} catch {
+  // sessions without symlink privilege still exercise everything else
+  symlinks = false;
+}
 
 test('directory listing treats a live link to a directory as a folder', { skip: !symlinks && 'session cannot create symlinks' }, () => {
   const rows = listDirectory(root, true);

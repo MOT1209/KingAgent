@@ -1,0 +1,158 @@
+name: ship
+
+# A rolling release on every push to main, so the last thing anyone pushed is
+# always downloadable and installed copies of KingAgent can update to it.
+#
+# Who is this for, and what its three jobs do:
+#
+#   bump    raises the patch version and commits it. The commit goes out through
+#           the default GITHUB_TOKEN, which GitHub does not turn into a new
+#           workflow run, so it cannot loop. The version is deliberately a plain
+#           dotted one: the built-in updater compares latest.yml with semver and
+#           update-check.js compares three parts, and both of those order
+#           0.5.2 after 0.5.1 the moment it ships. Each push builds from the
+#           commit that carries one bumped version, and the next push starts one
+#           higher, so versions strictly increase and update feeds are always.
+#
+#   build   the installers themselves, one job per platform so Windows and macOS
+#           go in parallel. `publish never` is baked into the dist scripts and
+#           uploading is a separate, later step — the update metadata is
+#           corrected first. Unsigned for now: Apple credentials are not wired
+#           up, so macOS builds are downloadable but Gatekeeper has things to
+#           say, and macOS auto-update (Squirrel) will not swap an unsigned app;
+#           the bar still offers the dmg.
+#
+#   publish releases whatever the build jobs produced as a non-prerelease
+#           release under the bumped tag. Non-prerelease matters twice: GitHub's
+#           releases/latest only points at the newest non-prerelease, and
+#           electron-updater reads its feed from releases/latest. This is also
+#           why the workflow runs even when a platform job failed — Windows and
+#           macOS each ship the moment their own job succeeds.
+#
+# The manual release.yml flow for signed, tagged stable builds is untouched and
+# can coexist: `ship` only ever makes v<dotted> tags from a bump it made itself,
+# which nothing else will collide with.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ship-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Raise the patch version and push it
+        id: bump
+        run: |
+          git config user.name "KingAgent CI"
+          git config user.email "actions@github.com"
+          VERSION=$(node scripts/ci-bump.mjs)
+          git add package.json
+          git commit -m "ci: roll the patch version to $VERSION"
+          git push
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: bump
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: mac
+            command: npm run dist:mac
+          - os: windows-latest
+            platform: win
+            command: npm run dist:win
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Cache Whisper weights
+        uses: actions/cache@v4
+        with:
+          path: build/models
+          key: whisper-${{ runner.os }}-${{ hashFiles('scripts/fetch-model.mjs', 'src/main/stt-model.js') }}
+      - name: Build ${{ matrix.platform }} installers
+        run: ${{ matrix.command }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.platform }}
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+            release/*.dmg
+            release/*.zip
+            release/latest-mac.yml
+          if-no-files-found: error
+
+  publish:
+    # always(): a Windows-only failure (or the other way round) still ships the
+    # platform that built. The step below decides from what actually landed.
+    needs: [bump, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect the build outputs
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: false
+      - name: Publish the rolling release
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.bump.outputs.version }}
+          TAG: ${{ needs.bump.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAG" ]; then
+            echo "no version was bumped; nothing to publish"
+            exit 0
+          fi
+          ASSETS=()
+          for pattern in \
+            "dist/dist-win/"*.exe \
+            "dist/dist-win/"*.exe.blockmap \
+            "dist/dist-win/latest.yml" \
+            "dist/dist-mac/"*.dmg \
+            "dist/dist-mac/"*.zip \
+            "dist/dist-mac/latest-mac.yml"; do
+            for f in $pattern; do
+              if [ -f "$f" ]; then ASSETS+=("$f"); fi
+            done
+          done
+          if [ ${#ASSETS[@]} -eq 0 ]; then
+            echo "no installers were built; nothing to publish"
+            exit 0
+          fi
+          # A re-run of a finished run starts from the already-bumped package.json,
+          # so the tag is new every time. If it somehow exists, replace it in place.
+          if gh release view "$TAG" --repo MOT1209/KingAgent >/dev/null 2>&1; then
+            gh release delete "$TAG" --repo MOT1209/KingAgent --yes --cleanup-tag
+          fi
+          gh release create \
+            --repo MOT1209/KingAgent \
+            "$TAG" \
+            --title "KingAgent $VERSION" \
+            --notes "Rolling build from the latest push to main. Windows and macOS installers; the newest release is what the app offers as its update." \
+            "${ASSETS[@]}"
+        shell: bash
