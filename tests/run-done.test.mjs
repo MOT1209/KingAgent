@@ -64,7 +64,9 @@ test('the carry buffer does not grow with the output', () => {
 // Asserting the parser against a string this file wrote proves nothing about
 // whether a real shell emits it. So run it.
 test('a real zsh emits the sequence, with the real exit code', { skip: !HAS_ZSH && 'no /bin/zsh on this machine' }, () => {
-  for (const [cmd, want] of [['true', 0], ['false', 1], ['(exit 7)', 7], ['ls /nope/nope', 1]]) {
+  // ls /nope/nope deliberately left out: the failing external command exits 2
+  // on GNU and 1 on macOS BSD, and the code under test is not the point here.
+  for (const [cmd, want] of [['true', 0], ['false', 1], ['(exit 7)', 7]]) {
     const out = execFileSync('/bin/zsh', ['-c', doneSuffix(cmd)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     assert.equal(feedRunDone({}, out), want, `for \`${cmd}\``);
   }
@@ -134,7 +136,9 @@ test('spawned for real: the code is reported and the output survives', { skip: !
 });
 
 test('a failing spawned command still reports', { skip: !HAS_ZSH && 'no /bin/zsh on this machine' }, () => {
-  const args = oneShotArgs('/bin/zsh', 'ls /nope/nope');
+  // `false` fails with the same 1 on every platform; ls /nope/nope would be 2
+  // on GNU and 1 on BSD, and this test is about the reporting, not the ls.
+  const args = oneShotArgs('/bin/zsh', 'false');
   const body = args[2].replace(/; exec .*$/, '');
   const out = execFileSync('/bin/zsh', ['-i', '-c', body], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   assert.equal(feedRunDone({}, out), 1);
