@@ -32,7 +32,7 @@ export async function captureBrowserPage(api, view) {
   } catch (_) {}
   return page;
 }
-export function createSessionSources({ api, state, tiles, esc, icon, isSession, menu, toast, settings, publish, insert, focus }) {
+export function createSessionSources({ api, state, tiles, esc, icon, isSession, menu, toast, publish, insert, focus }) {
   let status = {sessions:[],views:[]}, pending = null;
   const sourceIds = s => (s?.sources||[]).map(x=>typeof x==='string'?x:x.id);
   const sessions = () => state.panels.filter(p => isSession(p) && !p.exited);

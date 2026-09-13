@@ -52,10 +52,10 @@ app.whenReady().then(async () => {
     assert.equal(await evalPage('getComputedStyle(document.querySelector("#text"),"::selection").backgroundColor'), 'rgba(0, 0, 0, 0)');
     wc.send('browser:annotation-capture-end', { requestId:'capture-1' });
     wc.send('browser:annotate-mode', { active: true }); await pause(50);
-    const annotatingCursor = await evalPage('getComputedStyle(document.body).cursor');
-    assert.notEqual(annotatingCursor, 'auto');
+    const annotatingCursorAfter = await evalPage('getComputedStyle(document.body).cursor');
+    assert.notEqual(annotatingCursorAfter, 'auto');
     wc.sendInputEvent({type:'keyDown',keyCode:'ESCAPE'}); await pause(50);
-    assert.notEqual(await evalPage('getComputedStyle(document.body).cursor'), annotatingCursor);
+    assert.notEqual(await evalPage('getComputedStyle(document.body).cursor'), annotatingCursorAfter);
     await evalPage('window.scrollTo(0,50)');
     await until(() => layouts.some((l) => l.selections.some((s) => s.selectionId === selections[0].selectionId && s.rect?.y < rect.y)));
     await evalPage('document.querySelector("button").textContent="Changed externally"');

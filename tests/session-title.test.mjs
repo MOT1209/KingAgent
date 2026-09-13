@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { scanTitles, claudeTitle, adoptTitle, shouldPushName } = require('../src/main/session-title.js');
+const { scanTitles, claudeTitle } = require('../src/main/session-title.js');
 
 // Shapes captured from a real transcript, claude 2.1.226.
 const AI = (t, sid = 'abc') => JSON.stringify({ type: 'ai-title', aiTitle: t, sessionId: sid });

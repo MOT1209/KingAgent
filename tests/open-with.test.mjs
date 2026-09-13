@@ -80,7 +80,7 @@ test('electron-builder declares exactly the extensions open-with routes', () => 
   const block = yml.split(/^\s*fileAssociations:\s*$/m)[1];
   assert.ok(block, 'no fileAssociations block in electron-builder.yml');
   // Stop at the next key at the same indent — the block is a list under `mac:`.
-  const body = block.split(/\n(?=  \w)/)[0];
+  const body = block.split(/\n(?= {2}\w)/)[0];
   const declared = [...body.matchAll(/ext:\s*\[([^\]]+)\]/g)]
     .flatMap((m) => m[1].split(',').map((e) => e.trim()));
   assert.deepEqual([...declared].sort(), [...OPEN_EXT].sort());

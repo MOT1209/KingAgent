@@ -15,7 +15,11 @@ const AGENTS = [
     model: { provider: 'unset', id: 'default' },
     capabilities: ['repository_analysis', 'code', 'read', 'write', 'run_tests', 'code_search', 'git'],
     tools: ['fs:read', 'fs:list', 'fs:write', 'search:grep', 'git:status', 'terminal:run'],
-    permissions: { levels: ['read_only', 'safe', 'moderate'], allowDestructive: false },
+    // 'destructive' + allowDestructive lets the coder REACH the dangerous tools
+    // (fs:delete, terminal:run); every such call still goes through the per-call
+    // authorization modal — needsAuthorization returns true unconditionally for
+    // DESTRUCTIVE tools, so the flag never skips the human loop.
+    permissions: { levels: ['read_only', 'safe', 'moderate', 'destructive'], allowDestructive: true },
     metadata: { role: 'default' },
   },
   {

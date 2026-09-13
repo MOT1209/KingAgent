@@ -237,13 +237,13 @@ function chromeTimeToMs(value) {
   return Math.floor(n / 1000 - 11_644_473_600_000);
 }
 function readChromeLogins(file, key) {
-  let rows = [];
+  let rows;
   try { rows = readSqliteRows(file, 'SELECT origin_url, username_value, password_value FROM logins'); }
   catch (error) { return { entries: [], skipped: 0, ...readFailure(error) }; }
   const entries = []; let skipped = 0;
   for (const row of rows) {
     const password = key ? decryptChromeCookie(row.password_value, key) : (typeof row.password_value === 'string' ? row.password_value : null);
-    let origin = '';
+    let origin;
     try { origin = new URL(browserUrl(row.origin_url)).origin; } catch { skipped++; continue; }
     if (!password || origin === 'null') { skipped++; continue; }
     entries.push({ origin, username: String(row.username_value || '').slice(0, 2000), password });
@@ -251,7 +251,7 @@ function readChromeLogins(file, key) {
   return { entries, skipped, locked: false };
 }
 function readChromeHistory(file) {
-  let rows = [];
+  let rows;
   try { rows = readSqliteRows(file, 'SELECT url, title, last_visit_time FROM urls ORDER BY last_visit_time DESC LIMIT 5000'); }
   catch (error) { return { entries: [], ...readFailure(error) }; }
   return {
@@ -322,7 +322,7 @@ function cookieOptions(cookie) {
 async function importChromiumCookies({ session, sources, passwordFor, includeGoogle = true, log = () => {} }) {
   let imported = 0, skippedGoogle = 0, skippedEncrypted = 0, skippedV20 = 0, rejected = 0, locked = false, decryptUnavailable = false, error = null;
   for (const source of sources || []) {
-    let rows = [];
+    let rows;
     try { rows = readChromeCookieRows(source.cookies); }
     catch (failure) { const f = readFailure(failure); locked = locked || f.locked; error = error || f.error; continue; }
     const password = passwordFor ? passwordFor(source) : null;
@@ -377,7 +377,7 @@ function createProfileStore({ directory, safeStorage }) {
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   const metadataFile = path.join(directory, 'profiles.json');
   let profiles;
-  try { profiles = JSON.parse(fs.readFileSync(metadataFile, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw new Error('Browser profiles could not be read.'); profiles = [{ id: 'default', name: 'Personal' }]; }
+  try { profiles = JSON.parse(fs.readFileSync(metadataFile, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw new Error('Browser profiles could not be read.', { cause: error }); profiles = [{ id: 'default', name: 'Personal' }]; }
   if (!Array.isArray(profiles) || !profiles.length || profiles.some((p) => !/^[\w-]{1,80}$/.test(p.id) || typeof p.name !== 'string')) throw new Error('Browser profile metadata is invalid.');
   function write(file, value) { const tmp = file + '.tmp'; fs.writeFileSync(tmp, value, { mode: 0o600 }); fs.renameSync(tmp, file); }
   const persist = () => write(metadataFile, JSON.stringify(profiles));

@@ -1,5 +1,5 @@
 // Real native chrome/menu/profile interactions on a disposable KingAgent desk.
-const { app, BrowserWindow, webContents, dialog } = require('electron');
+const { app, BrowserWindow, webContents } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');

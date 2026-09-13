@@ -38,7 +38,7 @@ Body stays.
   setField(doc, 'description', 'new words');
   const out = serializeDoc(doc);
   assert.match(out, /description: new words\n/);
-  assert.match(out, /metadata:\n  type: user\n  extra: keep-me\n/);
+  assert.match(out, /metadata:\n {2}type: user\n {2}extra: keep-me\n/);
   assert.match(out, /# a comment line\n/);
   assert.match(out, /Body stays\.\n$/);
   assert.equal(getField(parseDoc(out), 'name'), 'x');

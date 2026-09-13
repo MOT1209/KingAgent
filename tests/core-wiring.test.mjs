@@ -6,10 +6,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const mainWiring = require('../src/main/agent-platform.js');
 const { EventBus } = require('../src/core/events/event-bus.js');
-const { CHANNELS, PUSH_CHANNELS, validatePayload } = require('../src/core/security/ipc-guard.js');
-const { createMainPlatform } = mainWiring;
-
-const stubShell = async ({ command }) => ({ exitCode: 0, stdout: `out:${command}`, stderr: '' });
+const { CHANNELS, PUSH_CHANNELS } = require('../src/core/security/ipc-guard.js');
 
 // A fake ipcMain that records every channel a handler is registered on.
 function fakeIpcMain() {

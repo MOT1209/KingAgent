@@ -1,7 +1,12 @@
 <meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-src 'self' blob: data: kingagent-doc:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <title>KingAgent</title>
 <!-- Caveat and Courier Prime are @font-face'd from vendor/fonts in paper.css.
-     KingAgent loads nothing over the network to paint itself. -->
+     KingAgent loads nothing over the network to paint itself. The CSP above
+     enforces that: no remote script, no inline scripts (the two previously
+     inline boot scripts live in theme-boot.js and agent-platform-boot.mjs),
+     no remote connections beyond self/ws, and agent-written HTML pages can
+     only ever render inside kingagent-doc: frames. -->
 <link rel="stylesheet" href="./vendor/xterm.css" />
 <link rel="stylesheet" href="./paper.css" />
 <link rel="stylesheet" href="./theme-operator.css" />
@@ -13,22 +18,7 @@
 <link rel="stylesheet" href="./browser-annotations.css" />
 <link rel="stylesheet" href="./browser-settings.css" />
 <link rel="stylesheet" href="./usage-pane.css" />
+<script defer src="./theme-boot.js"></script>
 <div id="root"></div>
-<script>
-  // Frame one wears the saved theme. app.js is a deferred module, so its
-  // applyThemeAttrs() lands well after first paint — without this, every
-  // launch on a non-paper theme flashes the cream base stylesheet first.
-  // Mirrors applyThemeAttrs() in app.js; the theme list and the 'glass'
-  // default must stay in step with it and with src/main/settings.js.
-  try {
-    var t = localStorage.getItem('kingagent-theme') || 'glass';
-    if (t !== 'paper' && ['operator', 'glass', 'graphite', 'soft', 'dusk'].indexOf(t) >= 0) document.body.dataset.theme = t;
-    if (t === 'glass' || t === 'graphite') document.body.setAttribute('data-glass', '');
-    if (t === 'soft' || t === 'dusk') document.body.setAttribute('data-soft', '');
-  } catch (_) {}
-</script>
 <script type="module" src="./app.js"></script>
-<script type="module">
-  import { mountAgentPlatform } from './agent-platform.mjs';
-  try { mountAgentPlatform(); } catch (err) { console.error('[agent-platform] ui unavailable:', err); }
-</script>
+<script type="module" src="./agent-platform-boot.mjs"></script>

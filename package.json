@@ -6,6 +6,9 @@
   "main": "src/main/main.js",
   "author": "Calvin Hia",
   "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MOT1209/KingAgent.git"
@@ -63,5 +66,25 @@
     "js-yaml": "^4.3.1",
     "marked": "^18.0.11"
   },
-  "//deps": "transformers and onnxruntime-node are pinned exactly on purpose: a v3→v4 transformers bump swaps the tokenizer and the wasm-vendoring story, and onnxruntime-node's prebuilt-binary layout moves between napi generations. Re-pin deliberately, never by caret drift. Packaging lives in electron-builder.yml."
+  "//deps": "transformers and onnxruntime-node are pinned exactly on purpose: a v3→v4 transformers bump swaps the tokenizer and the wasm-vendoring story, and onnxruntime-node's prebuilt-binary layout moves between napi generations. Re-pin deliberately, never by caret drift. Packaging lives in electron-builder.yml.",
+  "c8": {
+    "all": true,
+    "include": [
+      "src/main/**/*.js",
+      "src/core/**/*.js"
+    ],
+    "exclude": [
+      "src/renderer/vendor/**"
+    ],
+    "check-coverage": true,
+    "lines": 55,
+    "statements": 55,
+    "functions": 65,
+    "branches": 60,
+    "reporter": [
+      "text",
+      "json-summary",
+      "html"
+    ]
+  }
 }

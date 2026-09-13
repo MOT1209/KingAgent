@@ -201,7 +201,7 @@ function runLoginShell(cmd) {
 }
 
 async function shellWhich(bin) {
-  let out = '';
+  let out;
   try { out = await runLoginShell(whichCommand(bin)); } catch (_) { out = ''; }
   return pathFromShellOutput(out) || findOnDisk(bin);
 }
@@ -209,7 +209,7 @@ async function shellWhich(bin) {
 async function detectAgents({ exec = shellWhich, home = os.homedir() } = {}) {
   const platform = process.platform;
   return Promise.all(KNOWN_AGENTS.map(async (a) => {
-    let p = '';
+    let p;
     try { p = String((await exec(a.bin)) || '').trim(); } catch (_) { p = ''; }
     // configFile is the ~-expanded twin of lifecycle.configPath, so the renderer
     // can hand it straight to openFile() without knowing where home is.
@@ -240,7 +240,6 @@ function expandHome(p, home) {
 // ...and on Windows ~ means C:\Users\you, so both separators are honoured.
 function shortHome(p, home) {
   const s = String(p || '');
-  const sep = home ? home.slice(-1) : '/';
   return home && (s.startsWith(home + '/') || s.startsWith(home + '\\'))
     ? '~' + s.slice(home.length) : s;
 }

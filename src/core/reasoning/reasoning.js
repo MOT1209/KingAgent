@@ -14,7 +14,7 @@ class Reasoner {
     this._logger = logger || null;
   }
 
-  async analyze(task, context) {
+  async analyze(task, _context) {
     this._bus.emit(TYPES.TASK_ANALYZING, { taskId: task.id, agentId: task.agentId });
     if (!this._provider) return deterministicAnalyze(task);
     try {

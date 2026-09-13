@@ -77,7 +77,7 @@ class AgentRegistry {
       if (this._agents.has(id)) continue;
       const def = await this._store.get(key);
       if (def) {
-        try { this.register(def); } catch (err) { /* skip corrupt definition */ }
+        try { this.register(def); } catch (_) { /* skip corrupt definition */ }
       }
     }
     return this._agents.size;

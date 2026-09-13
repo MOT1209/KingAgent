@@ -91,7 +91,7 @@ export async function wireBrowserSettings(modal, options) {
       const button = host.querySelector(`[data-browser-settings="${key}"]`);
       if (button) button.onclick = async () => { try { await callback(); } catch (error) { onError(error.message || 'Could not open browser settings.'); } };
     }
-  } catch (error) {
+  } catch (_) {
     if (!current()) return;
     host.innerHTML = '<p class="bs-note" role="alert">Could not load browser settings.</p><button class="btn btn--small">Retry</button>';
     host.querySelector('button').onclick = () => wireBrowserSettings(modal, options);

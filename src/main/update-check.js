@@ -95,7 +95,7 @@ async function fetchLatest(url = LATEST) {
 // prerelease) is 'current' rather than an error. From where the user stands
 // there is nothing to install, which is what 'current' means.
 async function updateStatus({ currentVersion, arch = process.arch, fetchJson = fetchLatest } = {}) {
-  let doc = null;
+  let doc;
   try {
     doc = await fetchJson();
   } catch (_) {

@@ -8,7 +8,7 @@
 // the same permission model as tasks, and approval nodes pause until a human
 // (the platform's authorize callback) responds.
 
-const { isPlainObject, isString, validId, pickKnown, fail } = require('../schema/validate');
+const { isPlainObject, isString, validId, fail } = require('../schema/validate');
 
 const NODE_TYPES = Object.freeze([
   'start', 'end', 'input', 'output', 'agent', 'tool', 'command', 'code', 'condition', 'loop', 'parallel', 'approval',

@@ -22,7 +22,7 @@ const { detectAgents, agentStatus, findOnDisk } = require('./agents-detect');
 const { handles: opensHere, chooseTarget } = require('./open-with');
 const { planRemoval, removeAgent } = require('./agent-remove');
 const { KNOWN_SERVICES, serviceById } = require('./services-catalog');
-const { upsertMcpJson, upsertOpencode, removeService, detectServices, knownFiles } = require('./mcp-config');
+const { removeService, detectServices, knownFiles } = require('./mcp-config');
 const { readMaster, upsertMaster, removeMaster, deliveryPlan, notebookTargets, readNotebooks, coverage, writeCodexBlock, validServiceId } = require('./connections');
 const { runPlan } = require('./connections-deliver');
 const { checkServer } = require('./mcp-check');
@@ -584,7 +584,7 @@ app.on('quit', () => {
 let bootSeq = 0;
 
 const browserViews = wireBrowserViews(ipcMain, { readSettings, writeSettings });
-const browserOverlays = require('./browser-overlays').wireBrowserOverlays(ipcMain);
+require('./browser-overlays').wireBrowserOverlays(ipcMain);
 let usagePending;
 ipcMain.handle('usage:read', async (e) => {
   const w = BrowserWindow.fromWebContents(e.sender);
@@ -1402,7 +1402,7 @@ ipcMain.handle('term:create', async (e, { id, cwd, cols, rows, kind, command, pr
   const shellPath = shell.program;
   const claudeExe = resolveClaudeExecutable();
 
-  let file = shellPath, spawnArgs = [], afterStart = null, claudeWatch = null, echoLine = null, discoverAgent = null, storeWatch = null;
+  let file, spawnArgs = [], afterStart = null, claudeWatch = null, echoLine = null, discoverAgent = null, storeWatch = null;
   if (kind === 'claude') {
     // sid: the panel's own conversation id, minted in the renderer at first spawn.
     // A fresh spawn pins it with --session-id; a restored panel resumes it with
@@ -1603,9 +1603,9 @@ function sweepTitles() {
         sendWc(w.wc, 'session:sid', { id, sid: w.sid });
       }
     }
-    let title = null;
+    let title;
     if (w.file) {
-      let stat = null;
+      let stat;
       try { stat = fs.statSync(w.file); } catch (_) { continue; } // not written yet
       if (stat.mtimeMs === w.mtime) continue;
       w.mtime = stat.mtimeMs;

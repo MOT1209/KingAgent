@@ -2,8 +2,11 @@
 #
 # Two jobs, one per platform the app ships on. Both run the same gate (npm
 # test), because a suite that only passes on the machine that wrote it is not
-# a gate — the Windows job exists precisely because 100+ tests assumed POSIX
+# a gate �?? the Windows job exists precisely because 100+ tests assumed POSIX
 # paths and nobody noticed until someone tried to port.
+#
+# The lint and coverage gates run once, on Linux, so a style regression or a
+# slip under the coverage floor costs one job, not three.
 #
 # Releases stay in release.yml: tag a v* and the release workflow builds,
 # signs and publishes. This file never publishes.
@@ -20,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -35,6 +38,7 @@ jobs:
 
       # The zsh-backed run-done tests are part of the gate, and a bare Ubuntu
       # image ships no shell to run them on, so install the one they need.
+      # (macOS and Windows runners ship zsh/PowerShell already.)
       - name: Install zsh
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y zsh
@@ -46,6 +50,18 @@ jobs:
       # OS features (symlinks) declare their needs and skip where the OS or
       # the session cannot grant them.
       - run: npm test
+
+      # Coverage floor (c8 thresholds in package.json). The suite already ran
+      # above; this re-runs it under instrumentation once, so a drop under the
+      # floor fails rather than publishing quietly. Linux only �?? it is the
+      # same source on every OS, and instrumentation is the expensive part.
+      - name: Coverage floor
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run test:coverage
+
+      # eslint over the whole repo: every file, not just the ones a diff touched.
+      - name: Lint
+        run: npm run lint
 
   # A Windows packaging dry-run: prove the electron-builder config parses and
   # an unpacked Windows build assembles on a real Windows runner, without

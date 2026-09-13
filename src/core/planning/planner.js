@@ -40,7 +40,7 @@ const CODE_STEPS = [
 
 // At execution time, pick the first text-ish file from the scan step's output
 // (falling back to README.md) so the "read" step is always grounded.
-function firstFileInput({ context, task }) {
+function firstFileInput({ task }) {
   const planSteps = (task && task.plan && task.plan.steps) || [];
   const scanStep = planSteps.find((s) => s.tool && s.tool.id === 'fs:list');
   const entries = scanStep && scanStep.output && scanStep.output.ok && scanStep.output.data
@@ -67,7 +67,7 @@ class Planner {
     this._logger = logger || null;
   }
 
-  async buildPlan({ request, context, agent, mode = 'auto', signal }) {
+  async buildPlan({ request, agent, mode = 'auto', signal }) {
     if (mode === 'autonomous') {
       return createPlan({
         id: genId(),
@@ -144,7 +144,7 @@ class Planner {
   }
 
   // Ask the provider for a structured plan; return null when unavailable.
-  async _fromProvider({ request, agent, signal }) {
+  async _fromProvider({ request, signal }) {
     if (!this._provider) return null;
     try {
       const result = await this._provider.generate({
@@ -178,7 +178,7 @@ class Planner {
   _autonomousAction() {
     const tools = this._tools;
     const reasoner = this._reasoner;
-    return async function autonomousCycle({ task, context, agent, abort }) {
+    return async function autonomousCycle({ task, agent, abort }) {
       const options = tools.discover(agent).map((id) => tools.peek(id)).filter(Boolean);
       const decision = await reasoner.decide(task, options);
       if (!decision.decision) return { ok: false, note: 'no tools available to the agent' };

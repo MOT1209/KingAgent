@@ -51,7 +51,7 @@ class Executor {
 
   // Convenience: execute a subset of steps that have no unmet dependencies.
   // The runtime uses this in the main execution loop.
-  async readySteps(plan, agent, context, task, signal) {
+  async readySteps(plan, _agent, _context, _task, _signal) {
     const completed = new Set(plan.steps.filter((s) => s.status === 'completed').map((s) => s.id));
     return plan.steps.filter((s) => s.status === 'pending' && s.dependsOn.every((d) => completed.has(d)));
   }

@@ -82,7 +82,7 @@ function isDeliveredFile(file) {
 // named, and plain files fall out anyway on the directory-or-link test.
 const SKIP_SKILL_DIRS = new Set(['.git', 'node_modules']);
 function listSkillDirs(dir, depth = 0) {
-  let entries = [];
+  let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return []; }
   const out = [];
   for (const e of entries) {
@@ -195,7 +195,7 @@ function walkPlugins(root, items) {
   while (stack.length) {
     const { dir, depth } = stack.pop();
     if (depth > 7 || ++visited > 4000) continue;
-    let entries = [];
+    let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { continue; }
     for (const e of entries) {
       if (!e.isDirectory() || SKIP_DIRS.has(e.name) || e.name.startsWith('.')) continue;
@@ -350,7 +350,7 @@ What this skill teaches, in one or two sentences.
 1. First step.
 2. Second step.
 `,
-  'opencode:agent': (name, slug) => `---
+  'opencode:agent': (name) => `---
 description: ${name} — describe when to use this agent.
 mode: subagent
 ---
@@ -450,7 +450,7 @@ function extractEdges(items, { maxBytes = 65536 } = {}) {
     re: t.slug.includes('-') ? new RegExp('(^|[^\\w-])' + escapeRe(t.slug) + '($|[^\\w-])') : null,
   }));
   for (const src of items) {
-    let body = '';
+    let body;
     try { body = fs.readFileSync(src.filePath, 'utf8').slice(0, maxBytes); } catch (_) { continue; }
     for (const { t, wiki, re } of targets) {
       if (t.id === src.id || t.slug === src.slug) continue;

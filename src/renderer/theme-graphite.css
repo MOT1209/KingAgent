@@ -25,14 +25,14 @@ body[data-theme="graphite"] {
   /* menus float over live card text: near-solid, darker than the pane —
      a 0.44 fill let the transcript read straight through the labels */
   --menu-sheet: rgba(30, 30, 38, 0.97);
-  --green: #ef6461;
-  --green-dark: #d95350;
+  --green: #F5A524;
+  --green-dark: #C07C0A;
   --green-ok: #63c68a;
   --mode-plan: #8fb2ee; /* plan hue, lifted for the dark ground */
-  --u-bg: rgba(239, 100, 97, 0.11);
+  --u-bg: rgba(245, 165, 36, 0.11);
   --diff-add-bg: rgba(99, 198, 138, 0.14);
   --diff-add-ink: #8fd3a6;
-  --diff-del-bg: rgba(239, 100, 97, 0.14);
+  --diff-del-bg: rgba(217, 74, 61, 0.14);
   --diff-del-ink: #ff9d9a;
   --amber-bg: rgba(238, 190, 80, 0.14);
   --amber-line: rgba(230, 192, 92, 0.5);
@@ -40,8 +40,8 @@ body[data-theme="graphite"] {
   --amber-body: #d3b055;
   --amber-btn: #c98d1a;
   --amber-btn-line: #e6c05c;
-  --red-bg: rgba(239, 100, 97, 0.16);
-  --red-line: #ef6461;
+  --red-bg: rgba(217, 74, 61, 0.16);
+  --red-line: #D94A3D;
   --red-ink: #ff9d9a;
   --tok-kw: #8fb2ee;
   --tok-str: #a3cf9b;
@@ -53,7 +53,7 @@ body[data-theme="graphite"] {
   --sweep: rgba(255, 255, 255, 0.05);
   --shimmer-hi: #ececf1;
   --red-body: #e88f8c;
-  --red-btn: #ef6461;
+  --red-btn: #D94A3D;
   --red-btn-line: #ff8b88;
   --shadow-soft: rgba(8, 9, 14, 0.35);
   --shadow-mid: rgba(8, 9, 14, 0.45);
@@ -63,10 +63,10 @@ body[data-theme="graphite"] {
   --tree-fill-open: rgba(255, 255, 255, 0.14);
   --tree-fill-file: rgba(255, 255, 255, 0.06);
   /* glass helpers — dark values for the shared system */
-  --gl-accent: #ef6461;
-  --gl-accent-hi: #ff8b88;
-  --gl-accent-deep: #ff8b88;   /* on grey, "deep" reads better bright */
-  --gl-accent-dim: rgba(239, 100, 97, 0.16);
+  --gl-accent: #F5A524;
+  --gl-accent-hi: #FFC85C;
+  --gl-accent-deep: #FFC85C;   /* on grey, "deep" reads better bright */
+  --gl-accent-dim: rgba(245, 165, 36, 0.16);
   --gl-pane: rgba(78, 80, 93, 0.44);
   --gl-pane-strong: rgba(92, 94, 109, 0.56);
   --gl-pane-dim: rgba(74, 76, 89, 0.22);
@@ -100,9 +100,9 @@ body[data-theme="graphite"] {
 body[data-theme="graphite"] {
   background: #26272c;
   background-image:
-    radial-gradient(52% 44% at 12% 6%,  rgba(239, 100, 97, 0.22) 0%, transparent 62%),
+    radial-gradient(52% 44% at 12% 6%,  rgba(245, 165, 36, 0.22) 0%, transparent 62%),
     radial-gradient(46% 40% at 92% 12%, rgba(86, 160, 175, 0.18) 0%, transparent 60%),
-    radial-gradient(60% 52% at 78% 88%, rgba(210, 120, 100, 0.14) 0%, transparent 64%),
+    radial-gradient(60% 52% at 78% 88%, rgba(214, 152, 84, 0.14) 0%, transparent 64%),
     radial-gradient(44% 40% at 8% 92%,  rgba(120, 140, 195, 0.15) 0%, transparent 60%),
     linear-gradient(165deg, #2d2e34 0%, #242529 55%, #27282e 100%);
 }

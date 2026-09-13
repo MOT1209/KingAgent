@@ -4,7 +4,7 @@
 // parallel or conditionally skipped depending on a prior outcome. The planner
 // builds plans; the executor walks them; the runtime records them.
 
-const { isPlainObject, validId, fail } = require('../schema/validate');
+const { isPlainObject, fail } = require('../schema/validate');
 
 const DEFAULT_SETTINGS = {
   maxSteps: 100,

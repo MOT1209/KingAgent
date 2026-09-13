@@ -19,6 +19,25 @@ export default [
   },
   js.configs.recommended,
   {
+    // `_` is this codebase's deliberate placeholder for positional params,
+    // catch and promise bindings the handler does not need (e.g. error
+    // swallowing in .catch((_) => record 'done')). no-unused-vars must not flag
+    // it, or every intentional placeholder becomes a lecture. Everything that
+    // is NOT underscore-prefixed stays linted, hard.
+    rules: {
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^_',
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
+      }],
+      // Empty catch blocks with an underscore binding are the codebase's
+      // documented "this failure is ignored on purpose" idiom; look at the
+      // binding for the why. Empty blocks WITHOUT a binding still fail.
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  {
     // Terminal/ANSI handling is core to this app (OSC title parsing, PTY
     // output), and \x1b/\x07 in a regex is the point, not a mistake —
     // src/main/osc-title.js, run-done.js, seed-gate.js all match escape
@@ -28,7 +47,7 @@ export default [
   },
   {
     // main-process and host-agnostic core: CommonJS, Node globals.
-    files: ['src/main/**/*.js', 'src/core/**/*.js', 'scripts/**/*.cjs'],
+    files: ['src/main/**/*.js', 'src/core/**/*.js', 'src/core/**/*.cjs', 'scripts/**/*.cjs'],
     languageOptions: {
       sourceType: 'commonjs',
       ecmaVersion: 2024,
@@ -36,21 +55,47 @@ export default [
     },
   },
   {
-    // renderer: ES modules loaded in the browser context, no bundler.
+    // Electron preloads are CommonJS that ALSO see the browser page: window,
+    // document, CSS, crypto et al. are real globals there, not mistakes — so
+    // they get Node and browser globals merged, or every preload files a
+    // no-undef for innerWidth and crypto.
+    files: ['src/main/*preload*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      ecmaVersion: 2024,
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
+  {
+    // renderer: ES modules loaded in the browser context, no bundler. `process`
+    // is not a mistake in the page: Electron's sandboxed renderers polyfill a
+    // small read-only subset (platform, versions, type) that term-menu.mjs and
+    // shortcuts.mjs lean on directly.
     files: ['src/renderer/**/*.js', 'src/renderer/**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
       ecmaVersion: 2024,
-      globals: globals.browser,
+      globals: { ...globals.browser, process: 'readonly' },
     },
   },
   {
     // tests and build/release scripts: ES modules under plain Node.
-    files: ['tests/**/*.mjs', 'scripts/**/*.mjs'],
+    files: ['tests/**/*.mjs', 'scripts/**/*.mjs', 'brand/**/*.mjs', 'docs/media/*.mjs', 'docs/media/**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
       ecmaVersion: 2024,
       globals: globals.node,
+    },
+  },
+  {
+    // the markdown editor page runs inside a document it edits, so document,
+    // MutationObserver, rAF etc. are real (milkdown is a DOM editor). Same
+    // module parser as the general scripts rule; it just also sees the page.
+    files: ['scripts/markdown-editor-entry.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      ecmaVersion: 2024,
+      globals: { ...globals.node, ...globals.browser },
     },
   },
   {

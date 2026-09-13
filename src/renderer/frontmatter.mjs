@@ -93,7 +93,7 @@ export function removeField(doc, key) {
 function quote(v) {
   v = String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim();
   if (v === '') return '""';
-  if (/[:#"'{}\[\]&*!|>%@`]/.test(v) || /^\s|\s$/.test(v) || /^[?-]\s/.test(v)) return JSON.stringify(v);
+  if (/[:#"'{}[\]&*!|>%@`]/.test(v) || /^\s|\s$/.test(v) || /^[?-]\s/.test(v)) return JSON.stringify(v);
   return v;
 }
 function unquote(v) {

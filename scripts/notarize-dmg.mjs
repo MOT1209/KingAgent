@@ -59,7 +59,7 @@ export default async function notarizeDmg(buildResult) {
       // fixed later; a dmg that ships unnotarized is the one failure the user
       // finds for you.
       const detail = String(e.stderr || e.stdout || e.message || '').trim().split('\n').slice(-4).join('\n');
-      throw new Error(`notarizing ${name} failed:\n${detail}`);
+      throw new Error(`notarizing ${name} failed:\n${detail}`, { cause: e });
     }
   }
   // Deliberately does NOT fix latest-mac.yml here: electron-builder writes that

@@ -6,7 +6,6 @@
 // subscribes to the preload's onPlatformEvent stream, and fails closed if the
 // main-process platform is not installed.
 
-const BTN_CLASS = 'agent-platform-toggle';
 const PANEL_CLASS = 'agent-platform-panel';
 
 function mountAgentPlatform() {

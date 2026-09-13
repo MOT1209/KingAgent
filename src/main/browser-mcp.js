@@ -125,7 +125,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
       const documentId = e.documentId, documentEpoch = e.documentEpoch;
       let picture;
       try { picture = await e.view.webContents.capturePage(); }
-      catch (_) { const message = 'The browser image is unavailable. Reveal the tab in KingAgent and try again.'; activity(route, e.id, name, message); throw new Error(message); }
+      catch (err) { const message = 'The browser image is unavailable. Reveal the tab in KingAgent and try again.'; activity(route, e.id, name, message); throw new Error(message, { cause: err }); }
       if (route.revoked || route.updating || !access.allows(route.id, e.id)) throw new Error('Browser access changed during capture.');
       if (views.get(e.id) !== e || e.documentId !== documentId || e.documentEpoch !== documentEpoch || e.view.webContents.isDestroyed() || (e.filePath || e.view.webContents.getURL()) !== captured.url) throw new Error('The browser page changed during capture. Try the screenshot again.');
       if (picture.isEmpty()) throw new Error('The browser image is unavailable. Reveal the tab and try again.');

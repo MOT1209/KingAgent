@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { validateAgentDefinition, normalizeAgent, DEFAULT_PERMISSIONS } = require('../src/core/agents/definition.js');
+const { validateAgentDefinition, DEFAULT_PERMISSIONS } = require('../src/core/agents/definition.js');
 const { AgentRegistry } = require('../src/core/agents/registry.js');
 const { builtinAgents, AGENTS_DEFAULT_IDS } = require('../src/core/agents/presets/builtin.js');
 const { createMemoryStore } = require('../src/core/persistence/store.js');

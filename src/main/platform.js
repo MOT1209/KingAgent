@@ -90,6 +90,7 @@ function userDirs({ platform = process.platform, home = '', env = {} } = {}) {
 // per-user cache root is ~/Library/Caches. One function, so the updater cache
 // path stops being a platform decision scattered through main.js.
 function cacheDir({ platform = process.platform, home = '', env = {}, name = 'kingagent-updater' } = {}) {
+  const join = (...parts) => parts.filter(Boolean).join(platform === WIN ? '\\' : '/');
   if (platform === WIN) {
     const base = env.LOCALAPPDATA || join(env.USERPROFILE, 'AppData', 'Local');
     return join(base, name);

@@ -168,7 +168,7 @@ test('a snapshot names each file\'s owner by position; a restore resolves it', (
   // the restore minted new ids, in the same positions
   const minted = ['n0', 'n1', 'n2', 'n3', 'n4', 'n5'];
   const restored = d.map((p, i) => ({ ...p, id: minted[i], owner: undefined }));
-  resolveOwners(restored, d.map((p, i) => ({ ownerIndex: idx[p.id] })));
+  resolveOwners(restored, d.map((p) => ({ ownerIndex: idx[p.id] })));
   assert.equal(restored[0].owner, 'n1');
   assert.equal(restored[2].owner, 'n4');
   assert.equal(restored[5].owner, undefined);

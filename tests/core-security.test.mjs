@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel } = require('../src/core/security/ipc-guard.js');
+const { PUSH_CHANNELS, validatePayload, allowedChannel } = require('../src/core/security/ipc-guard.js');
 const { createProviderRegistry, nullProvider } = require('../src/core/ai/provider.js');
 
 test('ipc-guard: every preload agentPlatform method maps to an allowed channel', () => {

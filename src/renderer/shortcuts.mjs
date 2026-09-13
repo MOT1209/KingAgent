@@ -2,19 +2,8 @@
 //
 // The modifier shown follows the platform: ⌘ is macOS's; Windows and Linux
 // read Ctrl for the same actions, because that is what the app binds through
-// Electron's CommandOrControl. The rows below are written with ⌘ so the
-// arrays stay literal; modSwap rewrites them for display elsewhere.
+// Electron's CommandOrControl.
 const IS_MAC = typeof process !== 'undefined' && process.platform === 'darwin';
-const MOD = IS_MAC ? '⌘' : 'Ctrl';
-const MOD_SHIFT = IS_MAC ? ['⌘', '⇧'] : ['Ctrl', 'Shift'];
-const ALT_MOD = IS_MAC ? ['⌥', '⌘'] : ['Alt', 'Ctrl'];
-
-function modSwap(rows) {
-  return rows.map((row) => row.map((cell) => {
-    if (Array.isArray(cell)) return cell.map((k) => k === '⌘' ? MOD : k === '⇧' ? 'Shift' : k === '⌥' ? 'Alt' : k === '⌫' ? 'Backspace' : k);
-    return cell;
-  }));
-}
 
 export const OPEN_OUTPUT_COPY = (IS_MAC
   ? 'Hold Command (⌘) and click a link or file path in a session. Web links open in your browser. Files open here in KingAgent.'

@@ -22,9 +22,11 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { readChromeCookieRows, readChromeHistory, readChromeLogins, detectChromiumProfiles, chromeTimeToMs, chromeKeychainPassword, readFailure, decryptChromeCookieValue, decryptChromeCookie, deriveChromeKey, stripCookieDomainHash, cookieOptions } = require('../src/main/browser-profiles');
 
-// Real values, copied from a live Chrome profile. Both are > 2^53.
-const EXPIRES_UTC = 13433531963056867;
-const LAST_VISIT = 13433436295579710;
+// Real values, copied from a live Chrome profile. Both are > 2^53, so they
+// only exist as doubles here; Number() keeps the rule honest that a double is
+// what the DB read path produces too.
+const EXPIRES_UTC = Number('13433531963056867');
+const LAST_VISIT = Number('13433436295579710');
 
 const tmpdir = (tag) => fs.mkdtempSync(path.join(os.tmpdir(), 'nami-' + tag + '-'));
 

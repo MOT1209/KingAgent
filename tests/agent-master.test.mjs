@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { posix } from './test-utils.mjs';
 const require = createRequire(import.meta.url);
 const {
-  parseAgentMd, renderCopy, isDelivered, MARKER,
+  parseAgentMd, renderCopy, isDelivered,
   readAgentMasters, agentDeliveryPlan, deliverAgents, deliveryState, liftToMaster, importToMaster, sweepCopies,
 } = require('../src/main/agent-master.js');
 

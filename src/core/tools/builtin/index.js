@@ -9,12 +9,12 @@ const path = require('node:path');
 const { PERMISSIONS } = require('../definition');
 const { ToolError } = require('../manager');
 const { assertWithin } = require('../path-guard');
-const { isPlainObject } = require('../../schema/validate');
 
 function registerBuiltinTools(tm, io) {
   const fs = io.fs || require('node:fs/promises');
   const root = io.root || null;
   const runShell = io.runShell || null;
+  const commandPolicy = io.commandPolicy || DEFAULT_COMMAND_POLICY;
 
   // --- filesystem (path-guarded when a root is configured) ----------------
   tm.register({
@@ -218,8 +218,17 @@ function registerBuiltinTools(tm, io) {
           env: { type: 'object' },
         },
       },
-      permissions: { level: PERMISSIONS.MODERATE, note: 'arbitrary shell command scoped to the task workspace' },
+      // An arbitrary shell command is not MODERATE: it can delete, exfiltrate
+      // over the network, install packages and edit files outside the workspace
+      // (`cd .. && rm -rf` passes any cwd containment). So it is DESTRUCTIVE,
+      // budgets per-call approval, and is additionally screened by the command
+      // policy below.
+      permissions: { level: PERMISSIONS.DESTRUCTIVE, requiresAuth: true, note: 'arbitrary shell command — per-call approval required' },
       async execute(input) {
+        const violation = checkCommandPolicy(String(input.command || ''), commandPolicy);
+        if (violation) {
+          throw new ToolError(`command denied by policy: ${violation}`, { code: 'COMMAND_DENIED', toolId: 'terminal:run' });
+        }
         const cwd = input.cwd ? assertWithin(root, input.cwd) : (root || (io.cwd ? io.cwd() : null));
         const res = await runShell({
           command: input.command,
@@ -237,6 +246,47 @@ function registerBuiltinTools(tm, io) {
 }
 
 // --- helpers ---------------------------------------------------------------
+
+// Defense-in-depth for terminal:run. The real gate is the per-call approval
+// (DESTRUCTIVE + requiresAuth); this list is for the patterns that should not
+// reach an approval prompt at all. Callers can replace both lists via
+// io.commandPolicy = { allow: [...], deny: [...] }.
+const DEFAULT_COMMAND_POLICY = {
+  // Irreversible / supply-chain damaging commands never get far enough to ask.
+  deny: [
+    /rm\s+-(?:rf|r)\b/i,
+    /(?:^|[;&|]\s*)(?:sudo|doas)\s+/i,
+    /(?:^|[;&|]\s*)git\s+push\s*(?:-f|--force)/i,
+    /(?:^|[;&|]\s*)(?:rmdir|rd)\s+\/s/i,
+    /(?:^|[;&|]\s*)(?:format|fdisk|mkfs)/i,
+    /(?:^|[;&|]\s*)(?:chmod|chown)\s+-R\s+(?:7{3}7|0)\b/i,
+    /(?:^|[;&|]\s*)(?:mv|move|cp)\s+(?:-\w+\s+)*(?:\/|~)[^\s]*/i,
+  ],
+  allow: [],
+};
+
+// Returns a description of the first policy violation, or null when the
+// command passes. If `allow` is non-empty it is a whitelist: the command must
+// match one of its patterns. `deny` always blocks first.
+function checkCommandPolicy(command, policy) {
+  if (!policy) return null;
+  const deny = Array.isArray(policy.deny) ? policy.deny : [];
+  const allow = Array.isArray(policy.allow) ? policy.allow : [];
+  for (const pattern of deny) {
+    let re;
+    try { re = pattern instanceof RegExp ? pattern : new RegExp(pattern); } catch (_) { continue; }
+    if (re.test(command)) return `matches deny pattern ${String(pattern)}`;
+  }
+  if (allow.length > 0) {
+    const ok = allow.some((pattern) => {
+      let re;
+      try { re = pattern instanceof RegExp ? pattern : new RegExp(pattern); } catch (_) { return false; }
+      return re.test(command);
+    });
+    if (!ok) return 'does not match any allow pattern';
+  }
+  return null;
+}
 
 async function walk(fs, dir, { recursive, maxDepth, depth, skip, base }) {
   const out = [];
@@ -295,4 +345,4 @@ async function grep(fs, dir, { pattern, include, maxResults, caseSensitive }) {
   return matches;
 }
 
-module.exports = { registerBuiltinTools, walk, grep };
+module.exports = { registerBuiltinTools, walk, grep, checkCommandPolicy, DEFAULT_COMMAND_POLICY };

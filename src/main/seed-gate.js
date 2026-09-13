@@ -45,7 +45,7 @@ function sawEcho(output, seed) {
 function startSeedGate(opts) {
   const {
     write, seed,
-    firstDelay = 2500, echoWindow = 900, retryEvery = 1800, maxAttempts = 12,
+    firstDelay = 2500, retryEvery = 1800, maxAttempts = 12,
     setTimer = setTimeout, clearTimer = clearTimeout,
   } = opts;
   const needle = flatten(seed).slice(0, FRAGMENT);

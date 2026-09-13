@@ -118,11 +118,11 @@ function spliceBlock(text, rawBlock) {
 // What the file currently advertises. Read back rather than remembered: there is
 // no ledger to drift, because the answer is already written down.
 function readBlock(text) {
-  let found = null;
+  let found;
   try { found = findMarkers(String(text == null ? '' : text)); } catch (_) { return []; }
   if (!found) return [];
   const inner = String(text).slice(found.start, found.end);
-  return [...inner.matchAll(/^- `([^`\/]+)\/?`/gm)].map((m) => m[1]);
+  return [...inner.matchAll(/^- `([^`/]+)\/?`/gm)].map((m) => m[1]);
 }
 
 // A `## Skills` heading the user wrote themselves. Worth knowing about — two
@@ -130,7 +130,7 @@ function readBlock(text) {
 // wording is usually better than anything generated from frontmatter.
 function hasForeignSkillsSection(text) {
   const src = String(text == null ? '' : text);
-  let found = null;
+  let found;
   try { found = findMarkers(src); } catch (_) { found = null; }
   const outside = found ? src.slice(0, found.start) + src.slice(found.end) : src;
   return /^#{1,6}\s+skills\b/im.test(outside);

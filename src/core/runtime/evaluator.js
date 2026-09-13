@@ -12,7 +12,7 @@ class Evaluator {
     this._logger = logger;
   }
 
-  async evaluateStep(task, step, result, context) {
+  async evaluateStep(task, step, result, _context) {
     if (this._provider) {
       try {
         const r = await this._provider.generate({

@@ -28,7 +28,7 @@ function buildEngine({ authorize, root }) {
     bus,
     toolManager: tm,
     runtime: null,
-    shellIo: { run: async (command, opts) => stubShell({ command }) },
+    shellIo: { run: async (command) => stubShell({ command }) },
     execIo: codeExec,
     authorize: authorize || (async () => true),
   });

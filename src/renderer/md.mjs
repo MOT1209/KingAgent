@@ -205,7 +205,7 @@ function blockPass(lines, opts, startIdx) {
     let html = '';
     para.forEach((line, k) => {
       const brOnly = /^(?:\s*<br\s*\/?>)+\s*$/i.test(line);
-      if (k) html += brOnly || /  $/.test(para[k - 1]) || /^(?:\s*<br\s*\/?>)+\s*$/i.test(para[k - 1]) ? '<br>' : ' ';
+      if (k) html += brOnly || / {2}$/.test(para[k - 1]) || /^(?:\s*<br\s*\/?>)+\s*$/i.test(para[k - 1]) ? '<br>' : ' ';
       html += brOnly ? '<br>'.repeat(Math.max(0, (line.match(/<br/gi) || []).length - (k ? 1 : 0))) : inl(line.replace(/\s+$/, ''));
     });
     push(`<p>${html}</p>`, end);

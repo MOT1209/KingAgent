@@ -137,7 +137,7 @@ test('a standalone video or file link becomes a lightweight linked block', () =>
   assert.match(video, /href="\.\/assets\/demo\.mp4"/);
   const file = renderMarkdown('[Research bundle](./research.zip)');
   assert.match(file, /class="md-attachment md-attachment--file"/);
-  assert.match(renderMarkdown('See [the video](./demo.mp4) later\.'), /<p>See <a href="\.\/demo\.mp4">the video<\/a> later\.<\/p>/);
+  assert.match(renderMarkdown('See [the video](./demo.mp4) later.'), /<p>See <a href="\.\/demo\.mp4">the video<\/a> later\.<\/p>/);
 });
 
 test('a --- under a paragraph is a setext h2, but alone it is still a rule', () => {

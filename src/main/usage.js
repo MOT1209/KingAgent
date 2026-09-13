@@ -209,7 +209,7 @@ function queryCodex(command, envPath, spawnFn = spawn) {
 }
 function claudeTokenFromKeychain() {
   const { execFileSync } = require('node:child_process');
-  let user = '';
+  let user;
   try { user = os.userInfo().username; } catch { user = process.env.USER || ''; }
   const tries = [];
   if (user) tries.push(['find-generic-password', '-w', '-s', 'Claude Code-credentials', '-a', user]);
@@ -221,7 +221,10 @@ function claudeTokenFromKeychain() {
       const data = JSON.parse(raw);
       const token = data?.claudeAiOauth?.accessToken;
       if (typeof token === 'string' && token) return token;
-    } catch {}
+    } catch (_) {
+      // One probe failing is normal: only some of the tried commands exist on
+      // this machine. Move on; the loop above is the fallback ladder.
+    }
   }
   return null;
 }
@@ -379,7 +382,7 @@ async function readUsage({ agents, directory, envPath, home, now, spawnFn, fetch
   now = now ?? Date.now();
   const accounts = [];
   for (const agent of (agents || []).filter((a) => a.found)) {
-    let rows = [];
+    let rows;
     try { rows = await rowsFor(agent, { home, directory, envPath, now, spawnFn, fetchFn }); }
     catch (_) { rows = []; }
     accounts.push(...(rows.length ? rows : unavailable(agent, missingDetail(agent, home))));

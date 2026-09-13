@@ -43,6 +43,7 @@ const ALLOWED_DIRS = new Set([
   'docs',      // the design, and screenshots of the result
   'scripts',   // build helpers
   'build',     // icon and entitlements the installer needs
+  'brand',     // source art and the scripts that regenerate the icons/logo
   '.github',   // the release workflow
 ]);
 const ALLOWED_ROOT = new Set([

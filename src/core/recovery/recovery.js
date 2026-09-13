@@ -5,8 +5,6 @@
 // backoff and suggests the next action (retry, replan or fail). The runtime
 // uses the result without interpreting the raw error itself.
 
-const { TYPES } = require('../events/event-bus');
-
 const CATEGORIES = Object.freeze({
   TRANSIENT: 'transient',
   TIMEOUT: 'timeout',

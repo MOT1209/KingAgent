@@ -76,7 +76,7 @@ function resumeCommand(agent, sid) {
 // Electron's node ships node:sqlite; opened read-only so a poll can never
 // lock the agent's own writes. Unavailable or unreadable → null → "unknown".
 function openSqliteRo(file) {
-  let sqlite = null;
+  let sqlite;
   try { sqlite = require('node:sqlite'); } catch (_) { return null; }
   if (!statSafe(file)) return null;
   try { return new sqlite.DatabaseSync(file, { readOnly: true }); } catch (_) { return null; }
@@ -93,12 +93,12 @@ function opencodeDb(home) { return path.join(home, '.local', 'share', 'opencode'
 function hermesDb(home) { return path.join(home, '.hermes', 'state.db'); }
 
 function kimiSessions(home) {
-  let raw = '';
+  let raw;
   try { raw = fs.readFileSync(path.join(home, '.kimi-code', 'session_index.jsonl'), 'utf8'); } catch (_) { return []; }
   const seen = new Set();
   const out = [];
   for (const line of raw.trim().split('\n')) {
-    let rec = null;
+    let rec;
     try { rec = JSON.parse(line); } catch (_) { continue; }
     if (!rec || !rec.sessionId || seen.has(rec.sessionId)) continue;
     seen.add(rec.sessionId);
@@ -167,7 +167,7 @@ function codexMetas(home) {
 // an mtime check on the conversation db — the best its store allows.
 function agyLatest(home, cwd) {
   const base = path.join(home, '.gemini', 'antigravity-cli');
-  let map = null;
+  let map;
   try { map = JSON.parse(fs.readFileSync(path.join(base, 'cache', 'last_conversations.json'), 'utf8')); } catch (_) { return null; }
   const id = map && map[cwd];
   if (!id) return null;

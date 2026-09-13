@@ -56,7 +56,7 @@ test('every file is written as .part and renamed — never published half-writte
 test('a fetch that fails mid-set leaves no usable model and no final file', async () => {
   const io = memIo();
   let n = 0;
-  const f = async (url) => {
+  const f = async (_url) => {
     n += 1;
     if (n === 3) return { ok: false, status: 503 };
     return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };

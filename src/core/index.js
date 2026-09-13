@@ -54,6 +54,10 @@ function createPlatform({
     runShell: io.runShell || null,
   });
 
+  // Code execution is a capability that has to be opted into: the executor is
+  // created with no engines registered (registerDefaults is false by default),
+  // so a `code` node fails loudly unless the host explicitly enables an engine
+  // that fits its threat model. Turn it on with `codeExec.register('js', runJavaScript)`.
   const codeExec = new CodeExecutor();
 
   const provider = (() => {

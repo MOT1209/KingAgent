@@ -12,7 +12,7 @@
 const { levelRank } = require('./definition');
 const { PERMISSIONS } = require('./definition');
 
-function canUseTool(agent, tool, { requireAll = false } = {}) {
+function canUseTool(agent, tool) {
   if (!agent || !tool) return { ok: false, reason: 'missing agent or tool' };
   if (tool.permissions.level === PERMISSIONS.SYSTEM) return { ok: false, reason: 'system tools are not callable by agents' };
 
@@ -40,10 +40,13 @@ function canUseTool(agent, tool, { requireAll = false } = {}) {
 }
 
 // Does this call need a human/driver authorization to proceed?
+//
+// DESTRUCTIVE tools ALWAYS need a per-invocation authorization decision,
+// regardless of allowDestructive. The flag only lets the tool through the
+// level gate (canUseTool); it must never skip the human loop for an
+// irreversible action.
 function needsAuthorization(agent, tool) {
-  if (tool.permissions.level === PERMISSIONS.DESTRUCTIVE) {
-    return !agent.permissions.allowDestructive;
-  }
+  if (tool.permissions.level === PERMISSIONS.DESTRUCTIVE) return true;
   return Boolean(tool.permissions.requiresAuth);
 }
 

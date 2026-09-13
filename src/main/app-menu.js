@@ -20,9 +20,6 @@
 // that hands the result to Electron.
 
 const REPO = 'https://github.com/MOT1209/KingAgent';
-// Docs live in the repo until KingAgent has a site of its own; the license
-// page stands in for Terms, which belonged to the upstream product.
-const SITE = REPO;
 
 // Where the app sends people, and how those visits are told apart later.
 //

@@ -32,14 +32,14 @@ body[data-theme="soft"] {
   --hover: #e5e5e5;
   --menu-sheet: #e5e5e5;
   --qs-pane: #e5e5e5;
-  --green: #ef6461;
-  --green-dark: #d95350;
+  --green: #F5A524;
+  --green-dark: #C07C0A;
   --green-ok: #3d7a4a;
   --mode-plan: #3d6bb3;
-  --u-bg: rgba(239, 100, 97, 0.10);
+  --u-bg: rgba(245, 165, 36, 0.10);
   --diff-add-bg: rgba(61, 122, 74, 0.14);
   --diff-add-ink: #33503b;
-  --diff-del-bg: rgba(239, 100, 97, 0.12);
+  --diff-del-bg: rgba(217, 74, 61, 0.12);
   --diff-del-ink: #b2322f;
   --amber-bg: rgba(168, 121, 42, 0.14);
   --amber-line: rgba(168, 121, 42, 0.45);
@@ -47,8 +47,8 @@ body[data-theme="soft"] {
   --amber-body: #8a6520;
   --amber-btn: #a8792a;
   --amber-btn-line: #8a6520;
-  --red-bg: rgba(239, 100, 97, 0.14);
-  --red-line: #ef6461;
+  --red-bg: rgba(217, 74, 61, 0.14);
+  --red-line: #D94A3D;
   --red-ink: #b2322f;
   --tok-kw: #3d6bb3;
   --tok-str: #3d7a4a;
@@ -70,6 +70,10 @@ body[data-theme="soft"] {
   --tree-fill-open: #e5e5e5;
   --tree-fill-file: #e5e5e5;
   --mark-accent: #F5A524;
+  /* the accent as *text*: amber on a white ground is ~2:1, so the light
+     desks take the darker twin. dusk, sharing these rules on a dark ground,
+     keeps full strength. */
+  --accent-text: #9A6206;
   --sf-d: rgba(44, 42, 51, 0.28);
   --sf-l: rgba(255, 255, 255, 0.52);
   --sf-in-d: rgba(13, 39, 80, 0.16);
@@ -134,7 +138,7 @@ body[data-soft] ::-webkit-scrollbar-thumb {
   background: var(--sf-thumb); border: 3px solid transparent;
   background-clip: content-box; border-radius: 10px; box-shadow: none;
 }
-body[data-soft] ::-webkit-scrollbar-thumb:hover { background: #ef6461; background-clip: content-box; }
+body[data-soft] ::-webkit-scrollbar-thumb:hover { background: #F5A524; background-clip: content-box; }
 body[data-soft] ::-webkit-scrollbar-track { background: transparent; box-shadow: none; }
 
 /* ---- family defaults ------------------------------------------------------- */
@@ -218,9 +222,9 @@ body[data-soft] .live-badge {
   border: 0; border-radius: 999px; background: var(--paper); color: var(--green-dark);
   box-shadow: var(--sf-raise-sm);
 }
-body[data-soft] .live-badge .dot { background: #ef6461; }
+body[data-soft] .live-badge .dot { background: #F5A524; }
 body[data-soft] .live-badge.attn { background: var(--paper); color: var(--green-dark); box-shadow: var(--sf-raise-sm); }
-body[data-soft] .live-badge.attn .dot { background: #ef6461; }
+body[data-soft] .live-badge.attn .dot { background: #F5A524; }
 
 body[data-soft] .btn {
   border: 0; border-radius: 999px; background: var(--paper);
@@ -229,7 +233,7 @@ body[data-soft] .btn {
 body[data-soft] .btn:hover { box-shadow: var(--sf-press-sm); transform: none; }
 body[data-soft] .btn:disabled, body[data-soft] .btn:disabled:hover { box-shadow: none; }
 body[data-soft] .btn--go {
-  background: #ef6461; color: #fff; border: 0;
+  background: #F5A524; color: #10131A; border: 0;
   box-shadow: var(--sf-go);
 }
 body[data-soft] .btn--go:hover { background: #d95350; box-shadow: var(--sf-go-press); transform: none; }
@@ -264,7 +268,7 @@ body[data-soft] .nav-card {
 }
 body[data-soft] .nav-card:hover { box-shadow: var(--sf-press-sm); }
 body[data-soft] .nav-card.active { box-shadow: var(--sf-press); }
-body[data-soft] .nav-card.attn { box-shadow: var(--sf-card-sm), 0 0 0 1.5px rgba(239, 100, 97, 0.45); }
+body[data-soft] .nav-card.attn { box-shadow: var(--sf-card-sm), 0 0 0 1.5px rgba(245, 165, 36, 0.45); }
 body[data-soft] .nav-card .code {
   border: 0; border-radius: var(--sf-r-chip); background: var(--paper);
   box-shadow: var(--sf-raise-sm);
@@ -317,9 +321,9 @@ body[data-soft] .tile {
 body[data-soft] .tile.active { box-shadow: var(--sf-card); }
 body[data-soft] .tile.attention {
   border: 0; animation: none;
-  box-shadow: var(--sf-card), 0 0 0 1.5px rgba(239, 100, 97, 0.5);
+  box-shadow: var(--sf-card), 0 0 0 1.5px rgba(245, 165, 36, 0.5);
 }
-body[data-soft] .tile.file-hint { box-shadow: var(--sf-card), 0 0 0 2px rgba(239, 100, 97, 0.35); }
+body[data-soft] .tile.file-hint { box-shadow: var(--sf-card), 0 0 0 2px rgba(245, 165, 36, 0.35); }
 body[data-soft] .tile-head { border-bottom: 0; }
 body[data-soft] .tile-head .code {
   border: 0; border-radius: var(--sf-r-chip); background: var(--paper);
@@ -407,7 +411,7 @@ body[data-soft] .qs-s { line-height: 1.45; }
 body[data-soft] .qs-acts { height: auto; margin-top: 8px; gap: 8px; }
 body[data-soft] .qs-mini { height: auto; padding: 5px 10px; }
 body[data-soft] .qs-mini--go {
-  background: #ef6461; color: #fff; box-shadow: var(--sf-go);
+  background: #F5A524; color: #10131A; box-shadow: var(--sf-go);
 }
 body[data-soft] .qs-mini--play {
   border: 0; background: var(--amber-bg); color: var(--amber-ink);
@@ -477,7 +481,7 @@ body[data-soft] .toast {
   box-shadow: var(--sf-card);
 }
 body[data-soft] .toast .msg { color: var(--ink); }
-body[data-soft] .toast .dot { background: #ef6461; }
+body[data-soft] .toast .dot { background: #F5A524; }
 body[data-soft] .board {
   background: var(--paper); border: 0; border-radius: var(--sf-r); box-shadow: var(--sf-card);
 }
@@ -487,7 +491,7 @@ body[data-soft] .board-node {
 
 /* ---- ACP composer ---------------------------------------------------------- */
 body[data-soft] .lc-chat {
-  border: 0; border-radius: 999px; background: var(--paper); color: #ef6461;
+  border: 0; border-radius: 999px; background: var(--paper); color: var(--accent-text);
   box-shadow: var(--sf-card-sm); font-size: 10px; padding: 4px 10px; gap: 5px;
 }
 body[data-soft] .lc-chat:hover {
@@ -505,7 +509,7 @@ body[data-soft] .cw-plus, body[data-soft] .cw-stopbtn, body[data-soft] .cw-tool 
   border: 0; box-shadow: var(--sf-raise-sm);
 }
 body[data-soft] .cw-send {
-  border: 0; background: #ef6461; color: #fff; box-shadow: var(--sf-go);
+  border: 0; background: #F5A524; color: #10131A; box-shadow: var(--sf-go);
 }
 body[data-soft] .cw-send:hover { box-shadow: var(--sf-go-press); }
 body[data-soft] .cw-pop { border: 0; box-shadow: var(--sf-card); }
@@ -552,7 +556,7 @@ body[data-soft] .cw-btn {
   box-shadow: var(--sf-raise-sm);
 }
 body[data-soft] .cw-btn.ap {
-  background: #ef6461; color: #fff; border: 0;
+  background: #F5A524; color: #10131A; border: 0;
   box-shadow: var(--sf-go);
 }
 body[data-soft] .cw-btn.ap:hover { box-shadow: var(--sf-go-press); }
@@ -569,7 +573,7 @@ body[data-soft] .xterm .xterm-viewport::-webkit-scrollbar-thumb {
   background-clip: content-box; border-radius: 8px; box-shadow: none;
 }
 body[data-soft] .xterm .xterm-viewport:hover::-webkit-scrollbar-thumb {
-  background: #ef6461; background-clip: content-box;
+  background: #F5A524; background-clip: content-box;
 }
 body[data-soft] .xterm .xterm-viewport::-webkit-scrollbar-track {
   background: transparent; box-shadow: none;

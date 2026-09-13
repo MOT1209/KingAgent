@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import { makeTempDir } from './test-utils.mjs';
 
 const require = createRequire(import.meta.url);
@@ -10,7 +12,7 @@ const { EventBus } = require('../src/core/events/event-bus.js');
 const { validateToolDefinition, PERMISSIONS } = require('../src/core/tools/definition.js');
 const { ToolManager, ToolDeniedError, ToolError } = require('../src/core/tools/manager.js');
 const { registerBuiltinTools } = require('../src/core/tools/builtin/index.js');
-const { resolveWithin } = require('../src/core/tools/path-guard.js');
+const { resolveWithin, assertWithin, realContains } = require('../src/core/tools/path-guard.js');
 
 const noopAgent = (over = {}) => ({
   id: 'tester',
@@ -57,12 +59,12 @@ test('tool-manager: duplicate register throws', () => {
   assert.throws(() => tm.register({ id: 'dup', name: 'Dup2', description: 'd', execute() {} }), /already registered/);
 });
 
-test('tool-manager: read_only agent misses destructive tools; discovery reflects it', async () => {
+test('tool-manager: moderate agent misses destructive tools (incl. terminal:run); discovery reflects it', async () => {
   const tm = makeManager();
   const discovered = tm.discover(noopAgent()).sort();
   assert.deepEqual(discovered, [
     'fs:exists', 'fs:list', 'fs:mkdir', 'fs:read', 'fs:write',
-    'git:diff', 'git:log', 'git:status', 'search:grep', 'terminal:run',
+    'git:diff', 'git:log', 'git:status', 'search:grep',
   ]);
   await assert.rejects(
     tm.execute({ id: 'fs:delete', input: { path: 'x' }, agent: noopAgent() }),
@@ -70,15 +72,20 @@ test('tool-manager: read_only agent misses destructive tools; discovery reflects
   );
 });
 
-test('tool-manager: destructive tool runs when the agent grants it and has authorization gate', async () => {
+test('tool-manager: destructive tool runs only when the agent grants it AND the authorization gate approves', async () => {
   const t = makeTempDir();
   try {
-    const tm = new ToolManager({ bus: new EventBus() });
+    const asked = [];
+    const tm = new ToolManager({
+      bus: new EventBus(),
+      authorize: async ({ tool }) => { asked.push(tool.id); return true; },
+    });
     registerBuiltinTools(tm, { fs: require('node:fs/promises'), root: t.root, cwd: () => t.root, runShell: null });
     const agent = noopAgent({ permissions: { levels: ['read_only', 'safe', 'moderate', 'destructive'], allowDestructive: true } });
     await tm.execute({ id: 'fs:write', input: { path: 'gone.txt', content: 'x' }, agent });
     const res = await tm.execute({ id: 'fs:delete', input: { path: 'gone.txt' }, agent });
     assert.equal(res.toolId, 'fs:delete');
+    assert.deepEqual(asked, ['fs:delete'], 'authorization gate was consulted exactly once for the destructive call');
   } finally {
     t.dispose();
   }
@@ -147,7 +154,7 @@ test('tool-manager: input validation rejects a missing required field with TOOL_
 test('builtin: fs:list/read/write/delete round-trip inside a real temp dir', async () => {
   const t = makeTempDir();
   try {
-    const tm = new ToolManager({ bus: new EventBus() });
+    const tm = new ToolManager({ bus: new EventBus(), authorize: async () => true });
     registerBuiltinTools(tm, { fs: require('node:fs/promises'), root: t.root, cwd: () => t.root, runShell: null });
     const agent = noopAgent();
 
@@ -222,4 +229,62 @@ test('builtin: git tools run through the injected shell adapter', async () => {
   const tm = makeManager();
   const res = await tm.execute({ id: 'git:status', input: {}, agent: noopAgent() });
   assert.equal(res.data.stdout, 'out:git');
+});
+
+// Phase 2: symlink escape containment
+let symlinksWork = true;
+{
+  const probe = path.join(os.tmpdir(), `pg-probe-${Date.now()}.txt`);
+  const link = `${probe}.lnk`;
+  try {
+    await fs.writeFile(probe, 'probe');
+    await fs.symlink(probe, link, 'file');
+    await fs.rm(link, { force: true });
+  } catch {
+    symlinksWork = false; // Windows without Developer Mode / CI runners
+  } finally {
+    await fs.rm(probe, { force: true });
+  }
+}
+
+test('path-guard: a symlink pointing outside the root is rejected', async (t) => {
+  if (!symlinksWork) return t.skip('symlinks unavailable on this host');
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pg-sym-'));
+  const outsideFile = path.join(os.tmpdir(), 'pg-outside.txt');
+  await fs.writeFile(outsideFile, 'secret');
+  try {
+    const link = path.join(tmp, 'escapee');
+    await fs.symlink(outsideFile, link, 'file');
+
+    assert.equal(resolveWithin(tmp, 'escapee'), link, 'resolveWithin is lexical; a symlink looks like a sibling');
+    await assert.rejects(
+      () => assertWithin(tmp, 'escapee'),
+      (err) => /symlink/.test(String(err)),
+    );
+
+    const insideLink = path.join(tmp, 'inside');
+    const innerTarget = path.join(tmp, 'ok.txt');
+    await fs.writeFile(innerTarget, 'ok');
+    await fs.symlink(innerTarget, insideLink, 'file');
+    assert.equal(assertWithin(tmp, 'inside'), innerTarget, 'symlink pointing inside resolves to the real target');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(outsideFile, { force: true });
+  }
+});
+
+test('path-guard: realContains detects escapes on real paths', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pg-real-'));
+  const real = require('node:fs').realpathSync;
+  try {
+    const dir = path.join(tmp, 'a', 'b');
+    await fs.mkdir(dir, { recursive: true });
+    assert.equal(realContains(tmp, path.resolve(tmp, 'a/b'), real), path.resolve(tmp, 'a/b'), 'nested path is inside');
+
+    const file = path.join(tmp, 'out.txt');
+    await fs.writeFile(file, 'secret');
+    assert.equal(realContains(tmp, path.resolve(tmp, '..', 'out.txt'), real), null, 'path traversal is outside');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
 });

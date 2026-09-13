@@ -28,7 +28,7 @@ function summarizeContext(ctx) {
   };
 }
 
-function defaultProbe(workspace) {
+function defaultProbe(_workspace) {
   return { hasGit: false, hasPackageJson: false, name: null };
 }
 

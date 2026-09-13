@@ -8,7 +8,6 @@
 //
 // Measured on Apple Silicon, whisper-tiny.en q8: ~0.6 s to load a warm session,
 // ~0.5 s to transcribe a 4 s clip. base.en is ~0.7 s for the same clip.
-const path = require('path');
 const store = require('./stt-model');
 
 let transformers = null;   // the module, imported once

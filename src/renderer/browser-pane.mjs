@@ -96,7 +96,6 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
   function check(result) { if (!result?.ok) toast(result?.error || 'Browser action failed.'); return !!result?.ok; }
   function annotateSelection(p, n) { if (n) annotations.edit(p, n); }
   function renderNote() { const o=state.overlay, p=state.panels.find(p=>p.id===o.panelId); close(); if(p) annotations.edit(p,o.selection); }
-  function reviewNotes(p) { annotations.review(p); }
   function clearNotes(p) { annotations.clear(p); }
   let menu = null;
   function closeMenu() { menu?.remove(); menu = null; schedule(); }

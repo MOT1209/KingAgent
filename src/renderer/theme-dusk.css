@@ -23,14 +23,14 @@ body[data-theme="dusk"] {
   --hover: #262a31;
   --menu-sheet: #262a31;
   --qs-pane: #262a31;
-  --green: #ef6461;
-  --green-dark: #d95350;
+  --green: #F5A524;
+  --green-dark: #C07C0A;
   --green-ok: #5fca8b;
   --mode-plan: #8fb2ee;
-  --u-bg: rgba(239, 100, 97, 0.11);
+  --u-bg: rgba(245, 165, 36, 0.11);
   --diff-add-bg: rgba(95, 202, 139, 0.14);
   --diff-add-ink: #8fd3a6;
-  --diff-del-bg: rgba(239, 100, 97, 0.14);
+  --diff-del-bg: rgba(217, 74, 61, 0.14);
   --diff-del-ink: #ff9d9a;
   --amber-bg: rgba(230, 192, 92, 0.14);
   --amber-line: rgba(230, 192, 92, 0.45);
@@ -38,8 +38,8 @@ body[data-theme="dusk"] {
   --amber-body: #d3b055;
   --amber-btn: #c98d1a;
   --amber-btn-line: #e6c05c;
-  --red-bg: rgba(239, 100, 97, 0.16);
-  --red-line: #ef6461;
+  --red-bg: rgba(217, 74, 61, 0.16);
+  --red-line: #D94A3D;
   --red-ink: #ff9d9a;
   --tok-kw: #8fb2ee;
   --tok-str: #a3cf9b;
@@ -51,7 +51,7 @@ body[data-theme="dusk"] {
   --sweep: rgba(255, 255, 255, 0.05);
   --shimmer-hi: #e8eaee;
   --red-body: #e88f8c;
-  --red-btn: #ef6461;
+  --red-btn: #D94A3D;
   --red-btn-line: #ff8b88;
   --shadow-soft: transparent;
   --shadow-mid: transparent;
@@ -62,6 +62,7 @@ body[data-theme="dusk"] {
   --tree-fill-file: #262a31;
   /* dark ground: full-strength amber, and the letter in the desk's own ink */
   --mark-accent: #F5A524;
+  --accent-text: #F5A524;
   --mark-ink: #e8eaed;
   --sf-d: rgba(10, 12, 16, 0.50);
   --sf-l: rgba(58, 64, 74, 0.70);
@@ -75,9 +76,9 @@ body[data-theme="dusk"] {
              inset 2px 2px 3px var(--sf-in-l), inset -2px -2px 4px var(--sf-in-d);
   --sf-card-sm: 3px 3px 6px var(--sf-d), -3px -3px 6px var(--sf-l),
              inset 1px 1px 2px var(--sf-in-l), inset -1px -1px 3px var(--sf-in-d);
-  --sf-go: 4px 4px 8px rgba(8, 10, 14, 0.55), -3px -3px 6px rgba(255, 140, 136, 0.22),
-           inset 2px 2px 3px rgba(255, 190, 186, 0.35), inset -2px -2px 5px rgba(20, 8, 8, 0.45);
-  --sf-go-press: inset 4px 4px 8px rgba(8, 10, 14, 0.5), inset -2px -2px 5px rgba(255, 160, 156, 0.22);
+  --sf-go: 4px 4px 8px rgba(8, 10, 14, 0.55), -3px -3px 6px rgba(255, 200, 92, 0.22),
+           inset 2px 2px 3px rgba(255, 216, 150, 0.35), inset -2px -2px 5px rgba(42, 28, 4, 0.45);
+  --sf-go-press: inset 4px 4px 8px rgba(8, 10, 14, 0.5), inset -2px -2px 5px rgba(255, 205, 120, 0.22);
   --sf-thumb: rgba(232, 234, 238, 0.24);
   --sf-r: 18px;
   --sf-r-sm: 12px;

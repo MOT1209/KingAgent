@@ -5,7 +5,7 @@
 // subsystem, so a compromised renderer cannot smuggle a larger object graph
 // into agent create/change code.
 
-const { isPlainObject, isString, isBoolean, validId } = require('../schema/validate');
+const { isString, isBoolean, validId } = require('../schema/validate');
 
 const CHANNELS = Object.freeze({
   'agent:listAgents': {},

@@ -101,7 +101,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
       callback(false);
     });
     record.session.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
-      let origin = '';
+      let origin;
       try { origin = requestingOrigin ? new URL(requestingOrigin).origin : ''; } catch { origin = ''; }
       const e = [...views.values()].find((v) => v.record === record);
       try { return permissionAllowed(profiles.get(e?.profileId || 'default').permissions?.[origin], permission); }
@@ -388,7 +388,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
         const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
         if (username) { set.call(username, ${JSON.stringify(credential.username)}); username.dispatchEvent(new Event('input', { bubbles: true })); username.dispatchEvent(new Event('change', { bubbles: true })); }
         set.call(password, ${JSON.stringify(credential.password)}); password.dispatchEvent(new Event('input', { bubbles: true })); password.dispatchEvent(new Event('change', { bubbles: true })); return true;
-      })()`); } catch (_) { throw new Error('This website could not accept autofill. Try entering the password manually.'); }
+      })()`); } catch (err) { throw new Error('This website could not accept autofill. Try entering the password manually.', { cause: err }); }
       if (!filled) throw new Error('No visible sign-in form found on this website.');
       output.filled = true;
     } else if (action === 'configure') {

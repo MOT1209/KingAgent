@@ -39,14 +39,14 @@ body[data-theme="glass"] {
   --hover: rgba(255, 255, 255, 0.55);
   /* menus float over live card text: near-opaque, or the rows ghost through */
   --menu-sheet: rgba(255, 255, 255, 0.96);
-  --green: #ef6461;            /* primary action → coral, like operator */
-  --green-dark: #d95350;
+  --green: #F5A524;            /* primary action → amber, like operator */
+  --green-dark: #C07C0A;
   --green-ok: #2e7d4f;
   --mode-plan: #3d6bb3;
   --u-bg: rgba(224, 92, 80, 0.10);
   --diff-add-bg: rgba(46, 125, 79, 0.14);
   --diff-add-ink: #226940;
-  --diff-del-bg: rgba(239, 100, 97, 0.12);
+  --diff-del-bg: rgba(217, 74, 61, 0.12);
   --diff-del-ink: #b2322f;
   --amber-bg: rgba(238, 190, 80, 0.2);
   --amber-line: rgba(201, 152, 44, 0.55);
@@ -54,8 +54,8 @@ body[data-theme="glass"] {
   --amber-body: #8a6520;
   --amber-btn: #c98d1a;
   --amber-btn-line: #a87613;
-  --red-bg: rgba(239, 100, 97, 0.14);
-  --red-line: #ef6461;
+  --red-bg: rgba(217, 74, 61, 0.14);
+  --red-line: #D94A3D;
   --red-ink: #b2322f;
   --tok-kw: #3d6bb3;
   --tok-str: #4a7a4a;
@@ -77,10 +77,10 @@ body[data-theme="glass"] {
   --tree-fill-open: rgba(255, 255, 255, 0.85);
   --tree-fill-file: rgba(255, 255, 255, 0.55);
   /* glass helpers — shared names, per-theme values */
-  --gl-accent: #ef6461;
-  --gl-accent-hi: #ff8b88;
-  --gl-accent-deep: #e0524f;
-  --gl-accent-dim: rgba(239, 100, 97, 0.14);
+  --gl-accent: #F5A524;
+  --gl-accent-hi: #FFC85C;
+  --gl-accent-deep: #C07C0A;
+  --gl-accent-dim: rgba(245, 165, 36, 0.14);
   --gl-pane: rgba(255, 255, 255, 0.48);
   --gl-pane-strong: rgba(255, 255, 255, 0.62);
   --gl-pane-dim: rgba(255, 255, 255, 0.24);
@@ -111,9 +111,9 @@ body[data-theme="glass"] {
 body[data-theme="glass"] {
   background: #e8e9ee;
   background-image:
-    radial-gradient(52% 44% at 12% 6%,  rgba(255, 158, 140, 0.55) 0%, transparent 62%),
+    radial-gradient(52% 44% at 12% 6%,  rgba(255, 198, 120, 0.55) 0%, transparent 62%),
     radial-gradient(46% 40% at 92% 12%, rgba(140, 205, 220, 0.5)  0%, transparent 60%),
-    radial-gradient(60% 52% at 78% 88%, rgba(255, 190, 170, 0.42) 0%, transparent 64%),
+    radial-gradient(60% 52% at 78% 88%, rgba(250, 212, 160, 0.42) 0%, transparent 64%),
     radial-gradient(44% 40% at 8% 92%,  rgba(168, 190, 235, 0.4)  0%, transparent 60%),
     linear-gradient(165deg, #f6f4f2 0%, #e9e8ee 55%, #eceef0 100%);
 }
@@ -268,27 +268,27 @@ body[data-glass] .nav-card:hover {
   box-shadow: var(--gl-slab), 0 22px 48px rgb(var(--gl-sh) / 0.2);
 }
 body[data-glass] .tile.active {
-  border-color: rgba(255, 170, 165, 0.85);
-  box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(239, 100, 97, 0.55), 0 20px 40px rgba(239, 100, 97, 0.14), 0 2px 8px rgb(var(--gl-sh) / 0.06);
+  border-color: rgba(250, 205, 140, 0.85);
+  box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(245, 165, 36, 0.55), 0 20px 40px rgba(245, 165, 36, 0.14), 0 2px 8px rgb(var(--gl-sh) / 0.06);
 }
 body[data-glass] .tile.active:hover {
-  box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(239, 100, 97, 0.6), 0 32px 70px rgba(239, 100, 97, 0.2), 0 4px 14px rgb(var(--gl-sh) / 0.08);
+  box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(245, 165, 36, 0.6), 0 32px 70px rgba(245, 165, 36, 0.2), 0 4px 14px rgb(var(--gl-sh) / 0.08);
 }
 body[data-glass] .tile.attention { border-color: var(--gl-accent); animation: gl-breathe 1.8s ease-in-out infinite; }
 @keyframes gl-breathe {
-  0%, 100% { box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(239, 100, 97, 0.5), 0 0 24px rgba(239, 100, 97, 0.2); }
-  50% { box-shadow: var(--gl-slab), 0 0 0 2px rgba(239, 100, 97, 0.85), 0 0 40px rgba(239, 100, 97, 0.38); }
+  0%, 100% { box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(245, 165, 36, 0.5), 0 0 24px rgba(245, 165, 36, 0.2); }
+  50% { box-shadow: var(--gl-slab), 0 0 0 2px rgba(245, 165, 36, 0.85), 0 0 40px rgba(245, 165, 36, 0.38); }
 }
-body[data-glass] .nav-card.active { border-color: rgba(255, 170, 165, 0.85); box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(239, 100, 97, 0.5), 0 12px 30px rgb(var(--gl-sh) / 0.14); }
+body[data-glass] .nav-card.active { border-color: rgba(250, 205, 140, 0.85); box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(245, 165, 36, 0.5), 0 12px 30px rgb(var(--gl-sh) / 0.14); }
 body[data-glass] .nav-card.attn { border-color: var(--amber-line); box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(238, 190, 80, 0.6); }
 body[data-glass] .tile.drop-hint, body[data-glass] .tile.file-hint { outline-color: var(--gl-accent); }
 /* glass rounds its tiles 22px, so the corner mark tucks inside the curve — the
    hit area is unchanged, still straddling the true corner */
 body[data-glass] .tile-grip::before { right: 17px; bottom: 17px; }
 /* the resize slot speaks the same accent as every other drop target on glass */
-body[data-glass] .desk-slot { border-color: var(--gl-accent); background: rgba(239, 100, 97, 0.06); }
+body[data-glass] .desk-slot { border-color: var(--gl-accent); background: rgba(245, 165, 36, 0.06); }
 body[data-glass] .desk-slot .ds-size { background: var(--gl-pane); border-color: var(--gl-rim); border-radius: 7px; }
-body[data-glass] .tile.file-hint { box-shadow: var(--gl-slab), 0 0 0 3px rgba(239, 100, 97, 0.25); }
+body[data-glass] .tile.file-hint { box-shadow: var(--gl-slab), 0 0 0 3px rgba(245, 165, 36, 0.25); }
 @media (prefers-reduced-motion: reduce) {
   body[data-glass] .tile, body[data-glass] .nav-card { transition: none; transform: none !important; }
 }
@@ -346,7 +346,7 @@ body[data-glass] .live-badge {
   border: 1px solid var(--gl-rim); background: var(--gl-pane);
   font-family: var(--gl-dot); font-weight: 800; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
 }
-body[data-glass] .live-badge .dot { background: var(--gl-accent); box-shadow: 0 0 0 3px var(--gl-accent-dim), 0 0 10px rgba(239, 100, 97, 0.6); }
+body[data-glass] .live-badge .dot { background: var(--gl-accent); box-shadow: 0 0 0 3px var(--gl-accent-dim), 0 0 10px rgba(245, 165, 36, 0.6); }
 body[data-glass] .live-badge.attn { border-color: var(--gl-accent); background: var(--gl-accent-dim); color: var(--gl-accent-deep); }
 body[data-glass] .live-badge.attn .dot { background: var(--gl-accent); }
 
@@ -382,24 +382,27 @@ body[data-glass] .t-mic:hover { color: var(--gl-accent-deep); }
    round, and the widest stays under the ~12px of headroom the 58px bar leaves
    around a 34px pill. */
 body[data-glass] .btn--go {
-  color: #fff;
-  background: linear-gradient(150deg, rgba(255, 142, 136, 0.95) 0%, rgba(236, 88, 85, 0.92) 100%);
-  border-color: rgba(255, 180, 175, 0.9);
+  /* Dark ink, not white: white on amber is ~2:1 and the label stops being a
+     label. The same swap is why the inner shade below went from a red-brown
+     to an amber-brown — it is the button's own hue darkened, not a red. */
+  color: #10131A;
+  background: linear-gradient(150deg, rgba(255, 202, 110, 0.96) 0%, rgba(232, 150, 20, 0.95) 100%);
+  border-color: rgba(255, 216, 150, 0.9);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -10px 22px rgba(160, 30, 30, 0.25),
-    0 0 0 1px rgba(239, 100, 97, 0.3),
-    0 0 8px rgba(239, 100, 97, 0.45),
-    0 0 12px rgba(239, 100, 97, 0.3);
+    inset 0 -10px 22px rgba(150, 92, 6, 0.25),
+    0 0 0 1px rgba(245, 165, 36, 0.3),
+    0 0 8px rgba(245, 165, 36, 0.45),
+    0 0 12px rgba(245, 165, 36, 0.3);
 }
 body[data-glass] .btn--go:hover {
-  background: linear-gradient(150deg, rgba(255, 152, 146, 0.98) 0%, rgba(240, 95, 92, 0.95) 100%);
+  background: linear-gradient(150deg, rgba(255, 212, 130, 0.98) 0%, rgba(240, 160, 28, 0.96) 100%);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -10px 22px rgba(160, 30, 30, 0.25),
-    0 0 0 1px rgba(239, 100, 97, 0.45),
-    0 0 9px rgba(239, 100, 97, 0.55),
-    0 0 12px rgba(239, 100, 97, 0.4);
+    inset 0 -10px 22px rgba(150, 92, 6, 0.25),
+    0 0 0 1px rgba(245, 165, 36, 0.45),
+    0 0 9px rgba(245, 165, 36, 0.55),
+    0 0 12px rgba(245, 165, 36, 0.4);
 }
 body[data-glass] .btn--amber, body[data-glass] .btn--red { box-shadow: var(--gl-slab), 0 6px 18px rgb(var(--gl-sh) / 0.1); border-radius: 999px; }
 
@@ -452,7 +455,7 @@ body[data-glass] .bar, body[data-glass] .progress {
 }
 body[data-glass] .bar > i, body[data-glass] .progress > i {
   background: repeating-linear-gradient(90deg, var(--gl-accent) 0 6px, transparent 6px 9px);
-  filter: drop-shadow(0 0 5px rgba(239, 100, 97, 0.55));
+  filter: drop-shadow(0 0 5px rgba(245, 165, 36, 0.55));
 }
 
 /* chips: frosted capsules; kind still answers "what kind of thing is this?" */
@@ -497,7 +500,7 @@ body[data-glass] .term-body .xterm { padding: 12px 14px 12px 12px; }
 body[data-glass] .ed-gutter { color: var(--faint); background: none; }
 body[data-glass] .ed-stack, body[data-glass] .ql-lines { background: none; }
 body[data-glass] .editor--md .ed-area { caret-color: var(--gl-accent); }
-body[data-glass] .editor--md .ed-area::selection { background: rgba(239, 100, 97, 0.24); }
+body[data-glass] .editor--md .ed-area::selection { background: rgba(245, 165, 36, 0.24); }
 body[data-glass] .ed-area, body[data-glass] .card-body, body[data-glass] .card-raw .raw-area { background: none; caret-color: var(--gl-accent); }
 body[data-glass] .ed-bar { border-top: 1px solid var(--dash); background: none; }
 /* Solid rim, not paper's dash — but the fill stays, because a state strip is
@@ -637,8 +640,8 @@ body[data-glass] .board {
 }
 body[data-glass] .board-svg path { stroke: var(--gl-accent); stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0.8; }
 body[data-glass] .board-node { border-radius: 14px; border-color: var(--gl-rim); background: var(--gl-pane-strong); box-shadow: var(--gl-slab), 0 10px 26px rgb(var(--gl-sh) / 0.18); transform: translate(-50%, -50%) !important; }
-body[data-glass] .board-node:hover, body[data-glass] .board-node.focus { box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(239, 100, 97, 0.55), 0 16px 40px rgba(239, 100, 97, 0.2); }
-body[data-glass] .board-node .pin { background: var(--gl-accent); border-color: rgba(239, 100, 97, 0.6); box-shadow: 0 0 8px rgba(239, 100, 97, 0.6); }
+body[data-glass] .board-node:hover, body[data-glass] .board-node.focus { box-shadow: var(--gl-slab), 0 0 0 1.5px rgba(245, 165, 36, 0.55), 0 16px 40px rgba(245, 165, 36, 0.2); }
+body[data-glass] .board-node .pin { background: var(--gl-accent); border-color: rgba(245, 165, 36, 0.6); box-shadow: 0 0 8px rgba(245, 165, 36, 0.6); }
 
 /* toast */
 body[data-glass] .toast {
@@ -709,15 +712,15 @@ body[data-glass] .qs-mini {
   box-shadow: var(--gl-slab), 0 4px 14px rgb(var(--gl-sh) / 0.07);
 }
 body[data-glass] .qs-mini--go {
-  color: #fff;
-  background: linear-gradient(150deg, rgba(255, 142, 136, 0.95) 0%, rgba(236, 88, 85, 0.92) 100%);
-  border-color: rgba(255, 180, 175, 0.9);
+  color: #10131A;
+  background: linear-gradient(150deg, rgba(255, 202, 110, 0.96) 0%, rgba(232, 150, 20, 0.95) 100%);
+  border-color: rgba(255, 216, 150, 0.9);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -10px 22px rgba(160, 30, 30, 0.25),
-    0 0 0 1px rgba(239, 100, 97, 0.3),
-    0 0 8px rgba(239, 100, 97, 0.45),
-    0 0 12px rgba(239, 100, 97, 0.3);
+    inset 0 -10px 22px rgba(150, 92, 6, 0.25),
+    0 0 0 1px rgba(245, 165, 36, 0.3),
+    0 0 8px rgba(245, 165, 36, 0.45),
+    0 0 12px rgba(245, 165, 36, 0.3);
 }
 /* --amber-btn is not a foreign colour in either theme — it is the wrong token
    for a footer link, which each theme already answers with --gl-link */
