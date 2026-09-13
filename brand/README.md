@@ -44,6 +44,24 @@ Amber is the name (King → gold) and the medium (terminal phosphor) at once, an
 it stays clear of the field: Warp and Kiro own purple, Windsurf teal, Claude the
 coral this app used to wear.
 
+## The desks
+
+The accent runs through the whole UI, not just the mark: every desk that used
+Nami's coral (`#ef6461`) now takes amber — primary actions, live dots, focus
+glows, the glass and graphite auroras. Two things were untangled on the way:
+
+- **Danger got its own hue back.** These desks had collapsed "run this",
+  "delete this" and "needs you" onto the single coral, so a destructive button
+  was the same colour as the primary one. Danger is now a true red
+  (`#D94A3D`), and the amber family is amber.
+- **Amber buttons take dark ink.** White on `#F5A524` is ~2:1 and the label
+  stops being a label; `#10131A` on it is ~10:1. Where the accent is *text* on
+  a light ground the desks use `--accent-text` (`#9A6206`), because soft and
+  dusk share one rule across a white ground and a dark one.
+
+The paper desk is deliberately untouched: its primary action was always a real
+green on cream, never Nami's coral, so there was nothing borrowed to replace.
+
 ## Files
 
 | file | use |

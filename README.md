@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/media/logo.png" alt="" width="88">
+
 # KingAgent
 
 ### AI Agent Operating Platform
@@ -32,8 +34,6 @@ Nothing happens behind your back.
 
 ## Run any of the top agents in one click
 
-![Claude Code, Codex and Gemini ready; OpenCode, Hermes and Kimi one click away](docs/media/agents.jpg)
-
 No more downloading ten different tools only to switch again next week. A better
 agent ships next month? Swap it in a click and keep working.
 
@@ -52,7 +52,7 @@ plans your month. One screen, and you are watching all of it.
 Say what you want in plain words and seconds later it is on your shelf, ready to
 run. Same for skills and connections. Notion, Gmail and Slack connect in one click.
 
-## Four desks
+## Six desks
 
 <table>
   <tr>
@@ -62,6 +62,10 @@ run. Same for skills and connections. Notion, Gmail and Slack connect in one cli
   <tr>
     <td width="50%"><img src="docs/media/desk-operator.jpg" alt="Operator desk"><br><b>Operator</b> — dark ops</td>
     <td width="50%"><img src="docs/media/desk-graphite.jpg" alt="Graphite desk"><br><b>Graphite</b> — glass at night</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/media/desk-soft.jpg" alt="Soft desk"><br><b>Soft</b> — off-white</td>
+    <td width="50%"><img src="docs/media/desk-dusk.jpg" alt="Dusk desk"><br><b>Dusk</b> — soft dark</td>
   </tr>
 </table>
 
