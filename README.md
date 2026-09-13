@@ -70,9 +70,10 @@ run. Same for skills and connections. Notion, Gmail and Slack connect in one cli
 KingAgent only ever looks inside the one folder you point it at. Dictation runs
 on your own machine, so it works on a fresh install with no account, no key and
 no network. On Windows the installer is ordinary per-user NSIS — no admin
-rights, no UAC prompt. The macOS archives build unsigned in the rolling
-pipeline for now, so Gatekeeper asks before the first open; signing and
-notarization are wired and only need repository secrets (see Packaging).
+rights, no UAC prompt. Both platforms build unsigned in the rolling pipeline
+for now: Gatekeeper asks before the first open on macOS, and SmartScreen warns
+of an unrecognized publisher on Windows. Signing is wired for both and only
+needs repository secrets (see [Releases, auto-update and signing](#releases-auto-update-and-signing)).
 
 ## Get started
 
@@ -122,6 +123,15 @@ workflow builds them signed, notarized and stapled: `CSC_LINK` (base64 of the
 .p12) with `CSC_KEY_PASSWORD`, and `APPLE_API_KEY` (App Store Connect API key
 content) with `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. Without them the mac
 job signs nothing and `scripts/notarize-dmg.mjs` skips in silence.
+
+To sign the Windows installer, KingAgent uses [Azure Trusted
+Signing](https://learn.microsoft.com/en-us/azure/trusted-signing/overview)
+rather than a classic certificate file — add six repository secrets
+(`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_ENDPOINT`,
+`AZURE_CODE_SIGNING_ACCOUNT`, `AZURE_CERT_PROFILE`) and the win leg of the same
+workflow signs every build from then on. Setup steps are in
+[docs/windows-signing.md](docs/windows-signing.md); without them the installer
+ships exactly as it does today, unsigned.
 
 Contributor notes are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
