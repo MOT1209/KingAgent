@@ -50,6 +50,7 @@ const ALLOWED_ROOT = new Set([
   'electron-builder.review.yml',
   'README.md', 'LICENSE', 'CONTRIBUTING.md', '.gitignore',
   'KINGAGENT-WINDOWS-PORT-REPORT.md',
+  'eslint.config.mjs',
 ]);
 
 test('nothing is published from outside the folders that make KingAgent', { skip: notStandalone }, () => {
