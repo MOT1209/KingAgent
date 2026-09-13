@@ -93,9 +93,8 @@ body[data-theme="graphite"] {
      reach it — the whole quick start panel comes from there, this file adds
      no .qs- rule of its own */
   --gl-link: #6f9dff;
-  --nami-fill: #ef6461;
-  --nami-foam: #ffffff;
-  --nami-eye: #ececf1;
+  --mark-accent: #F5A524;
+  --mark-ink: #ececf1;
 }
 /* the ember desk — the aurora dimmed onto dark grey */
 body[data-theme="graphite"] {
@@ -110,7 +109,7 @@ body[data-theme="graphite"] {
 body[data-theme="graphite"] a { color: #6f9dff; }
 /* the shared system paints white-outlined ink cursors + coral pointer already;
    graphite only needs the few spots where a light literal reads wrong */
-body[data-theme="graphite"] .nami-mascot { filter: drop-shadow(0 2px 6px rgba(239, 100, 97, 0.45)); }
+body[data-theme="graphite"] .king-mark { filter: drop-shadow(0 2px 6px rgba(245, 165, 36, 0.45)); }
 body[data-theme="graphite"] .viewer .vw-stage--dark { background: #000; }
 body[data-theme="graphite"] .say--user { color: #d9dae2; }
 

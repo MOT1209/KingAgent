@@ -60,9 +60,9 @@ body[data-theme="dusk"] {
   --tree-fill: #262a31;
   --tree-fill-open: #262a31;
   --tree-fill-file: #262a31;
-  --nami-fill: #ef6461;
-  --nami-foam: #262a31;
-  --nami-eye: #262a31;
+  /* dark ground: full-strength amber, and the letter in the desk's own ink */
+  --mark-accent: #F5A524;
+  --mark-ink: #e8eaed;
   --sf-d: rgba(10, 12, 16, 0.50);
   --sf-l: rgba(58, 64, 74, 0.70);
   --sf-in-d: rgba(8, 10, 14, 0.45);

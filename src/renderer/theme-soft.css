@@ -69,9 +69,7 @@ body[data-theme="soft"] {
   --tree-fill: #e5e5e5;
   --tree-fill-open: #e5e5e5;
   --tree-fill-file: #e5e5e5;
-  --nami-fill: #ef6461;
-  --nami-foam: #e5e5e5;
-  --nami-eye: #e5e5e5;
+  --mark-accent: #F5A524;
   --sf-d: rgba(44, 42, 51, 0.28);
   --sf-l: rgba(255, 255, 255, 0.52);
   --sf-in-d: rgba(13, 39, 80, 0.16);
@@ -183,7 +181,7 @@ body[data-soft] .brand-ver {
   font-size: 10px; letter-spacing: 0.14em; color: var(--faint);
 }
 body[data-soft] .brand-sub { align-self: flex-end; padding-bottom: 2px; }
-body[data-soft] .nami-mascot {
+body[data-soft] .king-mark {
   height: 26px; width: 26px; padding: 3px; box-sizing: border-box;
   border-radius: 50%; background: var(--paper); box-shadow: var(--sf-card);
 }

@@ -116,13 +116,14 @@ body[data-theme="operator"] .update-note .un-quiet { color: var(--muted); }
 /* 18px uppercase mono matches the cap height of paper's Caveat 34px, and the
    mark keeps paper's 24px, so the lockup reads at one size across themes. */
 body[data-theme="operator"] .brand-name { font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase; }
-body[data-theme="operator"] .nami-mascot {
-  --nami-fill: var(--op-accent); --nami-foam: var(--paper); --nami-eye: var(--paper);
-  height: 24px;
-  filter: drop-shadow(0 0 4px rgba(239, 100, 97, 0.4));
-  /* the blob's visual weight sits in its lower half; nudge it up so the
-     18px NAMI wordmark centres on the body, not the whole bounding box */
-  transform: translateY(-2px);
+body[data-theme="operator"] .king-mark {
+  --mark-accent: #F5A524;
+  --mark-ink: var(--paper);
+  height: 24px; width: 24px;
+  filter: drop-shadow(0 0 4px rgba(245, 165, 36, 0.4));
+  /* No optical nudge here any more: the blob this replaced carried its weight
+     low and had to be lifted 2px to centre on the wordmark. The K's ink is
+     centred in its own frame, so the box and the letter share one centre. */
 }
 /* paper drops the tagline to KingAgent's baseline; mono NAMI has no hanging
    lowercase, so operator keeps it centred */

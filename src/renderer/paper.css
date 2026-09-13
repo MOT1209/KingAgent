@@ -205,9 +205,19 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    align to, so the mark and the wordmark share a centre line instead. */
 .brand { display: flex; align-items: center; gap: 12px; height: 26px; flex: none; }
 .brand-mark { display: inline-flex; align-items: center; gap: 8px; height: 26px; }
-.nami-mascot {
-  --nami-fill: #ee6a6c; --nami-foam: #fdf7e6; --nami-eye: #33302c;
-  height: 24px; width: auto; flex: none;
+/* The K mark. Two tokens, and only two: the ink follows the desk's text so the
+   letter can never come out invisible on a ground nobody tested, and the cursor
+   block is the single element allowed to carry the accent.
+   The accent is one value on every desk, deliberately. The first cut used a
+   darker amber on the light desks, chosen for contrast against the *ground* —
+   and in the running app it read as a brown sliver, because what the block
+   actually has to separate from is the near-black ink it sits beside, not the
+   paper behind it. Full-strength amber is lighter than the ink on every desk,
+   which is the separation that matters. */
+.king-mark {
+  --mark-accent: #F5A524;
+  color: var(--mark-ink, var(--ink));
+  height: 24px; width: 24px; flex: none;
 }
 .brand-name { font-family: 'Caveat', cursive; font-size: 34px; font-weight: 700; line-height: 1; flex: none; }
 /* The version hangs off the wordmark rather than stacking with it. A real

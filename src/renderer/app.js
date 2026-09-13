@@ -869,34 +869,20 @@ function buildShell() {
       <div class="topbar">
         <div class="brand">
           <span class="brand-mark">
-            <svg class="nami-mascot" viewBox="474 285 1084 1400" aria-hidden="true">
-              <defs>
-                <!-- glass themes fill the body with this dot lattice (same grid
-                     language as the Doto type); other themes never reference it -->
-                <pattern id="nami-dot-lattice" width="140" height="140" patternUnits="userSpaceOnUse">
-                  <circle cx="70" cy="70" r="52" fill="var(--nami-fill)"/>
-                </pattern>
-              </defs>
-              <g class="nami-body" transform="translate(0.000000,2048.000000) scale(1.000000,-1.000000)" fill="var(--nami-fill)">
-              <path d="M962 1762 c-201 -12 -357 -148 -373 -324 -12 -132 86 -235 207 -219
-              86 12 143 93 112 160 -16 34 -52 45 -65 19 -10 -20 -40 -17 -51 6 -20 38 18
-              94 74 111 70 20 128 -11 162 -88 12 -30 28 -41 62 -45 98 -11 126 -123 50
-              -199 -64 -64 -174 -70 -329 -20 -79 26 -119 31 -167 19 -105 -24 -166 -131
-              -170 -294 -3 -188 77 -322 226 -375 18 -7 50 -16 55 -16 3 0 3 -1 0 -14 -4
-              -15 -5 -46 -2 -59 11 -41 41 -61 90 -60 58 2 89 43 81 107 l-1 6 18 0 c10 -1
-              47 -1 82 -1 56 0 63 0 63 -1 -2 -5 -3 -25 -2 -36 5 -50 33 -74 87 -74 64 0 95
-              41 84 110 -2 12 -4 10 16 13 172 29 265 149 285 369 2 19 2 110 0 135 -28 397
-              -212 695 -469 757 -41 10 -90 15 -125 13z m383 -1005 c0 -8 -1 -2 -1 13 0 14
-              1 20 1 13 0 -7 0 -19 0 -26z m-117 2 c0 -6 -1 -2 -1 11 0 12 1 17 1 11 0 -6 0
-              -16 0 -22z"/>
+            <!-- The K is the product drawn as a letter: one spine, arms leaving
+                 it from a single junction — one workspace, several agents. The
+                 only element carrying colour is the block in the letter's mouth,
+                 which is a terminal cursor: the agent that is live right now.
+                 Geometry is on a 64-grid with a 4-unit module, so every straight
+                 edge lands on a whole device pixel at 16px instead of greying
+                 out. Ink follows currentColor so each desk sets it once. -->
+            <svg class="king-mark" viewBox="0 0 64 64" aria-hidden="true">
+              <rect x="8" y="8" width="12" height="48" fill="currentColor"/>
+              <g stroke-width="12" fill="none" stroke="currentColor">
+                <path d="M20 32 L46 10"/>
+                <path d="M20 32 L46 54"/>
               </g>
-              <g transform="translate(0.000000,2048.000000) scale(1.000000,-1.000000)" fill="var(--nami-foam)">
-              </g>
-              <g transform="translate(0.000000,2048.000000) scale(1.000000,-1.000000)" fill="var(--nami-eye)">
-              <path d="M723 830 c-27 -3 -34 -14 -35 -55 -1 -59 8 -67 65 -66 47 1 55 14 51
-              77 -2 37 -13 45 -59 45 -9 0 -19 -1 -22 -1z M1263 830 c-28 -3 -35 -15 -35
-              -60 0 -54 9 -62 65 -61 34 1 45 8 50 29 2 11 1 63 -2 70 -8 20 -34 27 -78 22z"/>
-              </g>
+              <rect class="king-mark-cursor" x="48" y="24" width="8" height="16" fill="var(--mark-accent)"/>
             </svg>
             <span class="brand-stack">
               <span class="brand-name">KingAgent</span>

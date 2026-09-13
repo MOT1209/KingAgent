@@ -105,9 +105,7 @@ body[data-theme="glass"] {
   /* the theme's link colour, named so the shared body[data-glass] rules can
      reach it — graphite answers with its own */
   --gl-link: #3763c9;
-  --nami-fill: #ef6461;
-  --nami-foam: #ffffff;
-  --nami-eye: #1d1d22;
+  --mark-accent: #F5A524;
 }
 /* the aurora desk — glass is only alive with light behind it */
 body[data-theme="glass"] {
@@ -208,16 +206,13 @@ body[data-glass] .brand-ver {
    Graphite keeps --faint precisely because it is the dark twin: the same token
    reads 3.2:1 there, better than --muted-3 would. */
 body[data-theme="glass"] .brand-ver { color: var(--muted-3); }
-body[data-glass] .nami-mascot {
-  --nami-foam: transparent;
-  height: 25px;
-  filter: drop-shadow(0 2px 4px rgba(239, 100, 97, 0.35));
+body[data-glass] .king-mark {
+  height: 25px; width: 25px;
+  filter: drop-shadow(0 2px 4px rgba(245, 165, 36, 0.35));
   transform: translateY(-1px);
   transition: transform 0.45s var(--gl-pop);
 }
-/* the dot-lattice body — same silhouette, built from dots like the type */
-body[data-glass] .nami-mascot .nami-body { fill: url(#nami-dot-lattice); }
-body[data-glass] .brand:hover .nami-mascot { transform: translateY(-3px) rotate(-4deg); }
+body[data-glass] .brand:hover .king-mark { transform: translateY(-3px) rotate(-4deg); }
 body[data-glass] .rail-head .title { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
 body[data-glass] .lane-empty .big { font-size: 16px; letter-spacing: 0.1em; text-transform: uppercase; }
 body[data-glass] .lane-empty .polaroid {
