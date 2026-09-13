@@ -24,9 +24,11 @@ name: ship
 #            Unsigned for now: no Apple credentials are wired up, so the macOS
 #            builds are downloadable but Gatekeeper has things to say, and
 #            Squirrel.Mac will not swap an unsigned app — the bar still offers
-#            the dmg. The build step runs under bash even on the Windows runner,
-#            so the same $VERSION reads an environment variable on both shells
-#            (pwsh would demand $env:VERSION).
+#            the dmg. The mac job forwards CSC_LINK / CSC_KEY_PASSWORD and the
+#            APPLE_API_* pair from repository secrets, dormant until set; the
+#            build step runs under bash even on the Windows runner, so the same
+#            $VERSION reads an environment variable on both shells (pwsh would
+#            demand $env:VERSION).
 #
 #   publish  releases what landed as a non-prerelease release under the
 #            computed tag — after verifying a complete, self-consistent set is
@@ -48,6 +50,17 @@ name: ship
 on:
   push:
     branches: [main]
+    # Builds settle on code, build resources, tooling and this workflow itself.
+    # A docs- or test-only push has nothing new to install and is not worth a
+    # full cross-platform build and a release.
+    paths:
+      - 'src/**'
+      - 'build/**'
+      - 'electron-builder.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - '.github/workflows/ship.yml'
   workflow_dispatch:
 
 concurrency:
@@ -97,6 +110,16 @@ jobs:
             run-build: npm run fetch-model && npx electron-builder --win --publish never -c.extraMetadata.version=$VERSION
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
+      # Dormant until the secrets exist: with no CSC_LINK the mac build signs
+      # nothing, and scripts/notarize-dmg.mjs skips in silence when the
+      # APPLE_API_* keys are absent. Set them in the repository settings once
+      # and the same workflow signs with electron-builder and staples every
+      # dmg through notarytool — nothing in the config or workflow changes.
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
