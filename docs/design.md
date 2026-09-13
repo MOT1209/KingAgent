@@ -1,4 +1,4 @@
-# Nami — the paper agent workbench
+# KingAgent — the paper agent workbench
 
 Approved design, 2026-08-08. The app now implements it; the screenshots in `docs/media/` are the live article.
 
@@ -9,7 +9,7 @@ Caveat handwriting, Courier Prime, pastel tints, hard offset shadows, dashed rul
 
 Paper is the design language and the base stylesheet; the other three desks (operator, glass,
 graphite) are layered over it. Since 0.1.8 a **new install opens on glass** — the desk that reads
-as a current Mac app to someone who has never seen Nami — and anyone who picks a theme keeps it.
+as a current Mac app to someone who has never seen KingAgent — and anyone who picks a theme keeps it.
 
 ## One session type — a terminal on paper
 Every agent runs as its own CLI in a real PTY (node-pty) + xterm.js, skinned to

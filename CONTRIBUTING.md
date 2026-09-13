@@ -1,13 +1,13 @@
-# Contributing to Nami
+# Contributing to KingAgent
 
-Nami is an Electron app in plain JavaScript. No bundler, no framework, no build
+KingAgent is an Electron app in plain JavaScript. No bundler, no framework, no build
 step for the UI — you edit a file and restart.
 
 ## Run it
 
 ```bash
-git clone https://github.com/mrdainami/nami.git
-cd nami
+git clone https://github.com/MOT1209/KingAgent.git
+cd KingAgent
 npm install
 npm start
 ```
@@ -19,13 +19,13 @@ npm run shot    # renders a demo-seeded screenshot to shots/app.png
 
 ## Two copies, and why
 
-Nami is comfortable to build Nami in, so you will end up running two of it.
+KingAgent is comfortable to build KingAgent in, so you will end up running two of it.
 Keep them apart.
 
 - **`npm start`** runs this checkout. It is what you look at while working:
-  no build, no wait, and Electron gives it its own `userData` (`Nami-dev`), so
+  no build, no wait, and Electron gives it its own `userData` (`KingAgent-dev`), so
   your real settings, keys and open projects are never touched.
-- **`/Applications/Nami.app`** is the version other people have. Leave it alone
+- **`/Applications/KingAgent.app`** is the version other people have. Leave it alone
   and it stays an honest answer to "what does a user see?", which nothing else
   can tell you.
 
@@ -61,7 +61,7 @@ restart restores the desk.
 
 - **Agent sessions** run the agent's own CLI in a real PTY (node-pty) inside
   an ink-on-paper xterm. Claude, Codex, OpenCode, Grok and the rest each keep
-  their TUI; Nami is the desk around them.
+  their TUI; KingAgent is the desk around them.
 - **Sessions survive restarts** — editors and viewers reopen, terminals
   restart in their folder, and Claude sessions pick their conversation back up
   via `claude --resume` of the pinned id.
@@ -88,13 +88,13 @@ restart restores the desk.
 
 ## Auth
 
-Nami uses your logged-in `claude` (subscription), found at `~/.local/bin/claude`.
+KingAgent uses your logged-in `claude` (subscription), found at `~/.local/bin/claude`.
 No API key is set. If your `claude` lives elsewhere, set
 `CLAUDE_CODE_EXECUTABLE=/path/to/claude`.
 
 ## Settings
 
-⌘, or the ⚙ in the topbar. **Voice** picks how Nami hears you, **Look** switches
+⌘, or the ⚙ in the topbar. **Voice** picks how KingAgent hears you, **Look** switches
 desks, **Models** configures the OpenAI-compatible endpoint behind "any AI model"
 sessions. Everything lands in `settings.json` under the app's userData, on that
 Mac only — nothing syncs. API keys typed there beat `OPENAI_API_KEY` /
@@ -123,7 +123,7 @@ npm version patch && git push --follow-tags
 
 That builds from a clean checkout, signs and notarises, and creates a **draft**
 release. Publishing it is a deliberate human step — the moment it goes live is
-the moment every installed Nami starts offering it.
+the moment every installed KingAgent starts offering it.
 
 Each release carries two Mac builds of each architecture. The `.dmg` is what a
 person downloads; the `.zip` is what an update installs, because on macOS the
@@ -134,7 +134,7 @@ it is a release nothing can update to.
 
 An updater is the one feature that can leave somebody with a broken install, so
 the interesting case is not the one where it works. `scripts/fake-update.mjs`
-serves a pretend newer Nami from this machine so both cases can be tried in
+serves a pretend newer KingAgent from this machine so both cases can be tried in
 minutes instead of in releases.
 
 The signature is the catch: Squirrel refuses an app whose code signature does
@@ -144,29 +144,29 @@ update then fails for a reason that has nothing to do with your change.
 
 ```bash
 npm run pack                                    # the old one
-cp -R release/mac-arm64/Nami.app /Applications/Nami-test.app
+cp -R release/mac-arm64/KingAgent.app /Applications/KingAgent-test.app
 # bump "version" in package.json
 npm run pack                                    # the new one
 
 node scripts/fake-update.mjs \
-  --serve release/mac-arm64/Nami.app \
-  --point /Applications/Nami-test.app
+  --serve release/mac-arm64/KingAgent.app \
+  --point /Applications/KingAgent-test.app
 ```
 
 `--point` rewrites the installed copy's `Contents/Resources/app-update.yml` to
 ask localhost instead of GitHub, keeping the original as `app-update.yml.real`.
-Open `/Applications/Nami-test.app`, click **download** in the bar, quit it, and
+Open `/Applications/KingAgent-test.app`, click **download** in the bar, quit it, and
 open it again: it should come back as the new version.
 
 Then the test that matters. Add `--corrupt`, which serves bytes that do not
 match the hash in the metadata:
 
 ```bash
-node scripts/fake-update.mjs --serve release/mac-arm64/Nami.app --corrupt
+node scripts/fake-update.mjs --serve release/mac-arm64/KingAgent.app --corrupt
 ```
 
 The download must fail and the bar must fall back to offering the dmg, and the
 installed app must still be the old one, still working. If a corrupt download
 ever installs, nothing else about the updater matters.
 
-Put `package.json` back when you are done, and delete `/Applications/Nami-test.app`.
+Put `package.json` back when you are done, and delete `/Applications/KingAgent-test.app`.
