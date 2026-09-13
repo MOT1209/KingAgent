@@ -69,14 +69,16 @@ run. Same for skills and connections. Notion, Gmail and Slack connect in one cli
 
 KingAgent only ever looks inside the one folder you point it at. Dictation runs
 on your own machine, so it works on a fresh install with no account, no key and
-no network. On macOS every build is signed and notarised; on Windows the
-installer is ordinary per-user NSIS — no admin rights, no UAC prompt.
+no network. On Windows the installer is ordinary per-user NSIS — no admin
+rights, no UAC prompt. The macOS archives build unsigned in the rolling
+pipeline for now, so Gatekeeper asks before the first open; signing and
+notarization are wired and only need repository secrets (see Packaging).
 
 ## Get started
 
 **Windows**
 
-1. **[Download the installer](https://github.com/MOT1209/KingAgent/releases/latest/download/KingAgent-x64.exe)** (or the portable `.exe`, which needs no install) and run it.
+1. **[Download the installer](https://github.com/MOT1209/KingAgent/releases/latest/download/KingAgent-x64.exe)** and run it.
 2. **Point it at one folder** you work in. It never looks outside it.
 3. **Ask for something.** It finds the agents you already have — and offers the
    right install command for Windows for the ones you don't.
@@ -102,9 +104,24 @@ npm install
 npm start
 ```
 
-Build installers with `npm run dist:win` (NSIS + portable) or `npm run
-dist:mac` (DMG + zip, signing and notarization wired as in the upstream
-project). Windows build notes are in [docs/windows.md](docs/windows.md).
+Build installers with `npm run dist:win` (NSIS for x64 and arm64) or `npm run
+dist:mac` (DMG + zip). `dist` and `dist:mac` fetch the Whisper model the
+installer carries; run `npm run fetch-model` once yourself before `dist:win`.
+Windows build notes are in [docs/windows.md](docs/windows.md).
+
+## Releases, auto-update and signing
+
+Every push to main publishes a fresh rolling release; the download links at the
+top always point at the newest one, and an installed copy offers it as its
+update — checked automatically against `releases/latest`. On Windows the NSIS
+installer swaps itself on quit. On macOS the app's update bar offers the new
+dmg, because Squirrel refuses to swap an unsigned app.
+
+To sign and notarize the macOS builds, add repository secrets and the same
+workflow builds them signed, notarized and stapled: `CSC_LINK` (base64 of the
+.p12) with `CSC_KEY_PASSWORD`, and `APPLE_API_KEY` (App Store Connect API key
+content) with `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. Without them the mac
+job signs nothing and `scripts/notarize-dmg.mjs` skips in silence.
 
 Contributor notes are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
