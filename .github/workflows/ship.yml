@@ -24,15 +24,21 @@ name: ship
 #            Unsigned for now: no Apple credentials are wired up, so the macOS
 #            builds are downloadable but Gatekeeper has things to say, and
 #            Squirrel.Mac will not swap an unsigned app — the bar still offers
-#            the dmg.
+#            the dmg. The build step runs under bash even on the Windows runner,
+#            so the same $VERSION reads an environment variable on both shells
+#            (pwsh would demand $env:VERSION).
 #
-#   publish  releases whatever landed as a non-prerelease release under the
-#            computed tag, after verifying the metadata it ships actually names
-#            that version. Non-prerelease matters twice: GitHub's
-#            releases/latest only points at the newest non-prerelease, and
-#            electron-updater reads its feed from releases/latest. It runs even
-#            when a platform job failed (always()), so Windows and macOS each
-#            ship the moment their own job succeeds.
+#   publish  releases what landed as a non-prerelease release under the
+#            computed tag — after verifying a complete, self-consistent set is
+#            there: every installer type (win exe set, mac dmg and update zip)
+#            with a feed that actually names the version. A half-built release
+#            is worse than none: a draft-free, published, incomplete set makes
+#            releases/latest point at it, and every installed copy on the
+#            platform that failed starts reading 404 where its feed used to be.
+#            So publish demands both platforms or fails the run loudly and
+#            leaves the previous good release as the latest. Non-prerelease
+#            matters twice: GitHub's releases/latest only points at the newest
+#            non-prerelease, and electron-updater reads its feed from there.
 #
 # The manual release.yml flow for signed, tagged stable builds is untouched and
 # coexists: ship only ever makes v<dotted> tags one patch above the newest one
@@ -73,7 +79,6 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
       - name: Show the plan
         env:
-          VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
         run: echo "publishing $TAG"
 
@@ -89,7 +94,7 @@ jobs:
             run-build: npm run fetch-model && npx electron-builder --mac --publish never -c.extraMetadata.version=$VERSION && npm run fix-update-metadata
           - os: windows-latest
             platform: win
-            run-build: npx electron-builder --win --publish never -c.extraMetadata.version=$VERSION
+            run-build: npm run fetch-model && npx electron-builder --win --publish never -c.extraMetadata.version=$VERSION
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
@@ -105,6 +110,7 @@ jobs:
           path: build/models
           key: whisper-${{ runner.os }}-${{ hashFiles('scripts/fetch-model.mjs', 'src/main/stt-model.js') }}
       - name: Build ${{ matrix.platform }} installers
+        shell: bash
         run: ${{ matrix.run-build }}
       - uses: actions/upload-artifact@v4
         with:
@@ -119,8 +125,8 @@ jobs:
           if-no-files-found: error
 
   publish:
-    # always(): a Windows-only failure (or the other way round) still ships the
-    # platform that built. The steps below decide from what actually landed.
+    # always(): a build failure still reaches this job, which then reports WHY
+    # the set is incomplete instead of silently shipping half an update.
     needs: [prepare, build]
     if: always()
     runs-on: ubuntu-latest
@@ -130,17 +136,7 @@ jobs:
         with:
           path: dist
           merge-multiple: false
-      - name: Verify the feed names this version
-        id: verify
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          for f in dist/dist-win/latest.yml dist/dist-mac/latest-mac.yml; do
-            if [ -f "$f" ] && ! grep -q "^version: $VERSION$" "$f"; then
-              echo "feed $f does not name $VERSION:"; cat "$f"; exit 1
-            fi
-          done
-      - name: Publish the rolling release
+      - name: Verify a complete set, then publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -151,6 +147,21 @@ jobs:
             echo "no version was computed; nothing to publish"
             exit 0
           fi
+          # Every platform feed must be present and must name the version, and
+          # the installer it points at must be there. Anything less fails the
+          # run so the previous good release stays the latest.
+          for f in \
+            dist/dist-win/latest.yml \
+            "dist/dist-win/KingAgent.exe" \
+            "dist/dist-win/KingAgent-x64.exe" \
+            "dist/dist-win/KingAgent-arm64.exe" \
+            dist/dist-mac/latest-mac.yml \
+            dist/dist-mac/KingAgent-x64.dmg \
+            dist/dist-mac/KingAgent-arm64.dmg; do
+            test -f "$f" || { echo "missing: $f"; exit 1; }
+          done
+          grep -q "^version: $VERSION$" dist/dist-win/latest.yml || { echo "win feed does not name $VERSION"; cat dist/dist-win/latest.yml; exit 1; }
+          grep -q "^version: $VERSION$" dist/dist-mac/latest-mac.yml || { echo "mac feed does not name $VERSION"; cat dist/dist-mac/latest-mac.yml; exit 1; }
           ASSETS=()
           for pattern in \
             "dist/dist-win/"*.exe \
@@ -163,10 +174,6 @@ jobs:
               if [ -f "$f" ]; then ASSETS+=("$f"); fi
             done
           done
-          if [ ${#ASSETS[@]} -eq 0 ]; then
-            echo "no installers were built; nothing to publish"
-            exit 0
-          fi
           # The tag is fresh by construction (latest tag + 1 patch), but a
           # re-run that lands on an existing one replaces it in place.
           if gh release view "$TAG" --repo MOT1209/KingAgent >/dev/null 2>&1; then
