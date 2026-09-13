@@ -19,8 +19,12 @@ name: ship
 #            suffix would be ordered by neither.
 #
 #   build    the installers, one job per platform so Windows and macOS build in
-#            parallel. `publish never` keeps the step honest; uploading is
-#            publish's job, after the update metadata has been corrected.
+#            parallel. `npm test` runs on both legs before packaging — ci.yml
+#            gates the same push on ubuntu+windows but never macOS, and the two
+#            workflows have no dependency between them, so the gate lives here
+#            too rather than being assumed. `publish never` keeps the step
+#            honest; uploading is publish's job, after the update metadata has
+#            been corrected.
 #            Unsigned until credentials are wired up: without Apple secrets the
 #            macOS builds are downloadable but Gatekeeper has things to say, and
 #            Squirrel.Mac will not swap an unsigned app — the bar still offers
@@ -154,6 +158,15 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # ci.yml gates ubuntu+windows on this same push, but never macOS, and
+      # the two workflows have no `needs`/`workflow_run` link — ship.yml would
+      # otherwise build and publish regardless of whether tests passed
+      # anywhere. Run the suite again here, on both legs of this matrix, so
+      # a red test can't ship on either platform without depending on a
+      # second, unlinked workflow finishing first. The Windows leg duplicates
+      # what ci.yml just ran; the macOS leg is the only place these tests run
+      # on macOS at all.
+      - run: npm test
       - name: Cache Whisper weights
         uses: actions/cache@v4
         with:
