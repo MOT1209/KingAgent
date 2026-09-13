@@ -21,15 +21,25 @@ name: ship
 #   build    the installers, one job per platform so Windows and macOS build in
 #            parallel. `publish never` keeps the step honest; uploading is
 #            publish's job, after the update metadata has been corrected.
-#            Unsigned for now: no Apple credentials are wired up, so the macOS
-#            builds are downloadable but Gatekeeper has things to say, and
+#            Unsigned until credentials are wired up: without Apple secrets the
+#            macOS builds are downloadable but Gatekeeper has things to say, and
 #            Squirrel.Mac will not swap an unsigned app — the bar still offers
 #            the dmg. A step in the mac job defines the CSC_LINK / CSC_KEY_PASSWORD
 #            and APPLE_API_* variables only when the secrets exist; until they do,
 #            electron-builder can not sign (its auto discovery finds no identity on
-#            the runner image). The build step runs under bash even on the Windows
-#            runner, so the same $VERSION reads an environment variable on both
-#            shells (pwsh would demand $env:VERSION).
+#            the runner image). Windows follows the same shape via Azure Trusted
+#            Signing (see docs/windows-signing.md): the build step below only
+#            appends `-c.win.azureSignOptions.*` — and only for the win leg of the
+#            matrix — when AZURE_CLIENT_ID is set; without it, the win leg falls
+#            through to the same unsigned command as before. The build step runs
+#            under bash even on the Windows runner, so the same $VERSION reads an
+#            environment variable on both shells (pwsh would demand $env:VERSION).
+#
+# Secrets this workflow can use, all optional (a build stays unsigned without them):
+#   CSC_LINK, CSC_KEY_PASSWORD                                     ) macOS signing
+#   APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER              ) + notarization
+#   AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET          ) Windows signing
+#   AZURE_ENDPOINT, AZURE_CODE_SIGNING_ACCOUNT, AZURE_CERT_PROFILE ) (Trusted Signing)
 #
 #   publish  releases what landed as a non-prerelease release under the
 #            computed tag — after verifying a complete, self-consistent set is
@@ -117,19 +127,28 @@ jobs:
         # Defining CSC_LINK at all matters — even as an empty string it sends
         # electron-builder down the p12 keystore path and it dies with "not a
         # file" against the project dir, and the runner image has no Developer
-        # ID identity for auto discovery to fall back on either. So the signing
-        # variables are only defined by this step, which runs only when
-        # CSC_LINK exists. With them in place electron-builder signs from the
-        # p12 and scripts/notarize-dmg.mjs staples every dmg via notarytool;
-        # without them the build stays unsigned exactly as before.
-        if: secrets.CSC_LINK != ''
+        # ID identity for auto discovery to fall back on either. So nothing is
+        # written to $GITHUB_ENV unless CSC_LINK actually holds a secret, and
+        # the step-scoped variables below never leave this step. With the
+        # secret set, electron-builder signs from the p12 and
+        # scripts/notarize-dmg.mjs staples every dmg via notarytool; without
+        # it the build stays unsigned exactly as before.
         shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          echo "CSC_LINK=${{ secrets.CSC_LINK }}" >> "$GITHUB_ENV"
-          echo "CSC_KEY_PASSWORD=${{ secrets.CSC_KEY_PASSWORD }}" >> "$GITHUB_ENV"
-          echo "APPLE_API_KEY=${{ secrets.APPLE_API_KEY }}" >> "$GITHUB_ENV"
-          echo "APPLE_API_KEY_ID=${{ secrets.APPLE_API_KEY_ID }}" >> "$GITHUB_ENV"
-          echo "APPLE_API_ISSUER=${{ secrets.APPLE_API_ISSUER }}" >> "$GITHUB_ENV"
+          if [ -n "$CSC_LINK" ]; then
+            echo "CSC_LINK=$CSC_LINK" >> "$GITHUB_ENV"
+            echo "CSC_KEY_PASSWORD=$CSC_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "APPLE_API_KEY=$APPLE_API_KEY" >> "$GITHUB_ENV"
+            echo "APPLE_API_KEY_ID=$APPLE_API_KEY_ID" >> "$GITHUB_ENV"
+            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$CSC_LINK" ]; then echo "mac signing env: on"; else echo "mac signing env: off (unsigned build)"; fi
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -140,9 +159,36 @@ jobs:
         with:
           path: build/models
           key: whisper-${{ runner.os }}-${{ hashFiles('scripts/fetch-model.mjs', 'src/main/stt-model.js') }}
+      # Windows signing, same dormant-until-secrets shape as the mac step above,
+      # but the toggle lives here instead of its own step: Azure Trusted Signing
+      # needs its three AZURE_* identity variables in the *same* process that
+      # runs electron-builder (it authenticates during the packaging step, not
+      # before it), so setting them globally via GITHUB_ENV like the mac secrets
+      # would just leak them into later steps for no benefit. AZURE_CLIENT_ID
+      # is the presence check, mirroring CSC_LINK's role for mac. publisherName
+      # must match the Trusted Signing certificate's subject exactly — see
+      # docs/windows-signing.md before changing the legal entity name below.
       - name: Build ${{ matrix.platform }} installers
         shell: bash
-        run: ${{ matrix.run-build }}
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_ENDPOINT: ${{ secrets.AZURE_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZURE_CERT_PROFILE: ${{ secrets.AZURE_CERT_PROFILE }}
+        run: |
+          if [ "${{ matrix.platform }}" = "win" ] && [ -n "$AZURE_CLIENT_ID" ]; then
+            npm run fetch-model
+            npx electron-builder --win --publish never \
+              -c.extraMetadata.version=$VERSION \
+              -c.win.azureSignOptions.publisherName="Dainami Pte Ltd" \
+              -c.win.azureSignOptions.endpoint="$AZURE_ENDPOINT" \
+              -c.win.azureSignOptions.codeSigningAccountName="$AZURE_CODE_SIGNING_ACCOUNT" \
+              -c.win.azureSignOptions.certificateProfileName="$AZURE_CERT_PROFILE"
+          else
+            ${{ matrix.run-build }}
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.platform }}
