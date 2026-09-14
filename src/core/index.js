@@ -112,6 +112,11 @@ function createPlatform({
     ? createJsonStore({ dir: storeDir, name: 'platform.json', fs })
     : createMemoryStore();
 
+  // Each subsystem takes its storage as a *collection*
+  // (persistence/collections.js) rather than a store, so the whole set moves to
+  // SQLite or a remote backend by changing one construction here.
+  const collections = createCollections(store);
+
   const providers = createProviderRegistry();
   const memory = createMemory();
 
@@ -195,6 +200,9 @@ function createPlatform({
     bus,
     toolManager: tools,
     runtime,
+    // §12: workflow instances outlive the process. Without a storeDir this is
+    // the in-memory store, so tests and unsaved sessions behave as before.
+    collection: collections.workflows,
     shellIo: io.runShell
       ? { run: async (command, opts) => io.runShell({ command, cwd: opts.cwd || io.root || process.cwd(), timeoutMs: opts.timeoutMs, ...opts }) }
       : null,
@@ -204,11 +212,6 @@ function createPlatform({
 
   // --- Phase 3: the world a run happens inside ------------------------------
   //
-  // Each of these takes its storage as a *collection* (persistence/collections.js)
-  // rather than a store, so the whole set moves to SQLite or a remote backend by
-  // changing one construction here.
-  const collections = createCollections(store);
-
   const workspaces = new WorkspaceManager({
     bus,
     collection: collections.workspaces,

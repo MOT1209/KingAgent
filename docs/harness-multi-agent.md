@@ -36,13 +36,20 @@ table so a host can replace it without touching the coordinator.
 
 ## Files
 
+All of these live under `src/core/harness-orchestrator/`. The paths matter:
+`src/core/orchestrator/` is the *public* control plane and has a
+`delegation.js` of its own that is a different module — a planner that turns a
+routing decision into delegation specs, not the record type below. Until
+Phase 5 this table's paths named byte-identical copies that nothing imported;
+see [phase5-audit.md](phase5-audit.md).
+
 | File | Responsibility |
 | --- | --- |
-| `orchestrator/messages.js` | the structured protocol and the mailbox |
-| `orchestrator/delegation.js` | delegation records and the containment check |
-| `orchestrator/handoff.js` | the eight handoff fields, bounded |
-| `orchestrator/locks.js` | cooperative file locks for parallel runs |
-| `orchestrator/coordinator.js` | delegation, messaging, handoff, parallel, review |
+| `harness-orchestrator/messages.js` | the structured protocol and the mailbox |
+| `harness-orchestrator/delegation.js` | delegation records and the containment check |
+| `harness-orchestrator/handoff.js` | the eight handoff fields, bounded |
+| `harness-orchestrator/locks.js` | cooperative file locks for parallel runs |
+| `harness-orchestrator/coordinator.js` | delegation, messaging, handoff, parallel, review |
 
 ## Communication is a protocol, not concatenation
 

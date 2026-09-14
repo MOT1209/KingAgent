@@ -89,6 +89,23 @@ Actions are dotted lowercase strings: `filesystem.read`, `git.push`,
 (`policyAction`), so `git:push` can be addressed as `git.push`; the tool names
 its action, the policy still decides it.
 
+**Write the rule against the action the tool actually declares.** A tool with no
+`policyAction` falls back to `tool.call.<id>`, but one that declares its own is
+gated on *that* string and nothing else — a rule written against the fallback
+will never match, and the tool will keep running as though no policy existed.
+The declared action is part of `toolManager.list()` (and therefore of
+`agent:listTools`), so it is answerable from the same data a policy UI already
+reads. Two built-ins differ from the fallback:
+
+| Tool | Action a policy must target |
+| --- | --- |
+| `terminal:run` | `command.run` |
+| `fs:delete` | `filesystem.delete` |
+
+`tests/phase5-security.test.mjs` asserts that the listed action and the gated
+action agree for every registered tool, so a tool cannot gain a hidden action
+again.
+
 ## The decision
 
 ```js

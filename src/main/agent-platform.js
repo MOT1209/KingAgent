@@ -181,8 +181,14 @@ function registerIpcHandlers({ ipcMain, platform, forward }) {
     const inst = workflows.get(id);
     return inst ? summarizeInstance(inst) : null;
   });
-  handle('workflow:listInstances', () => []);
-  handle('workflow:cancel', ({ id }) => ({ cancelled: true, id }));
+  // Real instances, not an empty list. `list()` reads the engine's own instance
+  // table, which since Phase 5 survives a restart (see workflows/engine.js).
+  handle('workflow:listInstances', () => workflows.list().map(summarizeInstance));
+  // Real cancellation, not a fabricated `{ cancelled: true }`. The engine
+  // reports what it actually achieved — an unknown or already-finished instance
+  // comes back `cancelled: false` with the reason — and this forwards it
+  // verbatim so the UI cannot claim a cancellation that never happened.
+  handle('workflow:cancel', ({ id }) => workflows.cancel(id, 'cancelled from the UI'));
 
   // --- authorizations ----------------------------------------------------------
   ipcMain.handle('agent:authorizeResponse', (event, payload) => {
@@ -349,13 +355,47 @@ function workspaceView(ws) {
   };
 }
 
+// The one Artifact shape the renderer sees (§6).
+//
+// Two stores produce artifacts and both are kept, because their ownership rules
+// genuinely differ: the workspace-owned ArtifactManager reads under a
+// workspace's own policy, while the harness store carries execution provenance
+// for runs that may span workspaces. What must NOT differ is the shape the UI
+// has to understand, so both go through here and come out as one model:
+//
+//   identity     id, type, name, summary
+//   provenance   taskId, workspaceId, agentId, harnessId, sessionId, traceId,
+//                delegationId  — absent ones are null, never missing
+//   storage      a single `storage` reference, whichever store produced it
+//
+// The pre-Phase-5 top-level fields (path/bytes/digest) are still emitted so
+// existing readers keep working; `storage` is the field new code should read.
 function artifactView(a, { includeContent = false } = {}) {
+  const bytes = a.bytes ?? a.size ?? null;
   return {
-    id: a.id, type: a.type, name: a.name, path: a.path,
-    bytes: a.bytes, digest: a.digest,
-    taskId: a.taskId, workspaceId: a.workspaceId, agentId: a.agentId,
-    createdAt: a.createdAt, updatedAt: a.updatedAt,
-    ...(includeContent ? { content: a.content } : {}),
+    // identity
+    id: a.id, type: a.type, name: a.name, summary: a.summary || '',
+    // provenance — the same key set regardless of which store this came from
+    taskId: a.taskId ?? null,
+    workspaceId: a.workspaceId ?? null,
+    agentId: a.agentId ?? null,
+    harnessId: a.harnessId ?? null,
+    sessionId: a.sessionId ?? null,
+    traceId: a.traceId ?? null,
+    delegationId: a.delegationId ?? null,
+    // storage reference
+    storage: {
+      ref: a.ref ?? a.path ?? null,
+      path: a.path ?? null,
+      bytes,
+      digest: a.digest ?? null,
+      truncated: a.truncated === true,
+    },
+    createdAt: a.createdAt ?? null,
+    updatedAt: a.updatedAt ?? a.createdAt ?? null,
+    // Retained for readers written before Phase 5 unified the shape.
+    path: a.path ?? null, bytes, digest: a.digest ?? null,
+    ...(includeContent ? { content: a.content ?? null } : {}),
   };
 }
 
@@ -440,13 +480,15 @@ function registerPhase4Handlers({ handle, platform }) {
 
   handle('agent:session', ({ id }) => (sessions ? sessions.controlView(id) : null));
 
+  // Same `artifactView` as the workspace-owned store above: one Artifact shape
+  // reaches the renderer no matter which store produced the row (§6).
   handle('agent:artifacts', ({ taskId, sessionId, type, limit }) =>
-    artifacts ? artifacts.list({ taskId, sessionId, type, limit: num(limit, 100) }) : []);
+    (artifacts ? artifacts.list({ taskId, sessionId, type, limit: num(limit, 100) }) : []).map((a) => artifactView(a)));
 
   // The content, fetched only when a view actually opens an artifact.
   handle('agent:artifact', ({ id }) => {
     const artifact = artifacts ? artifacts.get(id) : null;
-    return artifact ? { ...artifact } : null;
+    return artifact ? artifactView(artifact, { includeContent: true }) : null;
   });
 
   handle('agent:delegations', ({ taskId }) => (coordinator ? coordinator.controlView(taskId) : { taskId, delegations: [], subAgents: [], tree: [] }));
@@ -482,6 +524,13 @@ function summarizeInstance(inst) {
     error: inst.error || null,
     nodes: (inst.nodes || []).map((n) => ({ id: n.id, type: n.type, status: n.status, error: n.error || null })),
     outputs: inst.outputs || {},
+    // §12/§27: where the run stopped, why it stopped, and the ids that tie it
+    // back to a trace. A restored run that was mid-flight reads `interrupted`.
+    currentNodeId: inst.currentNodeId || null,
+    cancellation: inst.cancellation || null,
+    traceId: inst.traceId || null,
+    workspaceId: inst.workspaceId || null,
+    taskId: inst.taskId || null,
     startedAt: inst.startedAt,
     completedAt: inst.completedAt,
   };
@@ -531,6 +580,14 @@ function installAgentPlatform({ app, ipcMain }) {
     policyApprover,
   });
   platform._pendingAuth = pendingAuth;
+
+  // §12: workflow history outlives the process. Anything that was mid-flight
+  // when the app last closed comes back as `interrupted` rather than claiming
+  // to still be running. Failing to reload history must not stop the app from
+  // starting, but it is logged rather than swallowed.
+  platform.workflows.restore().catch((err) => {
+    platform.logger.warn('workflow history could not be restored', { error: err && err.message });
+  });
 
   registerIpcHandlers({
     ipcMain,

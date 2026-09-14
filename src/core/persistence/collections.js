@@ -1,7 +1,8 @@
 // Typed collections over the Phase 2 key-value store.
 //
 // Phase 3 adds seven things worth persisting — memory, tasks, traces,
-// workspaces, agent state, projects, artifacts — and the rule from Phase 2
+// workspaces, agent state, projects, artifacts — plus workflow instances since
+// Phase 5 (§12: a restart must not lose workflow history) — and the rule from Phase 2
 // still holds: business logic must not know whether the bytes land in a JSON
 // file, SQLite or a remote service. So none of those subsystems takes a store
 // directly. They take a *collection*: a namespaced put/get/delete/list built on
@@ -20,6 +21,7 @@ const NAMESPACES = Object.freeze({
   AGENT_STATE: 'agentstate',
   PROJECT: 'project',
   ARTIFACT: 'artifact',
+  WORKFLOW: 'workflow',
 });
 
 function assertStore(store) {
@@ -95,6 +97,7 @@ function createCollections(store) {
     agentState: createCollection(store, NAMESPACES.AGENT_STATE),
     projects: createCollection(store, NAMESPACES.PROJECT),
     artifacts: createCollection(store, NAMESPACES.ARTIFACT),
+    workflows: createCollection(store, NAMESPACES.WORKFLOW),
   };
 }
 

@@ -34,7 +34,7 @@ renderer (ESM) ── contextBridge ──> preload ── ipcMain.handle ──
 | planning | `planning/planner.js` | deterministic / structured / autonomous plans |
 | reasoning | `reasoning/reasoning.js` | analyze / decide / evaluate / diagnose, CoT-free |
 | runtime | `runtime/runtime.js` | the analyze → plan → execute → evaluate loop |
-| workflows | `workflows/engine.js` | node-graph workflows with approvals |
+| workflows | `workflows/engine.js` | node-graph workflows with approvals, real cancellation and persisted instance history |
 | context | `context/context.js` | immutable snapshot of the task world per step (Phase 2) |
 | memory | `memory/memory.js` | in-process session/task key-value memory (Phase 2) |
 | execution | `execution/code-exec.js` | sandboxed code execution interface |
@@ -80,48 +80,6 @@ Design documents: [harness-orchestrator.md](harness-orchestrator.md),
 [sandbox.md](sandbox.md), [sessions.md](sessions.md),
 [harness-multi-agent.md](harness-multi-agent.md),
 [delegation.md](delegation.md), [security-model.md](security-model.md).
-
-## Phase 4: orchestration, governance, execution
-
-Phase 2's runtime still runs the work. Phase 4 wraps it in the control plane
-that decides *what* runs, *where*, *whether it may*, and *in which sandbox*:
-
-| Subsystem | Path | Responsibility |
-| --- | --- | --- |
-| harness | `harness/` | execution backends behind one adapter interface + registry |
-| policy | `policy/` | scoped governance: allow / deny / approval, with an audit trail |
-| sandbox | `sandbox/` | authorized workspaces, limits, process ownership, cleanup |
-| session | `session/` | the container a person's work lives in |
-| artifacts | `artifacts/` | the products of a run, with provenance |
-| orchestrator | `orchestrator/` | routing, multi-agent coordination and the run pipeline |
-
-```
-User
- ↓
-Orchestrator ── Router ──> Agent + Harness
- ↓
-Policy ──> Sandbox ──> Workspace
- ↓
-Agent Runtime (Planning → Tools → Execution → Evaluation → Recovery)
- ↓
-Artifacts ──> Session ──> Trace
-```
-
-The rule this layer is built on:
-
-> KingAgent owns orchestration, governance, workspace, context, memory,
-> execution control and observability. Harnesses are replaceable execution
-> backends.
-
-Design documents: [orchestrator.md](orchestrator.md), [harness.md](harness.md),
-[routing.md](routing.md), [policies.md](policies.md), [sandbox.md](sandbox.md),
-[sessions.md](sessions.md), [multi-agent.md](multi-agent.md),
-[delegation.md](delegation.md), [security-model.md](security-model.md).
-
-The style is composition over libraries: `io` adapters (fs, shell, cwd) are
-injected, so tests swap them for stubs and the main process injects the real
-ones. No hardcoded OS paths — everything resolves through `io`, `node:path` or
-`process.env` (e.g. `ComSpec`/`$SHELL` for the shell adapter).
 
 ## Phase 3: the world a run happens inside
 
@@ -185,6 +143,34 @@ delegated child mints its own `workspaceId`/`taskId` but inherits
 `parentWorkspaceId`, so a multi-agent run is traceable both as one run and as
 its parts. `identityRefs()` is the subset the `EventBus` carries on every
 event; `EventBus.emit` and every trace event accept and propagate it.
+
+## Phase 5: one path, asserted rather than described
+
+Phase 5 consolidated what Phase 3 and Phase 4 had each built independently. It
+removed five unreachable modules — four of them byte-identical copies, one of
+them a coordinator whose containment check resolved to `undefined` — replaced
+two IPC handlers that answered from constants, and turned the layering rules
+into tests. The findings and what was done about each are recorded in
+[phase5-audit.md](phase5-audit.md).
+
+What the layering means in practice:
+
+| Question | Answer |
+| --- | --- |
+| Which orchestrator is public? | `platform.orchestrator`. `platform.harnessOrchestrator` is the harness-aware pipeline beneath it. |
+| Who owns agent delegation? | `AgentCoordinator` — selection, lifecycles, aggregation through the `AgentRuntime`. |
+| Who owns the execution backend? | `HarnessCoordinator` — delegation records, file locks, harness runs, sandboxes, the control view. |
+| How many artifact shapes does the UI see? | One. Two stores remain (different ownership rules); one `artifactView` at the IPC boundary. |
+| Can a workflow actually be cancelled? | Yes, and `cancel()` reports only what it achieved. See [workflows.md](workflows.md). |
+
+These are enforced by `tests/phase5-architecture.test.mjs`, so a future copy of a
+module, a dangling sibling import, or a placeholder handler fails CI rather than
+surviving in the tree.
+
+The style is composition over libraries: `io` adapters (fs, shell, cwd) are
+injected, so tests swap them for stubs and the main process injects the real
+ones. No hardcoded OS paths — everything resolves through `io`, `node:path` or
+`process.env` (e.g. `ComSpec`/`$SHELL` for the shell adapter).
 
 ## Mode of transport
 
