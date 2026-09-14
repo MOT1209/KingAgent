@@ -5,7 +5,7 @@
 // contains chain-of-thought strings from the model — only tool outputs, error
 // messages, durations and outcomes the user asked for.
 
-const { summarize } = require('./task');
+const { summarize } = require('../runtime/task');
 
 function buildTrace(task) {
   const steps = (task.steps || []).map((s) => ({

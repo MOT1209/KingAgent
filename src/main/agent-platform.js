@@ -14,6 +14,7 @@ const { createRunShell } = require('./platform-shell');
 const { validatePayload, CHANNELS, PUSH_CHANNELS } = require('../core/security/ipc-guard');
 const { validateWorkflow } = require('../core/workflows/definition');
 const { TYPES } = require('../core/events/event-bus');
+const { serializeTrace, toActivityStream } = require('../core/trace/serializer');
 
 const FORWARD_TYPES = new Set([
   TYPES.TASK_CREATED, TYPES.TASK_QUEUED, TYPES.TASK_STARTED, TYPES.TASK_ANALYZING,
@@ -23,13 +24,40 @@ const FORWARD_TYPES = new Set([
   TYPES.TOOL_CALLED, TYPES.TOOL_COMPLETED, TYPES.TOOL_FAILED, TYPES.WORKFLOW_STARTED,
   TYPES.WORKFLOW_COMPLETED, TYPES.WORKFLOW_FAILED, TYPES.WORKFLOW_CANCELLED,
   TYPES.APPROVAL_REQUIRED, TYPES.APPROVAL_GRANTED, TYPES.APPROVAL_DENIED,
+
+  // Phase 3. These are what the activity stream is made of: a user watching a
+  // run sees workspace, context, tool, file, artifact and delegation events —
+  // never a model's deliberation, which has no event type by design.
+  TYPES.CONTEXT_CREATED, TYPES.CONTEXT_UPDATED,
+  TYPES.MEMORY_WRITE, TYPES.MEMORY_SEARCH, TYPES.MEMORY_UPDATED,
+  TYPES.WORKSPACE_CREATED, TYPES.WORKSPACE_UPDATED,
+  TYPES.WORKSPACE_FILE_ADDED, TYPES.WORKSPACE_FILE_REMOVED, TYPES.WORKSPACE_FILE_MODIFIED,
+  TYPES.TRACE_STARTED, TYPES.TRACE_COMPLETED,
+  TYPES.AGENT_OBSERVATION, TYPES.AGENT_ACTION, TYPES.AGENT_VALIDATION, TYPES.AGENT_RECOVERY,
+  TYPES.ARTIFACT_CREATED, TYPES.ARTIFACT_UPDATED, TYPES.ARTIFACT_DELETED,
+  TYPES.STATE_SNAPSHOT_CREATED, TYPES.STATE_SNAPSHOT_RESTORED,
+  TYPES.AGENT_MESSAGE, TYPES.AGENT_DELEGATED, TYPES.AGENT_HANDOFF,
+  TYPES.ORCHESTRATION_ROUTED, TYPES.ORCHESTRATION_COMPLETED, TYPES.ORCHESTRATION_FAILED,
+  TYPES.PROJECT_DETECTED, TYPES.PROJECT_INDEXED,
 ]);
 
-function createMainPlatform({ storeDir, cwd, askAuthorization, runShellOverride }) {
+function createMainPlatform({ storeDir, cwd, askAuthorization, runShellOverride, root = null }) {
   const runShell = runShellOverride || createRunShell({ defaultCwd: typeof cwd === 'function' ? cwd() : cwd });
-  const authorize = askAuthorization || (async () => false);
+  // `askAuthorization` is optional now. When the host does not supply one, the
+  // platform's ApprovalManager becomes the gate — a listable, auditable record
+  // rather than a closure — and the renderer answers it over `approval:decide`.
   return createPlatform({
-    io: { runShell, cwd: typeof cwd === 'function' ? cwd : () => process.cwd(), authorize },
+    io: {
+      runShell,
+      root,
+      cwd: typeof cwd === 'function' ? cwd : () => process.cwd(),
+      ...(askAuthorization ? { authorize: askAuthorization } : {}),
+      // The only host variables an agent's environment may inherit. Everything
+      // else — and anything credential-shaped even here — is refused by
+      // core/workspace/environment.js.
+      inheritEnv: ['PATH', 'HOME', 'USERPROFILE', 'LANG', 'LC_ALL', 'TMPDIR', 'TEMP', 'SystemRoot', 'ComSpec'],
+      hostEnv: process.env,
+    },
     storeDir,
   });
 }
@@ -141,6 +169,209 @@ function registerIpcHandlers({ ipcMain, platform, forward }) {
     if (pending) pending(args.approved);
     return { ok: true };
   });
+
+  registerPhase3Handlers({ handle, platform });
+}
+
+// --- Phase 3 -----------------------------------------------------------------
+//
+// One rule governs every handler below: the renderer names a *workspace*, and
+// the main process reads under that workspace's own policy. It never gets a
+// channel that means "give me everything" — no global memory read, no global
+// artifact list — because those are exactly the channels a compromised renderer
+// would want. A workspace it cannot name is a workspace it cannot reach.
+function registerPhase3Handlers({ handle, platform }) {
+  const {
+    orchestrator, workspaces, traces, artifacts, memoryManager,
+    approvals, recovery, projects, coordinator, messages,
+  } = platform;
+
+  const need = (subsystem, name) => {
+    if (!subsystem) throw new Error(`${name} is not available in this platform`);
+    return subsystem;
+  };
+
+  // --- orchestration ---------------------------------------------------------
+  handle('orchestrator:run', async ({ request, agentId, workspace, mode, sessionId }) => {
+    const run = await need(orchestrator, 'orchestrator').handle({
+      request,
+      agentId: agentId || null,
+      mode: mode || 'auto',
+      sessionId: sessionId || null,
+      workspace: typeof workspace === 'string' ? { root: workspace, cwd: workspace } : workspace || null,
+    });
+    // `run.result` is a promise and never crosses IPC; the renderer polls
+    // `orchestrator:get` or watches the event stream.
+    return orchestrator.get(run.id);
+  });
+
+  handle('orchestrator:route', ({ request, agentId, mode }) =>
+    need(orchestrator, 'orchestrator').route({ request, agentId: agentId || null, mode: mode || 'auto' }));
+  handle('orchestrator:get', ({ id }) => need(orchestrator, 'orchestrator').get(id));
+  handle('orchestrator:list', () => need(orchestrator, 'orchestrator').list());
+  handle('orchestrator:cancel', ({ id }) => ({ cancelled: need(orchestrator, 'orchestrator').cancel(id) }));
+  handle('orchestrator:policies', () => {
+    const p = need(orchestrator, 'orchestrator').policies;
+    return {
+      maxConcurrentTasks: p.maxConcurrentTasks,
+      maxDelegationDepth: p.maxDelegationDepth,
+      maxDelegationsPerTask: p.maxDelegationsPerTask,
+      allowMultiAgent: p.allowMultiAgent,
+      taskTimeoutMs: p.taskTimeoutMs,
+      contextMaxChars: p.context.maxChars,
+    };
+  });
+
+  // --- workspaces ------------------------------------------------------------
+  handle('workspace:get', ({ id }) => {
+    const ws = need(workspaces, 'workspaces').get(id);
+    return ws ? ws.toJSON() : null;
+  });
+  handle('workspace:list', () => need(workspaces, 'workspaces').list().map(workspaceView));
+  handle('workspace:files', ({ id }) => {
+    const ws = need(workspaces, 'workspaces').get(id);
+    return ws ? ws.files.toJSON() : null;
+  });
+
+  // --- traces ----------------------------------------------------------------
+  handle('trace:list', () => need(traces, 'traces').listTraces());
+  handle('trace:get', ({ id }) => {
+    const trace = need(traces, 'traces').getTrace(id);
+    // serializeTrace scrubs on the way out, so nothing private or
+    // credential-shaped can reach a renderer even if an emitter passed it.
+    return trace ? serializeTrace(trace) : null;
+  });
+  handle('trace:activity', ({ id }) => {
+    const trace = need(traces, 'traces').getTrace(id);
+    return trace ? toActivityStream(trace) : [];
+  });
+
+  // --- artifacts -------------------------------------------------------------
+  handle('artifact:list', async ({ workspaceId, taskId, type }) => {
+    const ws = workspaceId ? need(workspaces, 'workspaces').get(workspaceId) : null;
+    if (workspaceId && !ws) return [];
+    const rows = await need(artifacts, 'artifacts').list({ workspace: ws, taskId: taskId || null, type: type || null });
+    return rows.map(artifactView);
+  });
+  handle('artifact:get', async ({ id, workspaceId }) => {
+    const ws = need(workspaces, 'workspaces').get(workspaceId);
+    if (!ws) return null;
+    const found = await need(artifacts, 'artifacts').get(id, { workspace: ws });
+    return found ? artifactView(found, { includeContent: true }) : null;
+  });
+
+  // --- memory ----------------------------------------------------------------
+  handle('memory:search', async ({ workspaceId, query, limit }) => {
+    const ws = need(workspaces, 'workspaces').get(workspaceId);
+    if (!ws) return [];
+    const hits = await need(memoryManager, 'memory').search(
+      { query: query || '', limit: Math.min(Number(limit) || 10, 50) },
+      { policy: ws.memoryPolicy() },
+    );
+    return hits.map(memoryView);
+  });
+  handle('memory:list', async ({ workspaceId, scope }) => {
+    const ws = need(workspaces, 'workspaces').get(workspaceId);
+    if (!ws) return [];
+    const rows = await need(memoryManager, 'memory').list(
+      { scope: scope || 'task', limit: 50 },
+      { policy: ws.memoryPolicy() },
+    );
+    return rows.map(memoryView);
+  });
+
+  // --- approvals -------------------------------------------------------------
+  handle('approval:pending', ({ taskId }) =>
+    need(approvals, 'approvals').getPendingApprovals({ taskId: taskId || null }).map(approvalView));
+  handle('approval:decide', ({ id, approved, note }) => {
+    const mgr = need(approvals, 'approvals');
+    const result = approved ? mgr.approve(id, { note: note || null }) : mgr.reject(id, { note: note || null });
+    return result ? approvalView(result) : null;
+  });
+
+  // --- state / recovery ------------------------------------------------------
+  handle('state:interrupted', () => need(recovery, 'recovery').listInterrupted());
+  handle('state:resume', ({ taskId }) => need(recovery, 'recovery').resume(taskId).then(resumeView));
+  handle('state:snapshot', async ({ taskId }) => {
+    const snap = await need(recovery, 'recovery').store.loadLatest(taskId);
+    return snap || null;
+  });
+
+  // --- project ---------------------------------------------------------------
+  handle('project:detect', ({ root }) => need(projects, 'projects').detect(root));
+
+  // --- multi-agent -----------------------------------------------------------
+  handle('agents:lifecycles', ({ taskId }) => need(coordinator, 'coordinator').lifecycles({ taskId: taskId || null }));
+  handle('agents:messages', ({ taskId }) =>
+    need(messages, 'messaging').history({ taskId }).map(messageView));
+}
+
+// --- renderer-safe views -------------------------------------------------------
+// Each of these exists so a class instance, a function or a raw payload can
+// never reach `webContents.send`. IPC carries plain data only.
+
+function workspaceView(ws) {
+  return {
+    workspaceId: ws.workspaceId,
+    taskId: ws.taskId,
+    agentId: ws.agentId,
+    projectId: ws.projectId,
+    traceId: ws.traceId,
+    root: ws.root,
+    status: ws.status,
+    files: ws.files.summary(),
+    artifacts: ws.artifactIds.length,
+    createdAt: ws.createdAt,
+    updatedAt: ws.updatedAt,
+  };
+}
+
+function artifactView(a, { includeContent = false } = {}) {
+  return {
+    id: a.id, type: a.type, name: a.name, path: a.path,
+    bytes: a.bytes, digest: a.digest,
+    taskId: a.taskId, workspaceId: a.workspaceId, agentId: a.agentId,
+    createdAt: a.createdAt, updatedAt: a.updatedAt,
+    ...(includeContent ? { content: a.content } : {}),
+  };
+}
+
+function memoryView(m) {
+  return {
+    id: m.id, type: m.type, scope: m.scope, importance: m.importance,
+    content: m.content, tags: m.tags, score: m.score ?? null,
+    createdAt: m.createdAt, updatedAt: m.updatedAt,
+  };
+}
+
+function approvalView(a) {
+  return {
+    id: a.id, action: a.action, summary: a.summary, reason: a.reason, risk: a.risk,
+    toolId: a.toolId, parameters: a.parameters, status: a.status,
+    taskId: a.taskId, agentId: a.agentId,
+    requestedAt: a.requestedAt, expiresAt: a.expiresAt, resolvedAt: a.resolvedAt,
+  };
+}
+
+function messageView(m) {
+  return {
+    id: m.id, from: m.fromAgent, to: m.toAgent, type: m.type,
+    taskId: m.taskId, attachments: m.attachments.length, timestamp: m.timestamp,
+  };
+}
+
+function resumeView(r) {
+  if (!r) return null;
+  return {
+    ok: r.ok,
+    action: r.action,
+    reason: r.reason,
+    workspaceId: r.workspace ? r.workspace.workspaceId : null,
+    resumeStep: r.resumeStep || null,
+    pendingApprovals: r.pendingApprovals || [],
+    contextRefs: r.contextRefs || [],
+    artifactRefs: r.artifactRefs || [],
+  };
 }
 
 // --- workflow registry + instance view -------------------------------------------
@@ -222,4 +453,8 @@ module.exports = {
   PUSH_CHANNELS,
   validatePayload,
   taskView,
+  workspaceView,
+  artifactView,
+  memoryView,
+  approvalView,
 };

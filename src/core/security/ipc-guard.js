@@ -7,6 +7,22 @@
 
 const { isString, isBoolean, validId } = require('../schema/validate');
 
+// A renderer-supplied id is an untrusted string used as a store key and a map
+// lookup, so it is shape-checked before it reaches a subsystem. Phase 3 ids are
+// prefixed and hex-suffixed (`ws-…`, `trace-…`, `art-…`); this accepts that
+// alphabet and nothing else — no separators, no traversal, no length to abuse.
+const OPAQUE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+function isOpaqueId(v) {
+  return typeof v === 'string' && OPAQUE_ID.test(v);
+}
+
+// Free text from the renderer (a memory query, a decision note). Bounded so a
+// compromised renderer cannot push a megabyte through a channel that expects a
+// phrase.
+function isShortText(v) {
+  return typeof v === 'string' && v.length <= 2000;
+}
+
 const CHANNELS = Object.freeze({
   'agent:listAgents': {},
   'agent:get': { id: { required: true, check: validId } },
@@ -24,6 +40,61 @@ const CHANNELS = Object.freeze({
   'workflow:cancel': { id: { required: true, check: isString } },
   'workflow:listInstances': {},
 'agent:authorizeResponse': { requestId: { required: true, check: isString }, approved: { required: true, check: isBoolean } },
+
+  // --- Phase 3 ---------------------------------------------------------------
+  // Orchestration
+  'orchestrator:run': {
+    request: { required: true, check: isShortText },
+    agentId: { check: validId },
+    workspace: {},
+    mode: { check: isString },
+    sessionId: { check: isOpaqueId },
+  },
+  'orchestrator:route': { request: { required: true, check: isShortText }, agentId: { check: validId }, mode: { check: isString } },
+  'orchestrator:get': { id: { required: true, check: isOpaqueId } },
+  'orchestrator:list': {},
+  'orchestrator:cancel': { id: { required: true, check: isOpaqueId } },
+  'orchestrator:policies': {},
+
+  // Workspaces
+  'workspace:get': { id: { required: true, check: isOpaqueId } },
+  'workspace:list': {},
+  'workspace:files': { id: { required: true, check: isOpaqueId } },
+
+  // Execution traces
+  'trace:get': { id: { required: true, check: isOpaqueId } },
+  'trace:list': {},
+  'trace:activity': { id: { required: true, check: isOpaqueId } },
+
+  // Artifacts. Reads are scoped to the owning workspace on the main side; the
+  // renderer names a workspace, it never names "all artifacts".
+  'artifact:list': { workspaceId: { check: isOpaqueId }, taskId: { check: isOpaqueId }, type: { check: isString } },
+  'artifact:get': { id: { required: true, check: isOpaqueId }, workspaceId: { required: true, check: isOpaqueId } },
+
+  // Memory. There is no "read any memory" channel: a query is answered under
+  // the named workspace's policy, so the renderer cannot widen a scope.
+  'memory:search': { workspaceId: { required: true, check: isOpaqueId }, query: { check: isShortText }, limit: {} },
+  'memory:list': { workspaceId: { required: true, check: isOpaqueId }, scope: { check: isString } },
+
+  // Approvals
+  'approval:pending': { taskId: { check: isOpaqueId } },
+  'approval:decide': {
+    id: { required: true, check: isOpaqueId },
+    approved: { required: true, check: isBoolean },
+    note: { check: isShortText },
+  },
+
+  // State / recovery
+  'state:interrupted': {},
+  'state:resume': { taskId: { required: true, check: isOpaqueId } },
+  'state:snapshot': { taskId: { required: true, check: isOpaqueId } },
+
+  // Project
+  'project:detect': { root: { required: true, check: isString } },
+
+  // Multi-agent
+  'agents:lifecycles': { taskId: { check: isOpaqueId } },
+  'agents:messages': { taskId: { required: true, check: isOpaqueId } },
 });
 
 const PUSH_CHANNELS = Object.freeze(['agent:event', 'workflow:event', 'approval:event']);
@@ -54,4 +125,4 @@ function allowedChannel(channel) {
   return channel in CHANNELS;
 }
 
-module.exports = { CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel };
+module.exports = { CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel, isOpaqueId, isShortText };

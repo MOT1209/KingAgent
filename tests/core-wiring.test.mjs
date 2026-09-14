@@ -61,6 +61,17 @@ test('wiring: the preload\'s agentPlatform surface is a subset of guarded channe
     'agent:listTasks', 'agent:task', 'agent:history', 'agent:pause',
     'agent:resume', 'agent:cancel', 'agent:authorizeResponse',
     'workflow:list', 'workflow:run', 'workflow:get', 'workflow:cancel',
+    // Phase 3
+    'orchestrator:run', 'orchestrator:route', 'orchestrator:get', 'orchestrator:list',
+    'orchestrator:cancel', 'orchestrator:policies',
+    'workspace:get', 'workspace:list', 'workspace:files',
+    'trace:list', 'trace:get', 'trace:activity',
+    'artifact:list', 'artifact:get',
+    'memory:search', 'memory:list',
+    'approval:pending', 'approval:decide',
+    'state:interrupted', 'state:resume', 'state:snapshot',
+    'project:detect',
+    'agents:lifecycles', 'agents:messages',
   ];
   for (const c of preloadChannels) assert.ok(c in CHANNELS, `unlisted preload channel ${c}`);
   assert.deepEqual(PUSH_CHANNELS, ['agent:event', 'workflow:event', 'approval:event']);

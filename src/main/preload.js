@@ -187,6 +187,43 @@ contextBridge.exposeInMainWorld('kingagent', {
     getWorkflow: (id) => ipcRenderer.invoke('workflow:get', { id }),
     cancelWorkflow: (id) => ipcRenderer.invoke('workflow:cancel', { id }),
     authorizeResponse: (requestId, approved) => ipcRenderer.invoke('agent:authorizeResponse', { requestId, approved }),
+
+    // --- Phase 3 -------------------------------------------------------------
+    // Every one of these is on the guarded channel list
+    // (src/core/security/ipc-guard.js); tests/core-wiring.test.mjs checks that
+    // this surface stays a subset of it.
+    orchestrate: (args) => ipcRenderer.invoke('orchestrator:run', args),
+    routeRequest: (args) => ipcRenderer.invoke('orchestrator:route', args),
+    getRun: (id) => ipcRenderer.invoke('orchestrator:get', { id }),
+    listRuns: () => ipcRenderer.invoke('orchestrator:list'),
+    cancelRun: (id) => ipcRenderer.invoke('orchestrator:cancel', { id }),
+    orchestratorPolicies: () => ipcRenderer.invoke('orchestrator:policies'),
+
+    getWorkspace: (id) => ipcRenderer.invoke('workspace:get', { id }),
+    listWorkspaces: () => ipcRenderer.invoke('workspace:list'),
+    workspaceFiles: (id) => ipcRenderer.invoke('workspace:files', { id }),
+
+    listTraces: () => ipcRenderer.invoke('trace:list'),
+    getTrace: (id) => ipcRenderer.invoke('trace:get', { id }),
+    traceActivity: (id) => ipcRenderer.invoke('trace:activity', { id }),
+
+    listArtifacts: (args) => ipcRenderer.invoke('artifact:list', args || {}),
+    getArtifact: (id, workspaceId) => ipcRenderer.invoke('artifact:get', { id, workspaceId }),
+
+    searchMemory: (args) => ipcRenderer.invoke('memory:search', args),
+    listMemory: (args) => ipcRenderer.invoke('memory:list', args),
+
+    pendingApprovals: (taskId) => ipcRenderer.invoke('approval:pending', taskId ? { taskId } : {}),
+    decideApproval: (id, approved, note) => ipcRenderer.invoke('approval:decide', { id, approved, note }),
+
+    interruptedTasks: () => ipcRenderer.invoke('state:interrupted'),
+    resumeTask2: (taskId) => ipcRenderer.invoke('state:resume', { taskId }),
+    latestSnapshot: (taskId) => ipcRenderer.invoke('state:snapshot', { taskId }),
+
+    detectProject: (root) => ipcRenderer.invoke('project:detect', { root }),
+
+    agentLifecycles: (taskId) => ipcRenderer.invoke('agents:lifecycles', taskId ? { taskId } : {}),
+    agentMessages: (taskId) => ipcRenderer.invoke('agents:messages', { taskId }),
     onPlatformEvent: (cb) => {
       const h = (_e, ev) => cb(ev);
       ipcRenderer.on('agent:event', h);

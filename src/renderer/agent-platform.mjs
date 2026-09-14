@@ -1,10 +1,19 @@
-// Minimal Agent Platform UI (Phase 2 foundation).
+// Minimal Agent Platform UI (Phase 2 foundation, Phase 3 activity view).
 //
 // A self-contained floating panel: list agents, kick off a task, watch live
 // events and tasks stream in. Deliberately not wired into the desk layout or
 // panels system — that redesign is out of scope. It mounts on its own node,
 // subscribes to the preload's onPlatformEvent stream, and fails closed if the
 // main-process platform is not installed.
+//
+// Phase 3 adds the operational view: progress ticks, files changed, tools used,
+// artifacts produced and approvals waiting. The event stream it renders from
+// carries no private reasoning (the trace serializer strips it, and no event
+// type has a field for it), and agent-activity.mjs renders only from a fixed
+// vocabulary of operational facts — so this panel cannot start showing
+// deliberation by accident.
+
+import { reduceActivity, renderProgress, statusDot } from './agent-activity.mjs';
 
 const PANEL_CLASS = 'agent-platform-panel';
 
@@ -43,7 +52,20 @@ function mountAgentPlatform() {
     .agent-platform-panel .status-completed { background: #3ddc84; }
     .agent-platform-panel .status-failed, .agent-platform-panel .status-cancelled { background: #ff5f6d; }
     .agent-platform-panel .status-executing, .agent-platform-panel .status-analyzing,
-    .agent-platform-panel .status-planning, .agent-platform-panel .status-queued { background: #ffcf5c; }
+    .agent-platform-panel .status-planning, .agent-platform-panel .status-queued,
+    .agent-platform-panel .status-working { background: #ffcf5c; }
+    .agent-platform-panel .progress { font-size: 11px; line-height: 1.7; }
+    .agent-platform-panel .progress div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .agent-platform-panel .progress .done { color: #7fe0a6; }
+    .agent-platform-panel .progress .failed { color: #ff8a94; }
+    .agent-platform-panel .progress .running { color: #ffcf5c; }
+    .agent-platform-panel .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .agent-platform-panel .approval { border: 1px solid rgba(255,207,92,.5); border-radius: 8px;
+      padding: 6px 8px; margin-top: 6px; }
+    .agent-platform-panel .approval .actions { display: flex; gap: 6px; margin-top: 6px; }
+    .agent-platform-panel .approval button { flex: 1; padding: 4px; border: 0; border-radius: 6px; cursor: pointer; }
+    .agent-platform-panel .approval .yes { background: #3ddc84; color: #04210f; }
+    .agent-platform-panel .approval .no { background: #ff5f6d; color: #2a0206; }
   `;
   document.head.appendChild(style);
 
@@ -64,6 +86,8 @@ function mountAgentPlatform() {
   let agents = [];
   let tools = [];
   let events = [];
+  let rawEvents = [];
+  let approvals = [];
   let open = false;
 
   function refreshTasks() {
@@ -87,6 +111,40 @@ function mountAgentPlatform() {
     const toolsHtml = `<div class="muted">${tools.length} tools registered: ${tools.map((t) => t.id).join(', ')}</div>`;
     const eventsHtml = events.slice(-12).map((e) => `<div>${escapeHtml(e.type)}</div>`).join('');
 
+    // The Phase 3 operational view, folded from the same event stream.
+    const activity = reduceActivity(rawEvents);
+    const progressHtml = renderProgress(activity)
+      .map((row) => {
+        const cls = row.startsWith('✓') ? 'done' : row.startsWith('✗') ? 'failed' : 'running';
+        return `<div class="${cls}">${escapeHtml(row)}</div>`;
+      })
+      .join('') || '<div class="muted">Nothing running.</div>';
+
+    const factsHtml = [
+      activity.filesChanged ? `${activity.filesChanged} file${activity.filesChanged === 1 ? '' : 's'} changed` : null,
+      activity.tools.length ? `Tools: ${activity.tools.join(', ')}` : null,
+      activity.artifacts.length ? `Artifacts: ${activity.artifacts.map((a) => a.name).join(', ')}` : null,
+      activity.delegations.length ? `Delegated to ${activity.delegations.map((d) => d.to).join(', ')}` : null,
+      activity.memories ? `${activity.memories} memor${activity.memories === 1 ? 'y' : 'ies'} kept` : null,
+      activity.currentStep ? `Current step: ${activity.currentStep}` : null,
+    ].filter(Boolean).map((f) => `<span class="chip">${escapeHtml(f)}</span>`).join('');
+
+    const approvalsHtml = approvals.length
+      ? approvals.map((a) => `
+        <div class="approval" data-approval="${escapeHtml(a.id)}">
+          <div>${escapeHtml(a.summary || a.action)}</div>
+          <div class="muted">risk: ${escapeHtml(a.risk || 'unknown')}</div>
+          <div class="actions">
+            <button class="yes" data-decide="approve">Approve</button>
+            <button class="no" data-decide="reject">Reject</button>
+          </div>
+        </div>`).join('')
+      : '';
+
+    const streamHtml = activity.lines.slice(-14)
+      .map((l) => `<div>${escapeHtml(l.text)}</div>`).join('')
+      || '<div class="muted">No activity yet.</div>';
+
     panel.innerHTML = `
       <header><h1>Agent Platform</h1><button class="agent-platform-close" title="Close">✕</button></header>
       <div class="agent-platform-scroll">
@@ -96,11 +154,32 @@ function mountAgentPlatform() {
           <input type="text" id="ap-request" placeholder="Describe a task — e.g. scan this workspace" />
           <button class="primary" id="ap-run">Run task</button>
         </section>
+        <section>
+          <h2><span class="status-dot status-${escapeHtml(statusDot(activity.status))}"></span>Progress</h2>
+          <div class="progress">${progressHtml}</div>
+          <div class="facts">${factsHtml}</div>
+        </section>
+        ${approvals.length ? `<section><h2>Approvals</h2>${approvalsHtml}</section>` : ''}
+        <section class="events"><h2>Activity</h2>${streamHtml}</section>
         <section><h2>Tasks</h2><div id="ap-tasks">${tasksHtml}</div></section>
         <section><h2>Agents</h2>${agentsHtml}</section>
         <section><h2>Tools</h2>${toolsHtml}</section>
         <section class="events"><h2>Events</h2>${eventsHtml || '<div class="muted">Listen in live…</div>'}</section>
       </div>`;
+
+    for (const node of panel.querySelectorAll('.approval')) {
+      const id = node.getAttribute('data-approval');
+      for (const btn of node.querySelectorAll('button[data-decide]')) {
+        btn.addEventListener('click', () => {
+          const approved = btn.getAttribute('data-decide') === 'approve';
+          if (typeof api.decideApproval === 'function') {
+            api.decideApproval(id, approved, null).catch(() => {});
+          }
+          approvals = approvals.filter((a) => a.id !== id);
+          render();
+        });
+      }
+    }
 
     const sel = panel.querySelector('#ap-agent');
     if (sel) {
@@ -125,6 +204,20 @@ function mountAgentPlatform() {
   function pushEvent(ev) {
     events = events.concat([{ type: ev.type, ts: ev.timestamp }]);
     if (events.length > 200) events = events.slice(-200);
+    // The activity reducer needs payloads, not just type names. Bounded the
+    // same way, so a long session cannot grow the panel without limit.
+    rawEvents = rawEvents.concat([ev]);
+    if (rawEvents.length > 400) rawEvents = rawEvents.slice(-400);
+
+    if (ev.type === 'approval.requested' && ev.payload) {
+      approvals = approvals.concat([{
+        id: ev.payload.requestId, action: ev.payload.action,
+        summary: ev.payload.summary, risk: ev.payload.risk,
+      }]);
+    }
+    if (['approval.approved', 'approval.rejected', 'approval.expired'].includes(ev.type) && ev.payload) {
+      approvals = approvals.filter((a) => a.id !== ev.payload.requestId);
+    }
     if (ev.type === 'task.completed' || ev.type === 'task.failed' || ev.type === 'task.cancelled') refreshTasks();
     render();
   }
@@ -140,6 +233,9 @@ function mountAgentPlatform() {
   root.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
   api.onPlatformEvent(pushEvent);
   refreshAgents();
+  if (typeof api.pendingApprovals === 'function') {
+    api.pendingApprovals().then((rows) => { approvals = rows || []; render(); }).catch(() => {});
+  }
   return { api, refresh: refreshTasks };
 }
 

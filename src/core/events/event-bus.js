@@ -17,6 +17,16 @@ function makeEvent(type, refs = {}, payload) {
     toolId: refs.toolId || null,
     workflowId: refs.workflowId || null,
     nodeId: refs.nodeId || null,
+    // Phase 3 correlation keys. A multi-agent run produces interleaved events
+    // from several workspaces; without these the stream is unreadable and a
+    // trace cannot be rebuilt. They default to null so every Phase 1/2 emitter
+    // keeps working unchanged.
+    workspaceId: refs.workspaceId || null,
+    projectId: refs.projectId || null,
+    sessionId: refs.sessionId || null,
+    traceId: refs.traceId || null,
+    parentEventId: refs.parentEventId || null,
+    seq: seq,
     payload: payload === undefined ? null : payload,
   };
   return Object.freeze(ev);
@@ -97,6 +107,54 @@ const TYPES = Object.freeze({
   APPROVAL_REQUIRED: 'approval.required',
   APPROVAL_GRANTED: 'approval.granted',
   APPROVAL_DENIED: 'approval.denied',
+
+  // --- Phase 3 -------------------------------------------------------------
+  // Context
+  CONTEXT_CREATED: 'context.created',
+  CONTEXT_UPDATED: 'context.updated',
+  // Memory
+  MEMORY_READ: 'memory.read',
+  MEMORY_WRITE: 'memory.write',
+  MEMORY_SEARCH: 'memory.search',
+  MEMORY_UPDATED: 'memory.updated',
+  // Workspace
+  WORKSPACE_CREATED: 'workspace.created',
+  WORKSPACE_UPDATED: 'workspace.updated',
+  WORKSPACE_FILE_ADDED: 'workspace.file.added',
+  WORKSPACE_FILE_REMOVED: 'workspace.file.removed',
+  WORKSPACE_FILE_MODIFIED: 'workspace.file.modified',
+  // Trace
+  TRACE_STARTED: 'trace.started',
+  TRACE_COMPLETED: 'trace.completed',
+  // Agent loop
+  AGENT_OBSERVATION: 'agent.observation',
+  AGENT_ACTION: 'agent.action',
+  AGENT_VALIDATION: 'agent.validation',
+  AGENT_RECOVERY: 'agent.recovery',
+  // Artifacts
+  ARTIFACT_CREATED: 'artifact.created',
+  ARTIFACT_UPDATED: 'artifact.updated',
+  ARTIFACT_DELETED: 'artifact.deleted',
+  // State
+  STATE_SNAPSHOT_CREATED: 'state.snapshot.created',
+  STATE_SNAPSHOT_RESTORED: 'state.snapshot.restored',
+  // Multi-agent
+  AGENT_MESSAGE: 'agent.message',
+  AGENT_DELEGATED: 'agent.delegated',
+  AGENT_HANDOFF: 'agent.handoff',
+  // Approvals (Phase 3 lifecycle; approval.required/granted/denied above stay
+  // for the Phase 2 tool-authorization path the renderer already listens to)
+  APPROVAL_REQUESTED: 'approval.requested',
+  APPROVAL_APPROVED: 'approval.approved',
+  APPROVAL_REJECTED: 'approval.rejected',
+  APPROVAL_EXPIRED: 'approval.expired',
+  // Orchestration
+  ORCHESTRATION_ROUTED: 'orchestration.routed',
+  ORCHESTRATION_COMPLETED: 'orchestration.completed',
+  ORCHESTRATION_FAILED: 'orchestration.failed',
+  // Project
+  PROJECT_DETECTED: 'project.detected',
+  PROJECT_INDEXED: 'project.indexed',
 });
 
 module.exports = { EventBus, makeEvent, TYPES };
