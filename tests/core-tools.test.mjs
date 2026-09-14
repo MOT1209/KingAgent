@@ -8,6 +8,9 @@ import os from 'node:os';
 import { makeTempDir } from './test-utils.mjs';
 
 const require = createRequire(import.meta.url);
+// Path-guard answers in realpath space, so these two tests compare against the
+// real form of a path, never the lexical one.
+const realpathSync = require('node:fs').realpathSync;
 const { EventBus } = require('../src/core/events/event-bus.js');
 const { validateToolDefinition, PERMISSIONS } = require('../src/core/tools/definition.js');
 const { ToolManager, ToolDeniedError, ToolError } = require('../src/core/tools/manager.js');
@@ -257,16 +260,24 @@ test('path-guard: a symlink pointing outside the root is rejected', async (t) =>
     await fs.symlink(outsideFile, link, 'file');
 
     assert.equal(resolveWithin(tmp, 'escapee'), link, 'resolveWithin is lexical; a symlink looks like a sibling');
-    await assert.rejects(
+    // assertWithin is the synchronous guard the fs tools call, so it throws
+    // rather than rejects. (Framed as assert.rejects it never validates the
+    // message at all: the guard's own error surfaces as the test failure.)
+    assert.throws(
       () => assertWithin(tmp, 'escapee'),
-      (err) => /symlink/.test(String(err)),
+      /symlink/,
+      'a symlink out of the workspace root is rejected',
     );
 
     const insideLink = path.join(tmp, 'inside');
     const innerTarget = path.join(tmp, 'ok.txt');
     await fs.writeFile(innerTarget, 'ok');
     await fs.symlink(innerTarget, insideLink, 'file');
-    assert.equal(assertWithin(tmp, 'inside'), innerTarget, 'symlink pointing inside resolves to the real target');
+    // Expect the *real* target: the guard answers with realpath, and the input
+    // path is not always already real. On macOS a temp dir under /var is itself
+    // behind a symlink to /private/var, and on Windows a short 8.3 name such as
+    // RUNNER~1 resolves to its long form.
+    assert.equal(assertWithin(tmp, 'inside'), realpathSync(innerTarget), 'symlink pointing inside resolves to the real target');
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
     await fs.rm(outsideFile, { force: true });
@@ -275,11 +286,16 @@ test('path-guard: a symlink pointing outside the root is rejected', async (t) =>
 
 test('path-guard: realContains detects escapes on real paths', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pg-real-'));
-  const real = require('node:fs').realpathSync;
+  const real = realpathSync;
   try {
     const dir = path.join(tmp, 'a', 'b');
     await fs.mkdir(dir, { recursive: true });
-    assert.equal(realContains(tmp, path.resolve(tmp, 'a/b'), real), path.resolve(tmp, 'a/b'), 'nested path is inside');
+    // realContains answers in realpath space, so the expectation has to be built
+    // in that space too — comparing it against the lexical path is what made
+    // this test pass on a Linux runner and fail on macOS, where the temp root is
+    // reached through /private/var.
+    const rootReal = real(tmp);
+    assert.equal(realContains(tmp, path.resolve(tmp, 'a/b'), real), path.resolve(rootReal, 'a/b'), 'nested path is inside');
 
     const file = path.join(tmp, 'out.txt');
     await fs.writeFile(file, 'secret');
