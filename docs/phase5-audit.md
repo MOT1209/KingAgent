@@ -115,7 +115,44 @@ that `actionForTool(view) === actionForTool(registered)`, and pins the two
 built-ins whose action differs from their id. [policies.md](policies.md)
 documents both.
 
-### F6 — contradictory architecture documentation (§40)
+### F6 — three packaging entry points shipped without the offline model (§33, §34)
+
+The app transcribes on-device with whisper-tiny.en, shipped through
+electron-builder's `extraResources` from `build/models`, which
+`npm run fetch-model` populates. An empty `build/models` is **not** a build
+failure: electron-builder copies nothing, the installer is produced, and the app
+downloads the weights on first launch instead — which is exactly what the local
+engine exists to avoid.
+
+npm runs `pre<name>` for the *exact* script name, so `prepack` covered `pack`
+and nothing else. `dist:win`, `pack:win` and `pack:mac` had neither a hook nor
+an inline call. package.json's own comment records this trap being sprung once
+before, for `dist`:
+
+> predist matters: npm runs pre&lt;name&gt; for any script, so `pack` picked up
+> the weights via prepack while `dist` — the one that builds what users install
+> — quietly shipped without them.
+
+It was fixed there and for `dist:mac`, and missed for the Windows scripts.
+
+The CI Windows job made it look handled without being handled: it caches
+`build/models` and then runs `npm run pack:win`. A cache only restores what some
+earlier run wrote, and no step ever wrote it — so the cache was always a miss
+and every Windows CI pack produced a model-less build. The verification step
+after it checked for the exe and for node-pty, not for the weights.
+
+Release artifacts were never affected: `ship.yml` and `release.yml` chain
+`npm run fetch-model &&` explicitly.
+
+**Done:** `prepack:win`, `prepack:mac` and `predist:win` added, so every
+packaging entry point is self-sufficient (`fetch-model` is idempotent, so the
+one script that also calls it inline costs nothing). The CI Windows verification
+now fails if `resources/models` contains no `.onnx`.
+`tests/phase5-packaging.test.mjs` asserts that every script invoking
+electron-builder fetches the model by hook or inline, that `extraResources`
+still carries `build/models`, and that the CI job populates it before packing.
+
+### F7 — contradictory architecture documentation (§40)
 
 `docs/architecture.md` carried the section `## Phase 4: orchestration,
 governance, execution` twice. The second copy's table pointed at `artifacts/`
@@ -233,6 +270,9 @@ conditions and its caller are unaffected.
 
 `tests/phase5-workflow-lifecycle.test.mjs`: cancellation, approval interruption,
 listing, correlation ids, restart/interruption, and secret redaction.
+
+`tests/phase5-packaging.test.mjs`: every packaging script fetches the model,
+`extraResources` still carries it, and the Windows CI job populates it first.
 
 `tests/phase5-security.test.mjs` — §29's named malicious inputs against the real
 platform, not a unit: every path-escape shape (POSIX and Windows-flavoured) is

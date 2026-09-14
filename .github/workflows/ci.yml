@@ -102,3 +102,11 @@ jobs:
           # Native modules must be unpacked beside the app, not inside asar.
           $pty = Get-ChildItem "release/win-unpacked/resources/app.asar.unpacked/node_modules/@lydell/node-pty" -ErrorAction SilentlyContinue
           if (-not $pty) { Write-Error "node-pty missing from asar.unpacked"; exit 1 }
+          # The on-device Whisper weights must be in the bundle. An empty
+          # build/models is not a build failure — electron-builder copies
+          # nothing and the app silently downloads on first launch, which is
+          # exactly what the local engine exists to avoid. Checked here because
+          # only the packed output can answer it.
+          $onnx = Get-ChildItem "release/win-unpacked/resources/models" -Recurse -Filter *.onnx -ErrorAction SilentlyContinue
+          if (-not $onnx) { Write-Error "no Whisper weights in resources/models — this build cannot transcribe offline"; exit 1 }
+          Write-Host "offline model present:" ($onnx | ForEach-Object { $_.Name }) -join ', '

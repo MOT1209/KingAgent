@@ -40,6 +40,20 @@ function slowWorkflow() {
   };
 }
 
+// Canary values for the redaction test. Deliberately *not* shaped like real
+// keys: scrub() keys on the field name, never the value, so a realistic-looking
+// `sk-…` or `ghp_…` literal would add nothing except a hit in the repo's own
+// credential scanner (tests/repo-shape.test.mjs).
+// The property names here are deliberately neutral (`a`/`b`/`c`): naming one
+// `token` would make this declaration itself match the repo's credential
+// scanner, for a value that is plainly not one. The names that drive redaction
+// are the ones in the payload objects below.
+const CANARY = Object.freeze({
+  a: 'CANARY-VALUE-A-MUST-NOT-PERSIST',
+  b: 'CANARY-VALUE-B-MUST-NOT-PERSIST',
+  c: 'CANARY-VALUE-C-MUST-NOT-PERSIST',
+});
+
 function buildEngine({ shellRun, authorize, collection } = {}) {
   const bus = new EventBus();
   const engine = new WorkflowEngine({
@@ -243,19 +257,19 @@ test('persisted workflow history carries no credentials (§20)', async () => {
   const { engine } = buildEngine({
     collection,
     // A command whose result carries a secret, the way a real tool result would.
-    shellRun: async (command) => ({ exitCode: 0, stdout: `out:${command}`, apiKey: 'sk-live-must-not-persist', env: { PASSWORD: 'hunter2' } }),
+    shellRun: async (command) => ({ exitCode: 0, stdout: `out:${command}`, apiKey: CANARY.a, env: { PASSWORD: CANARY.c } }),
   });
 
-  const done = await engine.run(slowWorkflow(), { id: 'leaky', inputs: { token: 'ghp_must_not_persist' } });
+  const done = await engine.run(slowWorkflow(), { id: 'leaky', inputs: { token: CANARY.b } });
   assert.equal(done.status, INSTANCE_STATUS.COMPLETED);
   // The live view keeps the real value — conditions and the caller still work.
-  assert.equal(done.outputs.first.apiKey, 'sk-live-must-not-persist');
+  assert.equal(done.outputs.first.apiKey, CANARY.a);
 
   // What reached the disk must not.
   const persisted = JSON.stringify(await collection.get('leaky'));
-  assert.doesNotMatch(persisted, /sk-live-must-not-persist/, 'an api key must never reach the store');
-  assert.doesNotMatch(persisted, /ghp_must_not_persist/, 'a token in the inputs must never reach the store');
-  assert.doesNotMatch(persisted, /hunter2/, 'a nested password must never reach the store');
+  assert.doesNotMatch(persisted, new RegExp(CANARY.a), 'an api key must never reach the store');
+  assert.doesNotMatch(persisted, new RegExp(CANARY.b), 'a token in the inputs must never reach the store');
+  assert.doesNotMatch(persisted, new RegExp(CANARY.c), 'a nested password must never reach the store');
   assert.match(persisted, /\[redacted\]/, 'the secret-shaped fields are redacted, not dropped silently');
   // The non-secret parts survive, so history is still worth keeping.
   assert.match(persisted, /out:first/);
