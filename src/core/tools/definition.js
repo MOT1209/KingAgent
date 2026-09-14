@@ -21,7 +21,7 @@ const LEVEL_RANK = Object.freeze(Object.fromEntries(LEVEL_ORDER.map((l, i) => [l
 
 const TOOL_FIELDS = [
   'id', 'name', 'description', 'category', 'capabilities', 'inputSchema', 'outputSchema',
-  'permissions', 'timeoutMs', 'execute', 'hidden',
+  'permissions', 'timeoutMs', 'execute', 'hidden', 'policyAction',
 ];
 
 function validateToolDefinition(def) {
@@ -32,6 +32,12 @@ function validateToolDefinition(def) {
   if (typeof def.execute !== 'function') return fail(['tool must provide an execute() function']);
   if (def.capabilities !== undefined && (!Array.isArray(def.capabilities) || def.capabilities.some((c) => !isString(c)))) {
     return fail(['capabilities must be an array of strings']);
+  }
+  // Optional: the policy action string this tool presents as (`git.push`,
+  // `filesystem.delete`). A tool may *name* its action; the policy engine is
+  // still what decides it (see core/policy/rules.js actionForTool).
+  if (def.policyAction !== undefined && (!isString(def.policyAction) || !/^[a-z][a-z0-9._:*]*$/.test(def.policyAction))) {
+    return fail(['policyAction must be a lowercase dotted action string']);
   }
   let level = (def.permissions && def.permissions.level) || PERMISSIONS.MODERATE;
   if (!(level in LEVEL_RANK)) return fail([`unknown permission level: ${JSON.stringify(level)}`]);
@@ -55,6 +61,7 @@ function normalizeTool(def) {
       note: (base.permissions && base.permissions.note) || '',
     },
     timeoutMs: base.timeoutMs || 30_000,
+    policyAction: base.policyAction || null,
     execute: base.execute,
     hidden: Boolean(base.hidden),
   };
