@@ -4,45 +4,65 @@
 // actually needs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import os from 'node:os';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { ProjectIndexer, detectProject, detectRoot, projectIdFor, describeProject } = require('../src/core/project/index.js');
 
+// A base every fixture resolves under. detectProject/detectRoot both call
+// path.resolve() on whatever root they're given, and on Windows a bare
+// POSIX-style literal like '/repo' resolves onto the *current* drive
+// (C:\repo, D:\repo, ...) rather than staying '/repo' — so the fixture root
+// has to be resolved once, here, and every fake-fs key and every test
+// expectation built from the same resolved value, never from a hand-typed
+// POSIX string compared against it.
+const BASE = path.resolve(os.tmpdir(), 'ka-project-fixture');
+
 // A tiny in-memory filesystem so detection is testable without touching disk.
-function fakeFs(tree) {
-  // tree: { '/root/package.json': '...', '/root/src': null (dir marker via trailing children) }
-  const dirs = new Map(); // path -> [{name, isDir}]
-  const files = new Map();
-  for (const [p, content] of Object.entries(tree)) {
-    if (content === null) continue;
-    files.set(p, content);
+// `tree` keys are POSIX-style paths *relative* to `root`; they are joined with
+// `path.join` (platform separators, not hardcoded slashes) before becoming map
+// keys, so the same fixture works whether the runtime is POSIX or Windows.
+function fakeFs(root, tree) {
+  const dirs = new Map(); // absolute dir -> Map<name, isDir>
+  const files = new Map(); // absolute path -> content
+
+  function abs(rel) {
+    return rel === '' ? root : path.join(root, ...rel.split('/'));
   }
-  // derive directory listings from paths
-  for (const p of Object.keys(tree)) {
-    const parts = p.split('/').filter(Boolean);
-    let cur = '';
-    for (let i = 0; i < parts.length; i += 1) {
-      const parent = cur || '/';
-      cur = `${cur}/${parts[i]}`;
+
+  for (const [rel, content] of Object.entries(tree)) {
+    const full = abs(rel);
+    if (content !== null) files.set(full, content);
+    // Register this entry, and every ancestor up to `root`, in its parent's
+    // directory listing so readdir() sees it regardless of how deep it is.
+    let cur = full;
+    while (cur !== root) {
+      const parent = path.dirname(cur);
       if (!dirs.has(parent)) dirs.set(parent, new Map());
-      const isLast = i === parts.length - 1;
-      const isDir = !isLast || tree[p] === null;
-      dirs.get(parent).set(parts[i], isDir);
+      const isDir = cur !== full || content === null;
+      // A path already known to be a file is never overwritten into a dir by
+      // a later ancestor registration (can't happen here, but keep it honest).
+      if (!dirs.get(parent).has(path.basename(cur))) dirs.get(parent).set(path.basename(cur), isDir);
+      cur = parent;
     }
   }
+
   return {
     async stat(p) {
-      const norm = p.replace(/\/$/, '');
-      if (files.has(norm) || dirs.has(norm)) return { isDirectory: () => dirs.has(norm) && !files.has(norm) };
+      const norm = path.normalize(p);
+      if (files.has(norm)) return { isDirectory: () => false };
+      if (dirs.has(norm) || norm === root) return { isDirectory: () => true };
       throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
     },
     async readFile(p) {
-      if (!files.has(p)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-      return files.get(p);
+      const norm = path.normalize(p);
+      if (!files.has(norm)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      return files.get(norm);
     },
     async readdir(p, { withFileTypes } = {}) {
-      const norm = p.replace(/\/$/, '') || '/';
+      const norm = path.normalize(p);
       const entries = dirs.get(norm);
       if (!entries) return [];
       return [...entries.entries()].map(([name, isDir]) => (
@@ -53,13 +73,14 @@ function fakeFs(tree) {
 }
 
 test('detector: identifies a node project from package.json and reads its scripts', async () => {
-  const fs = fakeFs({
-    '/repo/package.json': JSON.stringify({ name: 'demo', version: '2.0.0', scripts: { test: 'node --test' }, dependencies: { electron: '1.0.0' } }),
-    '/repo/.git': null,
-    '/repo/README.md': '# demo',
-    '/repo/src': null,
+  const root = path.join(BASE, 'repo-node');
+  const fs = fakeFs(root, {
+    'package.json': JSON.stringify({ name: 'demo', version: '2.0.0', scripts: { test: 'node --test' }, dependencies: { electron: '1.0.0' } }),
+    '.git': null,
+    'README.md': '# demo',
+    'src': null,
   });
-  const detection = await detectProject(fs, '/repo');
+  const detection = await detectProject(fs, root);
   assert.equal(detection.type, 'node');
   assert.equal(detection.name, 'demo');
   assert.equal(detection.version, '2.0.0');
@@ -71,20 +92,22 @@ test('detector: identifies a node project from package.json and reads its script
 });
 
 test('detector: a directory with no markers detects as unknown, not an error', async () => {
-  const fs = fakeFs({ '/empty/notes.txt': 'hi' });
-  const detection = await detectProject(fs, '/empty');
+  const root = path.join(BASE, 'repo-empty');
+  const fs = fakeFs(root, { 'notes.txt': 'hi' });
+  const detection = await detectProject(fs, root);
   assert.equal(detection.type, 'unknown');
   assert.deepEqual(detection.markers, []);
 });
 
 test('detector: detectRoot walks up to find the boundary, bounded by maxUp', async () => {
-  const fs = fakeFs({
-    '/repo/.git': null,
-    '/repo/package.json': '{}',
-    '/repo/deep/nested/dir/file.txt': 'x',
+  const root = path.join(BASE, 'repo-walk');
+  const fs = fakeFs(root, {
+    '.git': null,
+    'package.json': '{}',
+    'deep/nested/dir/file.txt': 'x',
   });
-  const root = await detectRoot(fs, '/repo/deep/nested/dir');
-  assert.equal(root, '/repo');
+  const found = await detectRoot(fs, path.join(root, 'deep', 'nested', 'dir'));
+  assert.equal(found, root);
 });
 
 test('metadata: projectIdFor is stable for the same root and stable across detections', () => {
@@ -100,14 +123,15 @@ test('describeProject reads as one line for a context packet', () => {
 // --- indexer -------------------------------------------------------------------
 
 test('indexer: index() is bounded, depth-limited and skips node_modules', async () => {
-  const fs = fakeFs({
-    '/repo/package.json': '{}',
-    '/repo/src/a.js': 'x',
-    '/repo/src/nested/deep/b.js': 'y', // beyond default depth 2
-    '/repo/node_modules/pkg/index.js': 'z',
+  const root = path.join(BASE, 'repo-index');
+  const fs = fakeFs(root, {
+    'package.json': '{}',
+    'src/a.js': 'x',
+    'src/nested/deep/b.js': 'y', // beyond default depth 2
+    'node_modules/pkg/index.js': 'z',
   });
   const indexer = new ProjectIndexer({ fs, options: { maxDepth: 2, maxEntries: 400 } });
-  const indexed = await indexer.index('/repo');
+  const indexed = await indexer.index(root);
   assert.ok(indexed.tree.some((e) => e.path === 'src'));
   assert.ok(indexed.tree.some((e) => e.path === 'src/a.js'));
   assert.ok(!indexed.tree.some((e) => e.path.startsWith('node_modules')), 'node_modules is never walked');
@@ -115,35 +139,38 @@ test('indexer: index() is bounded, depth-limited and skips node_modules', async 
 });
 
 test('indexer: results are cached until the TTL or force', async () => {
-  const fs = fakeFs({ '/repo/package.json': '{}' });
+  const root = path.join(BASE, 'repo-cache');
+  const fs = fakeFs(root, { 'package.json': '{}' });
   const indexer = new ProjectIndexer({ fs, options: { ttlMs: 100_000 } });
-  const first = await indexer.detect('/repo');
-  const second = await indexer.detect('/repo');
+  const first = await indexer.detect(root);
+  const second = await indexer.detect(root);
   assert.equal(first.detectedAt, second.detectedAt, 'served from cache, not re-detected');
-  const forced = await indexer.detect('/repo', { force: true });
+  const forced = await indexer.detect(root, { force: true });
   assert.notEqual(forced, undefined);
 });
 
 test('indexer: importantFiles orders markers, docs, then source dirs', async () => {
-  const fs = fakeFs({
-    '/repo/package.json': '{}',
-    '/repo/README.md': '# r',
-    '/repo/src': null,
+  const root = path.join(BASE, 'repo-important');
+  const fs = fakeFs(root, {
+    'package.json': '{}',
+    'README.md': '# r',
+    'src': null,
   });
   const indexer = new ProjectIndexer({ fs });
-  const meta = await indexer.detect('/repo');
+  const meta = await indexer.detect(root);
   const important = indexer.importantFiles(meta);
   assert.deepEqual(important, ['package.json', 'README.md', 'src/']);
 });
 
 test('indexer: emits project.detected and project.indexed, correlated by projectId', async () => {
-  const fs = fakeFs({ '/repo/package.json': '{}' });
+  const root = path.join(BASE, 'repo-events');
+  const fs = fakeFs(root, { 'package.json': '{}' });
   const { EventBus, TYPES } = require('../src/core/events/event-bus.js');
   const bus = new EventBus();
   const seen = [];
   bus.on('*', (ev) => { if (ev.type.startsWith('project.')) seen.push(ev); });
   const indexer = new ProjectIndexer({ fs, bus });
-  const indexed = await indexer.index('/repo');
+  const indexed = await indexer.index(root);
   assert.ok(seen.some((e) => e.type === TYPES.PROJECT_DETECTED));
   assert.ok(seen.some((e) => e.type === TYPES.PROJECT_INDEXED));
   assert.ok(seen.every((e) => e.projectId === indexed.projectId));
