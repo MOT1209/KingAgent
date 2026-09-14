@@ -61,6 +61,11 @@ test('wiring: the preload\'s agentPlatform surface is a subset of guarded channe
     'agent:listTasks', 'agent:task', 'agent:history', 'agent:pause',
     'agent:resume', 'agent:cancel', 'agent:authorizeResponse',
     'workflow:list', 'workflow:run', 'workflow:get', 'workflow:cancel',
+    // Phase 4 control center
+    'agent:controlCenter', 'agent:harnesses', 'agent:harnessDetect',
+    'agent:sandboxes', 'agent:sandbox', 'agent:policies', 'agent:policyAudit',
+    'agent:explainPolicy', 'agent:sessions', 'agent:session', 'agent:artifacts',
+    'agent:artifact', 'agent:delegations', 'agent:route', 'agent:cancelTask',
   ];
   for (const c of preloadChannels) assert.ok(c in CHANNELS, `unlisted preload channel ${c}`);
   assert.deepEqual(PUSH_CHANNELS, ['agent:event', 'workflow:event', 'approval:event']);
@@ -81,6 +86,20 @@ test('wiring: handlers validate payloads before touching the subsystem', async (
   const bad = await fn({}, { id: 'NOT-A-VALID-ID' }).then(() => ({})).catch((e) => e);
   assert.ok(bad instanceof Error);
   assert.match(bad.message, /invalid "id"/);
+});
+
+test('wiring (Phase 4): control-center handlers degrade gracefully on a platform without them', async () => {
+  const ipc = fakeIpcMain();
+  // minimalPlatform deliberately has none of the Phase 4 subsystems, which is
+  // what a host that disables them looks like.
+  mainWiring.createIpcHandlers({ ipcMain: ipc, platform: minimalPlatform(), forward: () => {} });
+
+  const harnesses = await ipc.handlers.get('agent:harnesses')({}, {});
+  assert.deepEqual(harnesses.data, { harnesses: [], backends: null });
+  const policies = await ipc.handlers.get('agent:policies')({}, {});
+  assert.deepEqual(policies.data, { policies: [], stats: null, recent: [] });
+  assert.equal((await ipc.handlers.get('agent:controlCenter')({}, {})).data, null);
+  assert.deepEqual((await ipc.handlers.get('agent:sessions')({}, {})).data, []);
 });
 
 test('wiring: runAgentTask returns a taskView-shaped result', async () => {

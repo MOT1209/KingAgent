@@ -24,6 +24,35 @@ const CHANNELS = Object.freeze({
   'workflow:cancel': { id: { required: true, check: isString } },
   'workflow:listInstances': {},
 'agent:authorizeResponse': { requestId: { required: true, check: isString }, approved: { required: true, check: isBoolean } },
+
+  // --- Phase 4: the Agent Control Center -------------------------------------
+  // Everything here is read-only except `agent:route` (a dry run that creates
+  // nothing) and `agent:cancelTask` (which stops work the user already asked
+  // for). There is deliberately no channel that can raise a permission, add a
+  // policy or widen a sandbox: those only ever come from a human in the app's
+  // own flows, never from a renderer payload.
+  'agent:controlCenter': { sessionId: { check: isString }, taskId: { check: isString } },
+  'agent:harnesses': {},
+  'agent:harnessDetect': { id: { check: isString } },
+  'agent:sandboxes': {},
+  'agent:sandbox': { id: { required: true, check: isString } },
+  'agent:policies': {},
+  'agent:policyAudit': { limit: { check: isString } },
+  'agent:explainPolicy': {
+    action: { required: true, check: isString },
+    agentId: { check: validId },
+    taskId: { check: isString },
+    toolId: { check: isString },
+    harnessId: { check: isString },
+    workspaceId: { check: isString },
+  },
+  'agent:sessions': {},
+  'agent:session': { id: { required: true, check: isString } },
+  'agent:artifacts': { taskId: { check: isString }, sessionId: { check: isString }, type: { check: isString }, limit: { check: isString } },
+  'agent:artifact': { id: { required: true, check: isString } },
+  'agent:delegations': { taskId: { required: true, check: isString } },
+  'agent:route': { request: { required: true, check: isString }, strategy: { check: isString }, agentId: { check: validId }, harnessId: { check: isString } },
+  'agent:cancelTask': { taskId: { required: true, check: isString }, sessionId: { check: isString } },
 });
 
 const PUSH_CHANNELS = Object.freeze(['agent:event', 'workflow:event', 'approval:event']);

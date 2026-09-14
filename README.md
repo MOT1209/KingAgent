@@ -98,7 +98,10 @@ Find your way around with **⌘ Shortcuts** (Ctrl on Windows) in the app, or rea
 the [shortcuts and gestures reference](docs/shortcuts.md).
 
 See [docs/windows.md](docs/windows.md) for terminal, PATH and per-agent notes
-on Windows.
+on Windows. How the pieces fit together — the agent runtime, the harness layer
+that makes agents swappable, the policy engine, the sandbox and the
+orchestrator — is in [docs/architecture.md](docs/architecture.md) and the
+documents it links to.
 
 ## Build it yourself
 

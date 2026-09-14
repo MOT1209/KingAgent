@@ -132,6 +132,10 @@ function registerBuiltinTools(tm, io) {
     category: 'filesystem',
     capabilities: ['write', 'filesystem'],
     inputSchema: { type: 'object', properties: { path: { type: 'string', required: true }, recursive: { type: 'boolean' } } },
+    // Declares the policy action it presents as, so a policy document can say
+    // `filesystem.delete` and mean it. The action is a name, not a permission:
+    // core/policy still decides the outcome.
+    policyAction: 'filesystem.delete',
     permissions: { level: PERMISSIONS.DESTRUCTIVE, note: 'irreversible' },
     async execute(input) {
       const target = assertWithin(root, input.path);
@@ -223,6 +227,7 @@ function registerBuiltinTools(tm, io) {
       // (`cd .. && rm -rf` passes any cwd containment). So it is DESTRUCTIVE,
       // budgets per-call approval, and is additionally screened by the command
       // policy below.
+      policyAction: 'command.run',
       permissions: { level: PERMISSIONS.DESTRUCTIVE, requiresAuth: true, note: 'arbitrary shell command — per-call approval required' },
       async execute(input) {
         const violation = checkCommandPolicy(String(input.command || ''), commandPolicy);

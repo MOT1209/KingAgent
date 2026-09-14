@@ -73,9 +73,18 @@ decides; grants restore `running`, denials fail the instance.
 matching bus stream from the main process to `window.kingagent.agentPlatform`,
 which the renderer panel (`src/renderer/agent-platform.mjs`) renders live.
 
+## Where Phase 4 sits
+
+This runtime is the built-in harness, not the whole platform. Around it sit the
+policy engine (which can deny a destructive call before the authorization modal
+ever opens), the sandbox manager (which owns the process tree a task runs in)
+and the orchestrator (which routes a request to a runtime *or* to an external
+backend). Nothing in the loop above changed to accommodate any of it — see
+[orchestrator.md](orchestrator.md) and [harness.md](harness.md).
+
 ## Testing
 
-`node --test tests/*.test.mjs` — 1257 tests, 0 failures (15 env skips: no zsh /
+`node --test tests/*.test.mjs` — 1380 tests, 0 failures (13 env skips: no zsh /
 symlink permissions). The core suites stand alone under plain node; the state
-machine, permissions, containment and IPC symmetry each have dedicated
-specs.
+machine, permissions, containment, policy scoping, sandbox boundaries,
+delegation containment and IPC symmetry each have dedicated specs.

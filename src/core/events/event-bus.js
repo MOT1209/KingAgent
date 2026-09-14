@@ -9,7 +9,7 @@ let seq = 0;
 function makeEvent(type, refs = {}, payload) {
   const id = `evt-${Date.now().toString(36)}-${(++seq).toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const ev = {
-    id,
+    id, // the correlation key every Phase 4 observer joins on
     type,
     timestamp: Date.now(),
     taskId: refs.taskId || null,
@@ -17,6 +17,17 @@ function makeEvent(type, refs = {}, payload) {
     toolId: refs.toolId || null,
     workflowId: refs.workflowId || null,
     nodeId: refs.nodeId || null,
+    // Phase 4 correlation refs. A harness/policy/sandbox/session event is only
+    // useful if it can be joined back to the work it happened for, so every
+    // coordinator of those subsystems threads these through. `parentEventId`
+    // chains a delegated child's events onto the request that caused them.
+    workspaceId: refs.workspaceId || null,
+    sessionId: refs.sessionId || null,
+    harnessId: refs.harnessId || null,
+    policyId: refs.policyId || null,
+    sandboxId: refs.sandboxId || null,
+    delegationId: refs.delegationId || null,
+    parentEventId: refs.parentEventId || null,
     payload: payload === undefined ? null : payload,
   };
   return Object.freeze(ev);
@@ -97,6 +108,45 @@ const TYPES = Object.freeze({
   APPROVAL_REQUIRED: 'approval.required',
   APPROVAL_GRANTED: 'approval.granted',
   APPROVAL_DENIED: 'approval.denied',
+
+  // --- Phase 4: harness layer -------------------------------------------------
+  HARNESS_SELECTED: 'harness.selected',
+  HARNESS_STARTED: 'harness.started',
+  HARNESS_STOPPED: 'harness.stopped',
+  HARNESS_FAILED: 'harness.failed',
+
+  // --- Phase 4: policy engine -------------------------------------------------
+  POLICY_EVALUATED: 'policy.evaluated',
+  POLICY_DENIED: 'policy.denied',
+  POLICY_APPROVAL_REQUIRED: 'policy.approval_required',
+
+  // --- Phase 4: sandbox manager ------------------------------------------------
+  SANDBOX_CREATED: 'sandbox.created',
+  SANDBOX_STARTED: 'sandbox.started',
+  SANDBOX_STOPPED: 'sandbox.stopped',
+  SANDBOX_FAILED: 'sandbox.failed',
+  SANDBOX_PROCESS_REGISTERED: 'sandbox.process.registered',
+
+  // --- Phase 4: routing + multi-agent -------------------------------------------
+  AGENT_ROUTED: 'agent.routed',
+  AGENT_DELEGATED: 'agent.delegated',
+  AGENT_HANDOFF: 'agent.handoff',
+  AGENT_MESSAGE: 'agent.message',
+
+  // --- Phase 4: sessions ---------------------------------------------------------
+  SESSION_CREATED: 'session.created',
+  SESSION_STARTED: 'session.started',
+  SESSION_PAUSED: 'session.paused',
+  SESSION_RESUMED: 'session.resumed',
+  SESSION_COMPLETED: 'session.completed',
+  SESSION_FAILED: 'session.failed',
+  SESSION_STOPPED: 'session.stopped',
+
+  // --- Phase 4: artifacts ---------------------------------------------------------
+  ARTIFACT_CREATED: 'artifact.created',
+
+  // --- Phase 4: orchestration -------------------------------------------------------
+  ORCHESTRATOR_STEP: 'orchestrator.step',
 });
 
 module.exports = { EventBus, makeEvent, TYPES };

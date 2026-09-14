@@ -187,6 +187,24 @@ contextBridge.exposeInMainWorld('kingagent', {
     getWorkflow: (id) => ipcRenderer.invoke('workflow:get', { id }),
     cancelWorkflow: (id) => ipcRenderer.invoke('workflow:cancel', { id }),
     authorizeResponse: (requestId, approved) => ipcRenderer.invoke('agent:authorizeResponse', { requestId, approved }),
+
+    // Phase 4: the Agent Control Center. All read-only except route (a dry run)
+    // and cancelTask. Nothing here can raise a permission or widen a sandbox.
+    controlCenter: (args = {}) => ipcRenderer.invoke('agent:controlCenter', args),
+    listHarnesses: () => ipcRenderer.invoke('agent:harnesses'),
+    detectHarnesses: (id) => ipcRenderer.invoke('agent:harnessDetect', id ? { id } : {}),
+    listSandboxes: () => ipcRenderer.invoke('agent:sandboxes'),
+    getSandbox: (id) => ipcRenderer.invoke('agent:sandbox', { id }),
+    listPolicies: () => ipcRenderer.invoke('agent:policies'),
+    policyAudit: (limit) => ipcRenderer.invoke('agent:policyAudit', limit ? { limit: String(limit) } : {}),
+    explainPolicy: (args) => ipcRenderer.invoke('agent:explainPolicy', args),
+    listSessions: () => ipcRenderer.invoke('agent:sessions'),
+    getSession: (id) => ipcRenderer.invoke('agent:session', { id }),
+    listArtifacts: (args = {}) => ipcRenderer.invoke('agent:artifacts', args),
+    getArtifact: (id) => ipcRenderer.invoke('agent:artifact', { id }),
+    listDelegations: (taskId) => ipcRenderer.invoke('agent:delegations', { taskId }),
+    route: (args) => ipcRenderer.invoke('agent:route', args),
+    cancelTaskTree: (taskId, sessionId) => ipcRenderer.invoke('agent:cancelTask', sessionId ? { taskId, sessionId } : { taskId }),
     onPlatformEvent: (cb) => {
       const h = (_e, ev) => cb(ev);
       ipcRenderer.on('agent:event', h);
