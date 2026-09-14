@@ -424,11 +424,20 @@ function dropPathOnPanel(p, path, isDir) {
   // the other windows' popovers keep showing a stale order until they reboot.
   // Either the check already ran before this window existed (boot carries it),
   // or it lands later while the window is open.
+  if (b.updater && b.updater.releaseInfo) releaseInfo = b.updater.releaseInfo;
   if (b.update) offerUpdate(b.update, b.updater);
   api.onUpdateAvailable(offerUpdate);
   api.onUpdateProgress((ev) => paintUpdate('downloading', ev));
   api.onUpdateReady((ev) => paintUpdate('ready', ev));
   api.onUpdateFailed(() => paintUpdate('failed', {}));
+  // A postponed update whose reminder window has passed, brought back by
+  // main rather than waiting for the next six-hourly poll. Unlike an
+  // ordinary poll result, this one is allowed past a "not now" from before —
+  // that mark meant "stop nagging automatically", and this is a reminder the
+  // user asked for on purpose when they clicked it.
+  if (api.updater && api.updater.onReminder) {
+    api.updater.onReminder((ev) => { localStorage.removeItem(SKIPPED_UPDATE); offerUpdate(ev); });
+  }
 
   api.onRecentsChanged((rows) => {
     S.recents = rows || [];
@@ -5703,6 +5712,7 @@ const SET_SECTIONS = [
   { id: 'shortcuts', name: 'Shortcuts', lead: 'small moves that make your desk easier to use' },
   { id: 'browser', name: 'Browser', lead: 'browser views your sessions can use' },
   { id: 'usage', name: 'Usage', lead: 'remaining allowance by connected account' },
+  { id: 'updates', name: 'Updates', lead: 'how KingAgent checks for and installs new versions' },
   { id: 'about', name: 'About', lead: 'about this copy of KingAgent' },
 ];
 function openSettings(section) {
@@ -5728,7 +5738,8 @@ function renderSettings() {
       <div class="set-pane" id="set-pane">${
         sec.id === 'voice' ? voicePaneHtml()
           : sec.id === 'look' ? lookPaneHtml()
-            : sec.id === 'browser' ? browsers.settingsHtml() : sec.id === 'usage' ? usagePaneHtml() : sec.id === 'about' ? aboutPaneHtml() : sec.id === 'shortcuts' ? shortcutsPaneHtml() : keysPaneHtml()}</div>
+            : sec.id === 'browser' ? browsers.settingsHtml() : sec.id === 'usage' ? usagePaneHtml()
+              : sec.id === 'updates' ? updatesPaneHtml() : sec.id === 'about' ? aboutPaneHtml() : sec.id === 'shortcuts' ? shortcutsPaneHtml() : keysPaneHtml()}</div>
     </div></div>
     <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : '<span class="note">Saved on this Mac only, nothing syncs.</span>'}
       <button class="btn btn--go" id="set-done">Done</button></div>`);
@@ -5743,6 +5754,7 @@ function renderSettings() {
   if (sec.id === 'about') wireAboutPane(modal);
   if (sec.id === 'browser') browsers.wireSettings(modal);
   if (sec.id === 'usage') wireUsagePane(modal);
+  if (sec.id === 'updates') wireUpdatesPane(modal);
   if (sec.id === 'shortcuts') {
     q('#shortcuts-back', modal).onclick = closeOverlay;
     q('#shortcuts-guide', modal).onclick = () => api.openUrl(DOCS.home);
@@ -5973,6 +5985,47 @@ function wireLookPane(modal) {
       q(`.set-opt[data-theme-id="${theme}"]`)?.focus({ preventScroll: true });
     };
   });
+}
+
+// ---- Updates — Settings → Updates, spec section 27 --------------------------
+// Every toggle here reads/writes through the same settings:get / settings:set
+// round trip Voice and Look already use — no new storage, no new IPC surface,
+// just four more keys in WRITABLE_SETTINGS (src/main/main.js). The two rules
+// updater.js was built around stay defaults here too: nothing downloads and
+// nothing installs unasked unless a person turns that on for themselves.
+function updatesPaneHtml() {
+  const saved = (S.overlay && S.overlay.saved) || {};
+  const autoCheck = saved.updatesAutoCheck !== false;        // default on
+  const autoDownload = !!saved.updatesAutoDownload;           // default off
+  const installOnLaunch = !!saved.updatesInstallOnLaunch;     // default off
+  const rawHours = Number(saved.updatesReminderHours);
+  const hours = Number.isFinite(rawHours) && rawHours > 0 ? rawHours : 24;
+  return `<div class="field-label">checking</div>
+    <label class="browser-check"><input type="checkbox" id="upd-auto-check"${autoCheck ? ' checked' : ''}><span>Automatically check for updates</span></label>
+    <label class="browser-check"><input type="checkbox" id="upd-auto-download"${autoDownload ? ' checked' : ''}><span>Automatically download updates<small>Off by default — nothing moves over the network without you asking, until you turn this on.</small></span></label>
+    <div class="field-label section-gap">reminder</div>
+    <div class="upd-hours-row"><span>Remind me later, after</span>
+      <input type="number" min="1" max="168" step="1" id="upd-reminder-hours" class="text-input" value="${hours}" />
+      <span>hours</span></div>
+    <div class="field-label section-gap">installing</div>
+    <label class="browser-check"><input type="checkbox" id="upd-install-launch"${installOnLaunch ? ' checked' : ''}><span>Install updates automatically on next launch<small>Only ever runs before you have any session open, and still refuses if one is already running by then.</small></span></label>
+    <p class="setup-note">A critical update is never installed silently — KingAgent still asks every time, and still refuses while work is running, whatever is set above.</p>`;
+}
+function wireUpdatesPane(modal) {
+  async function save() {
+    const patch = {
+      updatesAutoCheck: q('#upd-auto-check', modal).checked,
+      updatesAutoDownload: q('#upd-auto-download', modal).checked,
+      updatesInstallOnLaunch: q('#upd-install-launch', modal).checked,
+      updatesReminderHours: Math.max(1, Math.min(168, Number(q('#upd-reminder-hours', modal).value) || 24)),
+    };
+    const res = await api.settingsSet(patch);
+    if (res && res.ok) { S.overlay.saved = { ...(S.overlay.saved || {}), ...patch }; }
+    else toast('Could not save: ' + (res && res.error || '?'));
+  }
+  modal.querySelectorAll('#upd-auto-check, #upd-auto-download, #upd-install-launch').forEach((el) => { el.onchange = save; });
+  const hoursInput = q('#upd-reminder-hours', modal);
+  if (hoursInput) hoursInput.onchange = save;
 }
 
 // ---- About — which copy is this, and is it behind? -------------------------
@@ -6559,13 +6612,32 @@ const SKIPPED_UPDATE = 'kingagent-skipped-update';
 // survives every repaint — the failure state needs its url to fall back to a
 // browser, and the progress events do not carry one.
 let offered = null;
+// The Smart Update Center's analysis of `offered` — { metadata, analysis,
+// importance, currentVersion } from update:getReleaseInfo, or null before it
+// has arrived (a plain, unlabeled card is still a complete, honest card; the
+// details toggle just has nothing to show yet). Whether the "details" flap
+// under the card is open is separate from whether the data exists, so
+// opening it before the analysis lands does not have to be re-triggered.
+let releaseInfo = null;
+let updateDetailsOpen = false;
+
+async function refreshReleaseInfo() {
+  if (!offered || !api.updater || !api.updater.getReleaseInfo) return;
+  try { releaseInfo = await api.updater.getReleaseInfo(); } catch (_) { releaseInfo = null; }
+  if (offered) paintUpdate(lastUpdateState, lastUpdateEvent);
+}
 
 function offerUpdate(info, initial) {
   if (!info || !info.version || !els.updateRoot) return;
   // Dismissing is per version, and it sticks. Re-asking every six hours for
-  // something already refused is how an update prompt becomes wallpaper.
+  // something already refused is how an update prompt becomes wallpaper —
+  // unless main is the one asking again, on purpose, through a reminder it
+  // scheduled itself (see the onReminder wiring above, which clears this
+  // mark first: a scheduled "ask me later" is not the same refusal as "not
+  // now" was, and must not stay silenced by it).
   if (localStorage.getItem(SKIPPED_UPDATE) === info.version) return;
   offered = info;
+  updateDetailsOpen = false;
   // A window opened while a download was already running joins it in progress
   // rather than offering to start a second one.
   //
@@ -6577,21 +6649,58 @@ function offerUpdate(info, initial) {
   // fallback for the idle case, never as an override of a live download.
   let at = (initial && initial.state) || 'idle';
   if (at === 'idle' && initial && initial.staged) at = 'ready';
+  if (initial && initial.releaseInfo) releaseInfo = initial.releaseInfo;
   paintUpdate(at === 'downloading' ? 'downloading' : at === 'ready' ? 'ready' : 'idle', {});
+  refreshReleaseInfo();
 }
 
-// One function, four states, because they are the same card saying different
-// things — and because a repaint from an event that arrives after the user
-// dismissed the bar must not bring it back. `offered` being null means the bar
-// is closed, and every state respects that.
+// Why update / highlights / stats / importance — the same explanation the
+// spec's dialog mockup wants, folded into the corner card's own voice rather
+// than a second visual system. Every string here came out of releaseInfo,
+// which came out of the release itself (see update-analyzer.js) — nothing is
+// written fresh here.
+function updateDetailsHtml() {
+  if (!releaseInfo || !releaseInfo.analysis) return '';
+  const a = releaseInfo.analysis;
+  const importance = releaseInfo.importance || 'NORMAL';
+  const stats = a.stats || { features: 0, bugFixes: 0, securityFixes: 0 };
+  return `<div class="un-details">
+    ${a.summary ? `<p class="un-why">${esc(a.summary)}</p>` : ''}
+    ${a.highlights && a.highlights.length ? `<ul class="un-highlights">${a.highlights.map((h) => `<li>${esc(h)}</li>`).join('')}</ul>` : ''}
+    <div class="un-stats">
+      <span>Features <b>${stats.features}</b></span>
+      <span>Bug fixes <b>${stats.bugFixes}</b></span>
+      <span>Security fixes <b>${stats.securityFixes}</b></span>
+      <span class="un-importance un-importance--${importance.toLowerCase()}">${importance}</span>
+    </div>
+  </div>`;
+}
+function detailsToggleHtml() {
+  if (!releaseInfo || !releaseInfo.analysis) return '';
+  return `<span class="un-sep">·</span><button class="un-act un-quiet" id="uc-details">${updateDetailsOpen ? 'hide details' : 'why update?'}</button>`;
+}
+
+// One function, five states now, because they are the same card saying
+// different things — and because a repaint from an event that arrives after
+// the user dismissed the bar must not bring it back. `offered` being null
+// means the bar is closed, and every state respects that.
+let lastUpdateState = 'idle';
+let lastUpdateEvent = {};
 function paintUpdate(state, ev) {
+  lastUpdateState = state; lastUpdateEvent = ev || {};
   if (!offered || !els.updateRoot) return;
   const version = esc((ev && ev.version) || offered.version);
-  const close = () => { els.updateRoot.innerHTML = ''; offered = null; };
+  const close = () => { els.updateRoot.innerHTML = ''; offered = null; releaseInfo = null; };
+  // Section 9: a critical release keeps the same one-line voice as every
+  // other update, but the accent turns from amber to the same red the rest
+  // of the app already uses for something that needs attention now.
+  const critical = releaseInfo && releaseInfo.importance === 'CRITICAL';
+  const criticalCls = critical ? ' update-note--critical' : '';
+  const criticalLine = critical ? '<div class="un-critical">Critical update — contains important security or stability fixes.</div>' : '';
 
   if (state === 'downloading') {
     const pct = Math.max(0, Math.min(100, Number((ev && ev.percent) || 0)));
-    els.updateRoot.innerHTML = `<div class="update-note">
+    els.updateRoot.innerHTML = `<div class="update-note${criticalCls}">
       <span class="un-dot"></span>
       <span class="un-msg">getting KingAgent ${version}…</span>
       <span class="un-bar"><span class="un-fill" style="width:${pct}%"></span></span>
@@ -6607,22 +6716,24 @@ function paintUpdate(state, ev) {
     // takes its time closing, Squirrel waits for it, and reopening KingAgent inside
     // that window cancels the install with nothing said. So the wait stays as
     // the quiet default and this is the way to make it happen on purpose.
-    els.updateRoot.innerHTML = `<div class="update-note">
+    els.updateRoot.innerHTML = `<div class="update-note${criticalCls}">${criticalLine}
       <span class="un-dot un-done"></span>
       <span class="un-msg">KingAgent ${version} is ready</span>
       <button class="un-act" id="uc-now">install now</button>
       <span class="un-sep">·</span>
       <button class="un-act un-quiet" id="uc-ok">on quit</button>
+      ${detailsToggleHtml()}
+      ${updateDetailsOpen ? updateDetailsHtml() : ''}
     </div>`;
     q('#uc-ok', els.updateRoot).onclick = close;
+    // The active-task check now lives in main (update-manager.js's install()),
+    // which knows about every window's sessions, not just this one — the
+    // confirm step only shows up when it actually says no.
     q('#uc-now', els.updateRoot).onclick = async () => {
-      // Ask main rather than counting tiles: sessions belong to other windows
-      // too, and this window can only see its own.
-      let live = 0;
-      try { live = await api.liveSessions(); } catch (_) {}
-      if (live > 0) return paintUpdate('confirm', { version: (ev && ev.version) || offered.version, live });
-      await api.installUpdate();
+      const res = await api.installUpdate();
+      if (res && res.blocked) return paintUpdate('confirm', { version: (ev && ev.version) || offered.version, live: res.activeWork });
     };
+    wireDetailsToggle();
     return;
   }
 
@@ -6638,7 +6749,7 @@ function paintUpdate(state, ev) {
       <span class="un-sep">·</span>
       <button class="un-act un-quiet" id="uc-no">not now</button>
     </div>`;
-    q('#uc-yes', els.updateRoot).onclick = async () => { await api.installUpdate(); };
+    q('#uc-yes', els.updateRoot).onclick = async () => { await api.installUpdate({ force: true }); };
     q('#uc-no', els.updateRoot).onclick = () => paintUpdate('ready', ev);
     return;
   }
@@ -6647,12 +6758,14 @@ function paintUpdate(state, ev) {
   // has gone wrong it downloads in place, and afterwards it hands the dmg to a
   // browser, which is exactly what 0.1.3 did.
   const broke = state === 'failed';
-  els.updateRoot.innerHTML = `<div class="update-note">
+  els.updateRoot.innerHTML = `<div class="update-note${criticalCls}">${criticalLine}
     <span class="un-dot"></span>
     <span class="un-msg">${broke ? `KingAgent ${version} has to be installed by hand` : `KingAgent ${version} is out`}</span>
     <button class="un-act" id="uc-get">download</button>
     <span class="un-sep">·</span>
     <button class="un-act un-quiet" id="uc-later">not now</button>
+    ${detailsToggleHtml()}
+    ${updateDetailsOpen ? updateDetailsHtml() : ''}
   </div>`;
 
   q('#uc-get', els.updateRoot).onclick = async () => {
@@ -6663,8 +6776,20 @@ function paintUpdate(state, ev) {
   };
   q('#uc-later', els.updateRoot).onclick = () => {
     localStorage.setItem(SKIPPED_UPDATE, offered.version);
+    // Section 7: preserve the downloaded bytes, persist the postponed state,
+    // and remind in 24h by default (Settings → Updates can change the
+    // interval). A failure here is silent, same as every other update
+    // network call — the local skip above still closes the bar either way.
+    if (api.updater && api.updater.postpone) api.updater.postpone().catch(() => {});
     close();
   };
+  wireDetailsToggle();
+}
+
+function wireDetailsToggle() {
+  const btn = q('#uc-details', els.updateRoot);
+  if (!btn) return;
+  btn.onclick = () => { updateDetailsOpen = !updateDetailsOpen; paintUpdate(lastUpdateState, lastUpdateEvent); };
 }
 
 // ===========================================================================

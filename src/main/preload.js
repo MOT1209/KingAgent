@@ -158,13 +158,46 @@ contextBridge.exposeInMainWorld('kingagent', {
   // Downloading one. All three fire on every window, because one download
   // serves the whole app — see main's update:download.
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
-  installUpdate: () => ipcRenderer.invoke('update:install'),
+  // { force: true } is the renderer's own "install anyway" — main still runs
+  // the active-work check either way, force only tells it the user already
+  // saw the warning and chose to go ahead.
+  installUpdate: (args) => ipcRenderer.invoke('update:install', args),
   updaterState: () => ipcRenderer.invoke('update:state'),
   liveSessions: () => ipcRenderer.invoke('update:sessions'),
   onUpdateProgress: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:progress', h); return () => ipcRenderer.removeListener('update:progress', h); },
   onUpdateReady: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:ready', h); return () => ipcRenderer.removeListener('update:ready', h); },
   onUpdateFailed: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:failed', h); return () => ipcRenderer.removeListener('update:failed', h); },
   appVersion: () => ipcRenderer.invoke('app:version'),
+
+  // The Smart Update Center's own surface — window.kingagent.updater. Every
+  // method here is a plain invoke/on pair to a channel registered in main.js
+  // (src/main/updater/update-manager.js does the actual work); nothing raw
+  // from Node or Electron crosses this bridge, same rule as the rest of this
+  // file.
+  updater: {
+    getState: () => ipcRenderer.invoke('update:getState'),
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    install: (args) => ipcRenderer.invoke('update:install', args),
+    postpone: (args) => ipcRenderer.invoke('update:postpone', args),
+    getReleaseInfo: () => ipcRenderer.invoke('update:getReleaseInfo'),
+    onStateChange: (cb) => {
+      const h = (_e, ev) => cb(ev);
+      ipcRenderer.on('update:available', h);
+      ipcRenderer.on('update:reminder', h);
+      ipcRenderer.on('update:ready', h);
+      ipcRenderer.on('update:failed', h);
+      return () => {
+        ipcRenderer.removeListener('update:available', h);
+        ipcRenderer.removeListener('update:reminder', h);
+        ipcRenderer.removeListener('update:ready', h);
+        ipcRenderer.removeListener('update:failed', h);
+      };
+    },
+    onProgress: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:progress', h); return () => ipcRenderer.removeListener('update:progress', h); },
+    onUpdateAvailable: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:available', h); return () => ipcRenderer.removeListener('update:available', h); },
+    onReminder: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:reminder', h); return () => ipcRenderer.removeListener('update:reminder', h); },
+  },
 
   // Phase 2: the Agent Platform surface. Every invoke channel here is allowed
   // by src/core/security/ipc-guard.js and registered in src/main/agent-platform.js —

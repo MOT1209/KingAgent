@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { posix } from './test-utils.mjs';
 
 const require = createRequire(import.meta.url);
-const { nextState, percentOf, downloadUpdate, installNow, hasStagedFile, updaterState } = require('../src/main/updater.js');
+const { nextState, percentOf, downloadUpdate, installNow, hasStagedFile, updaterState } = require('../src/main/updater/updater.js');
 
 // --- the states a download can be in -----------------------------------------
 //

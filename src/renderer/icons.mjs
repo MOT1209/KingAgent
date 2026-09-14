@@ -246,6 +246,7 @@ const HELP_ICONS = {
   more: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
   shortcuts: '<path d="M8 8H5a3 3 0 1 1 3-3v14a3 3 0 1 1-3-3h14a3 3 0 1 1-3 3V5a3 3 0 1 1 3 3z"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
+  updates: '<path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/>',
   link: '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"/>',
   keyboard: '<rect x="2" y="5" width="20" height="14" rx="1"/><path d="M6 9h1m4 0h1m4 0h1M6 13h1m4 0h1m4 0h1M7 16h10"/>',
   desk: '<rect x="2" y="4" width="8" height="16" rx="1"/><rect x="14" y="4" width="8" height="7" rx="1"/><rect x="14" y="15" width="8" height="5" rx="1"/>',

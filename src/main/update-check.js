@@ -114,4 +114,11 @@ async function checkForUpdate(opts = {}) {
   return st.state === 'update' ? { version: st.version, url: st.url } : null;
 }
 
-module.exports = { isNewer, releaseFromApi, checkForUpdate, updateStatus, parseVersion, LATEST };
+// fetchLatest is exported alongside the rest so the Smart Update Center
+// (src/main/updater/update-manager.js) can ask this same feed for the raw
+// release document — release notes, assets, published_at — that
+// update-metadata.js needs to build a real explanation. Everything above
+// still only ever sees the boiled-down { state, version, url } answer; this
+// is the one extra door, opened for the one caller that has to look at the
+// whole release rather than just whether it is newer.
+module.exports = { isNewer, releaseFromApi, checkForUpdate, updateStatus, parseVersion, fetchLatest, LATEST };
