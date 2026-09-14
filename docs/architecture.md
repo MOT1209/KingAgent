@@ -40,6 +40,47 @@ renderer (ESM) ── contextBridge ──> preload ── ipcMain.handle ──
 | execution | `execution/code-exec.js` | sandboxed code execution interface |
 | recovery | `recovery/recovery.js` | retry / replan / ask-human decisions for a failed **step** |
 
+## Phase 4: orchestration, governance, execution
+
+Phase 2's runtime still runs the work. Phase 4 wraps it in a second,
+independent control plane that decides *what* runs, *where*, *whether it
+may*, and *in which sandbox* — built alongside the Phase 3 layer below
+rather than in place of it (see that section for why both exist and how
+`src/core/index.js` reconciles them):
+
+| Subsystem | Path | Responsibility |
+| --- | --- | --- |
+| harness | `harness/` | execution backends behind one adapter interface + registry |
+| policy | `policy/` | scoped governance: allow / deny / approval, with an audit trail |
+| sandbox | `sandbox/` | authorized workspaces, limits, process ownership, cleanup |
+| session | `session/` | the container a person's work lives in |
+| artifacts | `harness-orchestrator/artifacts.js` | the products of a run, with harness/session provenance (`platform.harnessArtifacts`) |
+| orchestrator | `harness-orchestrator/` | routing, multi-agent coordination and the run pipeline (`platform.harnessOrchestrator`) |
+
+```
+User
+ ↓
+Orchestrator ── Router ──> Agent + Harness
+ ↓
+Policy ──> Sandbox ──> Workspace
+ ↓
+Agent Runtime (Planning → Tools → Execution → Evaluation → Recovery)
+ ↓
+Artifacts ──> Session ──> Trace
+```
+
+The rule this layer is built on:
+
+> KingAgent owns orchestration, governance, workspace, context, memory,
+> execution control and observability. Harnesses are replaceable execution
+> backends.
+
+Design documents: [harness-orchestrator.md](harness-orchestrator.md),
+[harness.md](harness.md), [routing.md](routing.md), [policies.md](policies.md),
+[sandbox.md](sandbox.md), [sessions.md](sessions.md),
+[harness-multi-agent.md](harness-multi-agent.md),
+[delegation.md](delegation.md), [security-model.md](security-model.md).
+
 The style is composition over libraries: `io` adapters (fs, shell, cwd) are
 injected, so tests swap them for stubs and the main process injects the real
 ones. No hardcoded OS paths — everything resolves through `io`, `node:path` or

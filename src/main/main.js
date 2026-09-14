@@ -42,9 +42,8 @@ const { unzip } = require('./unzip');
 const { seedStartHere } = require('./start-here');
 const { userPath, refreshUserPath } = require('./user-path');
 const { exitNote } = require('./exit-note');
-const { checkForUpdate, updateStatus } = require('./update-check');
 const { sendPing } = require('./ping');
-const { downloadUpdate, installNow, hasStagedFile, updaterState } = require('./updater');
+const { hasStagedFile, updaterState, createUpdateManager } = require('./updater');
 const { parseDocUrl, resolveWithinRoot, docContentType } = require('./doc-protocol');
 const { browserFileUrl } = require('./browser-file');
 const { wireBrowserViews } = require('./browser-views');
@@ -302,7 +301,8 @@ function refreshAppMenu(focusedWindow = BrowserWindow.getFocusedWindow() || win)
 
 // ---- updates ---------------------------------------------------------------
 // Ask GitHub what the latest release is; if it beats what is running, tell the
-// windows so they can offer it. Notify-only — see update-check.js for why.
+// windows so they can offer it. Notify-only in what it does to the app on its
+// own — see update-check.js for why nothing here installs anything uninvited.
 //
 // Never runs in development: the version in package.json is always behind the
 // last published release while working, so every launch would nag about an
@@ -310,17 +310,82 @@ function refreshAppMenu(focusedWindow = BrowserWindow.getFocusedWindow() || win)
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;
 let lastOffered = null;
 
+// The Smart Update Center — one instance for the process, created on first
+// use so nothing about app.getVersion()/getPath('userData') has to be ready
+// before this file is required. It wraps downloadUpdate/installNow/hasStaged
+// File above, the exact functions the update card already called; nothing
+// about how a byte actually reaches disk changes, this only adds the layer
+// that explains *why* a release matters and remembers what was decided about
+// it. `wins` and `liveSessionCount` are declared further down but referenced
+// only inside these closures, at call time — both are settled by then.
+let sharedUpdateManager = null;
+function updateManager() {
+  if (sharedUpdateManager) return sharedUpdateManager;
+  sharedUpdateManager = createUpdateManager({
+    isPackaged: app.isPackaged,
+    appVersion: app.getVersion(),
+    stateFile: path.join(app.getPath('userData'), 'update-state.json'),
+    emitToRenderer: (channel, payload) => {
+      for (const w of wins) sendWc(w.webContents, channel, payload);
+    },
+    getActiveWork: () => liveSessionCount(),
+    defaultReminderMs: readSettings().updatesReminderHours
+      ? Number(readSettings().updatesReminderHours) * 60 * 60 * 1000
+      : undefined,
+  });
+  return sharedUpdateManager;
+}
+
 async function pollForUpdate() {
-  const found = await checkForUpdate({ currentVersion: app.getVersion() });
-  if (!found) return;
-  lastOffered = found;
-  for (const w of wins) sendWc(w.webContents, 'update:available', found);
+  // Settings → Updates → "Automatically check for updates", on by default —
+  // only an explicit `false` skips the poll.
+  if (readSettings().updatesAutoCheck === false) return;
+  const res = await updateManager().check();
+  if (res.status.state !== 'update') return;
+  lastOffered = { version: res.status.version, url: res.status.url };
+  for (const w of wins) sendWc(w.webContents, 'update:available', lastOffered);
+  // Settings → Updates → "Automatically download updates", off by default —
+  // rule one from updater.js ("nothing downloaded unasked") stays the
+  // default; this is the one door the user can open themselves. Failures are
+  // silent here exactly like the check itself — the card still offers a
+  // manual download, and a background prefetch is not something to alarm
+  // anyone about failing.
+  if (readSettings().updatesAutoDownload) updateManager().download().catch(() => {});
+}
+
+// Section 27: "Install updates automatically on next launch." Off by
+// default, and only when a download from an earlier run is already sitting
+// in the cache — this never triggers a fresh download on its own.
+// installNow() re-validates that cached file against electron-updater's own
+// record before trusting it, the same as the "Install now" button already
+// does. Safe even if a session somehow spawned in the same 8 seconds: this
+// goes through updateManager().install() unforced, which refuses to install
+// while liveSessionCount() is nonzero — the same guard the button gets.
+async function maybeAutoInstallOnLaunch() {
+  if (!app.isPackaged || REVIEW) return;
+  if (!readSettings().updatesInstallOnLaunch) return;
+  if (!stagedUpdateWaiting()) return;
+  try { await updateManager().install(); } catch (_) {}
+}
+
+// A postponed update that has waited out its reminder window, brought back
+// on the next launch rather than left for a background poll that might be
+// hours away. Section 8 of the spec: "do not repeatedly spam the user" — the
+// manager backs the interval off on its own each time this fires without the
+// user acting on it.
+function checkUpdateReminder() {
+  const due = updateManager().checkReminder();
+  if (!due) return;
+  lastOffered = { version: due.postponedVersion, url: lastOffered?.url || null };
+  for (const w of wins) sendWc(w.webContents, 'update:reminder', { version: due.postponedVersion });
 }
 
 function startUpdatePolling() {
   if (!app.isPackaged || REVIEW) return;
   // A beat after launch, not during it — the first seconds belong to the window.
+  setTimeout(maybeAutoInstallOnLaunch, 8000).unref?.();
   setTimeout(pollForUpdate, 8000).unref?.();
+  setTimeout(checkUpdateReminder, 8000).unref?.();
   setInterval(pollForUpdate, UPDATE_EVERY).unref?.();
 }
 
@@ -622,7 +687,12 @@ ipcMain.handle('boot', (e) => {
     // offer to start a download that is already running or already done.
     // `staged` is the one that survives a restart: a download left in the cache
     // by an earlier run, which nothing would otherwise ever install.
-    updater: { ...updaterState(), staged: stagedUpdateWaiting(), sessions: liveSessionCount() },
+    updater: {
+      ...updaterState(), staged: stagedUpdateWaiting(), sessions: liveSessionCount(),
+      // null until the first check runs — a window opened before then asks
+      // update:getReleaseInfo again once 'update:available' arrives.
+      releaseInfo: sharedUpdateManager ? sharedUpdateManager.getReleaseInfo() : null,
+    },
     // For the About pane. Sent at boot rather than fetched when the tab opens,
     // so opening it costs nothing and shows the truth instantly; the button is
     // the only thing that touches the network.
@@ -704,7 +774,8 @@ function appUpdatedAt() {
 }
 
 ipcMain.handle('update:status', async () => {
-  const st = await updateStatus({ currentVersion: app.getVersion() });
+  const res = await updateManager().check();
+  const st = res.status;
   // A manual check that finds something also re-arms the bar: the renderer
   // clears its "skipped" mark off the back of this, so a version somebody once
   // waved away can be found again.
@@ -736,22 +807,22 @@ ipcMain.handle('update:open', (_e, url) => {
 // going. All the windows share one copy of KingAgent on disk, so they share one
 // download and see the same progress — a second window opened halfway through
 // asks for the current state at boot rather than starting its own.
-ipcMain.handle('update:download', () => downloadUpdate({
-  isPackaged: app.isPackaged,
-  emit: (channel, payload) => {
-    for (const w of wins) sendWc(w.webContents, channel, payload);
-  },
-}));
+//
+// Routed through the Smart Update Center rather than calling downloadUpdate
+// directly: the manager still ends up calling that exact function (see
+// src/main/updater/update-manager.js), it just also keeps its own state and
+// events in step with whatever triggered the download.
+ipcMain.handle('update:download', () => updateManager().download());
 ipcMain.handle('update:state', () => updaterState());
 
 // Install it now and come back on the new version, instead of waiting for a
 // quit and hoping to beat the user back to the app.
-ipcMain.handle('update:install', () => installNow({
-  isPackaged: app.isPackaged,
-  emit: (channel, payload) => {
-    for (const w of wins) sendWc(w.webContents, channel, payload);
-  },
-}));
+//
+// Active-task safety lives here now, not only in the renderer's own
+// pre-check: the manager asks liveSessionCount() itself and refuses to
+// install while it is nonzero, unless `force` says the user already saw the
+// warning and chose to go ahead anyway. See update-manager.js's install().
+ipcMain.handle('update:install', (_e, args) => updateManager().install({ force: !!(args && args.force) }));
 
 // electron-updater's cache dir, which it names from updaterCacheDirName in
 // app-update.yml. Only somewhere to look — nothing here writes to it.
@@ -761,11 +832,26 @@ function stagedUpdateWaiting() {
 
 // What an update would end if it happened right now. The renderer says so
 // before installing, because an update that silently kills four agents
-// mid-thought is the outcome this whole feature was shaped to avoid.
+// mid-thought is the outcome this whole feature was shaped to avoid. Also
+// what the Smart Update Center's own install() gate asks for, above.
 function liveSessionCount() {
   return termSessions.size;
 }
 ipcMain.handle('update:sessions', () => liveSessionCount());
+
+// ---- the Smart Update Center's own surface ---------------------------------
+// A fuller check than update:status: this one populates the manager's
+// analysis (why this release matters, its highlights, its importance) so
+// update:getReleaseInfo has something to answer once it resolves.
+ipcMain.handle('update:check', () => updateManager().check());
+ipcMain.handle('update:getState', () => updateManager().getState());
+ipcMain.handle('update:getReleaseInfo', () => updateManager().getReleaseInfo());
+// hours is optional — omitted, the manager's own default (or the one set in
+// Settings → Updates) applies.
+ipcMain.handle('update:postpone', (_e, args) => {
+  const hours = Number(args && args.hours);
+  return updateManager().postpone(Number.isFinite(hours) && hours > 0 ? { hours } : {});
+});
 
 // Which of the curated agent CLIs are on this Mac (via the user's login shell).
 // Every scan writes down where it found each program, because the scan is the
@@ -977,6 +1063,9 @@ const WRITABLE_SETTINGS = new Set([
   'theme', 'view',
   'sttProvider', 'openaiKey', 'elevenKey', 'openaiModel', 'elevenModel',
   'sttModelId',
+  // Settings → Updates (spec section 27). Read back in updateManager() and
+  // in the renderer's own pane; nothing else consults these directly.
+  'updatesAutoCheck', 'updatesAutoDownload', 'updatesReminderHours', 'updatesInstallOnLaunch',
 ]);
 ipcMain.handle('settings:get', () => {
   const s = readSettings();

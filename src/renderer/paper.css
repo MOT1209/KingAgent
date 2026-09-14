@@ -1064,6 +1064,44 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 }
 .update-note .un-pct { color: var(--muted); font-variant-numeric: tabular-nums; }
 
+/* The Smart Update Center's extra rows: a critical banner and the "why
+   update?" flap, both folded into the same card rather than a second visual
+   system. flex-wrap plus flex-basis:100% is the trick that keeps the compact
+   one-line row exactly as it was when nothing is expanded, and drops these
+   onto their own lines only when they are actually present. */
+.update-note { flex-wrap: wrap; max-width: 380px; }
+.update-note .un-critical {
+  flex-basis: 100%; order: -1;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--red-ink); padding-bottom: 3px; margin-bottom: 2px;
+  border-bottom: 1px dashed var(--red-line);
+}
+.update-note--critical { border-color: var(--red-line); }
+.update-note--critical .un-dot { background: var(--red-line); }
+.update-note .un-importance {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 1px 6px; border: 1px solid var(--dash-dark); flex: none;
+}
+.update-note .un-importance--critical { color: var(--red-ink); border-color: var(--red-line); background: var(--red-bg); }
+.update-note .un-importance--high { color: var(--amber-body, var(--ink)); border-color: var(--amber-line); background: var(--amber-bg); }
+.update-note .un-importance--normal { color: var(--muted); }
+.update-note .un-importance--low { color: var(--faint); }
+
+.update-note .un-details {
+  flex-basis: 100%; white-space: normal; font-size: 11px; line-height: 1.5;
+  color: var(--ink); padding-top: 6px; margin-top: 2px; border-top: 1px dashed var(--dash);
+}
+.update-note .un-why { margin: 0 0 6px; color: var(--muted); }
+.update-note .un-highlights { margin: 0 0 8px; padding-left: 16px; }
+.update-note .un-highlights li { margin: 2px 0; }
+.update-note .un-stats { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 10.5px; color: var(--muted); }
+.update-note .un-stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Settings → Updates: the reminder-interval field sits in its own row, same
+   spacing rhythm as a .browser-check label without needing a checkbox. */
+.upd-hours-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 8px 0; }
+.upd-hours-row .text-input { width: 64px; text-align: center; }
+
 /* ===== terminal-first grid + tiles ===================================== */
 .main { display: flex; flex-direction: column; }
 /* Explicit tracks, not auto-fill: a card can claim more than one of them, and

@@ -6,12 +6,45 @@
 // boundary the UI sees. All I/O (fs, shell, workspace) arrives through `io` so
 // the factory is fully host-agnostic and unit-testable.
 //
-// Phase 3 adds a layer *above* the runtime rather than inside it. The runtime,
-// planner, tool manager, workflow engine and event bus are constructed exactly
-// as before; what is new is the world a run happens inside — a workspace with
-// an identity, a budgeted context packet, scoped memory, an execution trace,
-// artifacts, approvals, state snapshots and an orchestrator that composes them.
-// Nothing Phase 2 built was replaced to get there.
+// Two independent layers sit on top of the unchanged Phase 2 runtime here,
+// side by side rather than one replacing the other:
+//
+//   Phase 3 (src/core/{workspace,context,memory,project,trace,artifacts,
+//   approval,agents,state,orchestrator}/) — a workspace with an identity, a
+//   budgeted context packet, scoped memory, an execution trace, artifacts,
+//   approvals, state snapshots and an orchestrator that composes them. This
+//   is what `platform.orchestrator`, `platform.coordinator` and
+//   `platform.artifacts` are. See docs/architecture.md.
+//
+//   Phase 4 / harness-orchestrator (src/core/{harness,policy,sandbox,session,
+//   harness-orchestrator}/) — governance and execution-backend layers: which
+//   external harness (Claude Code, Codex, …) runs a task, the policy engine
+//   every sensitive operation passes through, sandboxed process ownership,
+//   and a second, harness-aware orchestrator built on top of those. This is
+//   `platform.policy`, `platform.harnesses`, `platform.sandboxes`,
+//   `platform.sessions` and the `platform.harness*`-prefixed properties. See
+//   docs/harness-orchestrator.md and docs/harness-multi-agent.md.
+//
+// They were built independently and reconciled rather than merged into one
+// design: same-named concepts (an orchestrator, a coordinator, an artifact
+// store) exist on both sides with different shapes, so each keeps its own
+// module path and its own property name on the returned platform rather than
+// one silently overwriting the other. The one seam that *is* shared is the
+// tool-authorization gate (see `composeAuthorize` below): a policy `deny` is
+// final, and everything else still goes through Phase 3's auditable
+// ApprovalManager exactly as it did before Phase 4 existed.
+//
+// `io` additions for Phase 4 (all optional):
+//
+//   io.policy.approver      approval callback for policy decisions
+//   io.policy.defaultEffect 'allow' (default) or 'deny' for a locked-down install
+//   io.harness.probe        host probe: ({ id, command }) -> { installed, version, path }
+//   io.harness.transports   harness id -> transport ({ start, stop, send, … }), or
+//                           io.harness.perHarness for per-harness overrides
+//   io.harness.runner       drives a conversation on an external harness
+//   io.sandbox.spawn/kill/killTree   the process owner (node-pty / child_process)
+//   io.sandbox.backend      an explicit backend, bypassing selection
+//   io.costs / io.metrics   routing inputs for cost_aware / performance_aware
 
 const { EventBus } = require('./events/event-bus');
 const { createLogger } = require('./logging/logger');
@@ -46,11 +79,26 @@ const { AgentStateStore } = require('./state/store');
 const { StateRecoveryManager } = require('./state/recovery');
 const { Orchestrator } = require('./orchestrator/orchestrator');
 
+// --- Phase 4 / harness-orchestrator subsystems --------------------------------
+const { HarnessRegistry, HarnessManager, registerBuiltinHarnesses } = require('./harness');
+const { PolicyManager, actionForTool } = require('./policy');
+const { SandboxManager, DEFAULT_CEILING } = require('./sandbox');
+const { SessionManager } = require('./session');
+const { createArtifactStore } = require('./harness-orchestrator/artifacts');
+const {
+  AgentRouter,
+  createAgentCoordinator,
+  createFileLockManager,
+  Orchestrator: HarnessOrchestrator,
+} = require('./harness-orchestrator');
+
 function createPlatform({
-  io = {}, // { fs, root, cwd, runShell, authorize, hostEnv, inheritEnv }
+  io = {}, // { fs, root, cwd, runShell, authorize, hostEnv, inheritEnv, policy, harness, sandbox, costs, metrics }
   loggerOptions = {},
   storeDir = null,
   autoRegisterBuiltinAgents = true,
+  autoRegisterBuiltinHarnesses = true,
+  loadBaselinePolicies = true,
   policies = {},
   approvalOptions = {},
 }) {
@@ -82,12 +130,31 @@ function createPlatform({
     ...approvalOptions,
   });
 
+  // --- policy (Phase 4) -------------------------------------------------------
+  // Built before the tools, because the tool gate consults it too. The default
+  // effect is 'allow' so a fresh install behaves exactly as it did before this
+  // layer existed unless a host opts into 'deny'; either way the baseline
+  // documents are loaded, and because the merge is most-restrictive-wins a host
+  // policy can only ever tighten them.
+  const policy = new PolicyManager({
+    bus,
+    logger: logger.child('policy'),
+    store,
+    defaultEffect: (io.policy && io.policy.defaultEffect) || 'allow',
+    approver: (io.policy && io.policy.approver) || null,
+  });
+  if (loadBaselinePolicies) policy.loadBaseline();
+
+  // --- tools -----------------------------------------------------------------
+  // Two gates in front of one call: a policy `deny` is final (the human loop
+  // below is never reached, so a human cannot accidentally approve what policy
+  // forbids); everything else still becomes a listable, auditable
+  // ApprovalManager request exactly as it did before the policy layer existed,
+  // unless the host supplies its own callback.
   const tools = new ToolManager({
     bus,
     logger: logger.child('tools'),
-    // An explicit host callback still wins; otherwise every gated call becomes
-    // a listable, auditable approval request.
-    authorize: io.authorize || approvals.toolAuthorizer(),
+    authorize: composeAuthorize({ policy, hostAuthorize: io.authorize || approvals.toolAuthorizer() }),
   });
   registerBuiltinTools(tools, {
     fs,
@@ -237,6 +304,90 @@ function createPlatform({
     hostEnv: io.hostEnv || null,
   });
 
+  // --- Phase 4 / harness-orchestrator layers ------------------------------------
+  const harnessOptions = io.harness || {};
+  const harnesses = new HarnessRegistry({
+    bus,
+    logger: logger.child('harness'),
+    probe: harnessOptions.probe || null,
+    installer: harnessOptions.installer || null,
+    transports: harnessOptions.transports || {},
+  });
+  if (autoRegisterBuiltinHarnesses) {
+    registerBuiltinHarnesses(harnesses, { perHarness: harnessOptions.perHarness || {}, probe: harnessOptions.probe || null });
+  }
+  for (const extra of harnessOptions.manifests || []) {
+    harnesses.register(extra.manifest || extra, extra);
+  }
+
+  const sandboxOptions = io.sandbox || {};
+  const sandboxes = new SandboxManager({
+    bus,
+    logger: logger.child('sandbox'),
+    spawn: sandboxOptions.spawn || null,
+    kill: sandboxOptions.kill || null,
+    killTree: sandboxOptions.killTree || null,
+    backend: sandboxOptions.backend || null,
+    backendFactory: sandboxOptions.backendFactory || null,
+    ceiling: sandboxOptions.ceiling || DEFAULT_CEILING,
+    policy,
+    store,
+  });
+
+  const harnessManager = new HarnessManager({
+    registry: harnesses,
+    bus,
+    logger: logger.child('harness'),
+    sandbox: sandboxes,
+    policy,
+  });
+
+  const sessions = new SessionManager({ bus, logger: logger.child('session'), store });
+  // Distinct from Phase 3's `artifacts` (ArtifactManager, workspace-owned):
+  // this one carries harness/session provenance instead. Neither replaces
+  // the other; see the module comment above.
+  const harnessArtifacts = createArtifactStore({ bus, store, logger: logger.child('harness-artifacts') });
+  const locks = createFileLockManager({ logger: logger.child('locks'), bus });
+
+  const harnessRouter = new AgentRouter({
+    agentRegistry: agents,
+    harnessRegistry: harnesses,
+    policy,
+    bus,
+    logger: logger.child('harness-router'),
+    costs: io.costs || {},
+    metrics: io.metrics || null,
+  });
+
+  const harnessCoordinator = createAgentCoordinator({
+    bus,
+    logger: logger.child('harness-coordinator'),
+    agentRegistry: agents,
+    policy,
+    locks,
+    artifacts: harnessArtifacts,
+    sessions,
+    harnesses: harnessManager,
+    sandboxes,
+  });
+
+  const harnessOrchestrator = new HarnessOrchestrator({
+    bus,
+    logger: logger.child('harness-orchestrator'),
+    agents,
+    runtime,
+    router: harnessRouter,
+    harnesses: harnessManager,
+    policy,
+    sandboxes,
+    sessions,
+    coordinator: harnessCoordinator,
+    artifacts: harnessArtifacts,
+    memory,
+    harnessRunner: harnessOptions.runner || null,
+    evaluate: harnessOptions.evaluate || null,
+  });
+
   return {
     bus,
     logger,
@@ -267,14 +418,56 @@ function createPlatform({
     orchestrator,
     environment,
 
-    // Release every timer and in-flight decision a host is holding. Called when
-    // the app quits, so a pending approval cannot keep a process alive.
-    dispose() {
+    // Phase 4 / harness-orchestrator
+    policy,
+    harnesses,
+    harnessManager,
+    sandboxes,
+    sessions,
+    locks,
+    harnessArtifacts,
+    harnessRouter,
+    harnessCoordinator,
+    harnessOrchestrator,
+
+    // Release every timer, in-flight decision and spawned process a host is
+    // holding. Called when the app quits, so a pending approval or a sandboxed
+    // process cannot keep the app alive after the window closes.
+    async dispose() {
       approvals.dispose();
       orchestrator.scheduler.cancelAll('platform disposed');
+      await harnessManager.dispose().catch(() => {});
+      await sandboxes.cleanup('platform disposed').catch(() => {});
       return true;
     },
   };
 }
 
-module.exports = { createPlatform };
+// The tool gate's authorize callback, with the policy engine in front of it.
+//
+// Order matters and is the whole point:
+//   1. a policy `deny` is final — the human loop below is never reached, so a
+//      human cannot accidentally approve what the policy forbids
+//   2. a policy `approval` (or `allow`) falls through to `hostAuthorize` —
+//      which is the host's own callback if it supplied one, or Phase 3's
+//      ApprovalManager-backed authorizer otherwise, so every gated call still
+//      becomes a listable, auditable record exactly as it did before this
+//      policy layer existed
+//
+// With no `hostAuthorize` at all the answer is `false`: nothing irreversible
+// happens unattended, same as before Phase 4.
+function composeAuthorize({ policy, hostAuthorize }) {
+  return async ({ agent, tool, input, taskId }) => {
+    const action = actionForTool(tool);
+    const decision = await policy.evaluate({
+      action,
+      askApproval: false, // the human loop below is the approval route
+      context: { agentId: agent && agent.id, toolId: tool && tool.id, taskId },
+    });
+    if (decision.effect === 'deny') return false;
+    if (!hostAuthorize) return false;
+    return (await hostAuthorize({ agent, tool, input, taskId, policy: decision })) === true;
+  };
+}
+
+module.exports = { createPlatform, composeAuthorize };

@@ -9,7 +9,7 @@ let seq = 0;
 function makeEvent(type, refs = {}, payload) {
   const id = `evt-${Date.now().toString(36)}-${(++seq).toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const ev = {
-    id,
+    id, // the correlation key every Phase 3/4 observer joins on
     type,
     timestamp: Date.now(),
     taskId: refs.taskId || null,
@@ -27,6 +27,12 @@ function makeEvent(type, refs = {}, payload) {
     traceId: refs.traceId || null,
     parentEventId: refs.parentEventId || null,
     seq: seq,
+    // Phase 4 correlation refs. A harness/policy/sandbox event is only useful
+    // if it can be joined back to the work it happened for.
+    harnessId: refs.harnessId || null,
+    policyId: refs.policyId || null,
+    sandboxId: refs.sandboxId || null,
+    delegationId: refs.delegationId || null,
     payload: payload === undefined ? null : payload,
   };
   return Object.freeze(ev);
@@ -155,6 +161,34 @@ const TYPES = Object.freeze({
   // Project
   PROJECT_DETECTED: 'project.detected',
   PROJECT_INDEXED: 'project.indexed',
+
+  // --- Phase 4 (harness-orchestrator: src/core/harness-orchestrator/, an
+  // independent control-plane layer that coexists with the Phase 3 one
+  // above rather than replacing it — see docs/harness-orchestrator.md) -----
+  HARNESS_SELECTED: 'harness.selected',
+  HARNESS_STARTED: 'harness.started',
+  HARNESS_STOPPED: 'harness.stopped',
+  HARNESS_FAILED: 'harness.failed',
+  POLICY_EVALUATED: 'policy.evaluated',
+  POLICY_DENIED: 'policy.denied',
+  POLICY_APPROVAL_REQUIRED: 'policy.approval_required',
+  SANDBOX_CREATED: 'sandbox.created',
+  SANDBOX_STARTED: 'sandbox.started',
+  SANDBOX_STOPPED: 'sandbox.stopped',
+  SANDBOX_FAILED: 'sandbox.failed',
+  SANDBOX_PROCESS_REGISTERED: 'sandbox.process.registered',
+  AGENT_ROUTED: 'agent.routed',
+  SESSION_CREATED: 'session.created',
+  SESSION_STARTED: 'session.started',
+  SESSION_PAUSED: 'session.paused',
+  SESSION_RESUMED: 'session.resumed',
+  SESSION_COMPLETED: 'session.completed',
+  SESSION_FAILED: 'session.failed',
+  SESSION_STOPPED: 'session.stopped',
+  ORCHESTRATOR_STEP: 'orchestrator.step',
+  // AGENT_DELEGATED, AGENT_HANDOFF, AGENT_MESSAGE and ARTIFACT_CREATED were
+  // also defined here under Phase 4 with the identical key and value the
+  // Phase 3 block above already declares; not repeated.
 });
 
 module.exports = { EventBus, makeEvent, TYPES };

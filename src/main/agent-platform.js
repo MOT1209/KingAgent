@@ -16,6 +16,13 @@ const { validateWorkflow } = require('../core/workflows/definition');
 const { TYPES } = require('../core/events/event-bus');
 const { serializeTrace, toActivityStream } = require('../core/trace/serializer');
 
+// What the renderer is told about as it happens.
+//
+// Phase 4's high-volume signal is `policy.evaluated`, which fires on every
+// gated call and is deliberately *not* forwarded: it would put a message on the
+// wire for every tool call in every pane. The policy UI reads the audit ring
+// over `agent:policyAudit` instead, and only the decisions a person needs to
+// see live (denials, approval gates) stream.
 const FORWARD_TYPES = new Set([
   TYPES.TASK_CREATED, TYPES.TASK_QUEUED, TYPES.TASK_STARTED, TYPES.TASK_ANALYZING,
   TYPES.TASK_PLANNING, TYPES.PLAN_CREATED, TYPES.STEP_STARTED, TYPES.STEP_COMPLETED,
@@ -39,9 +46,19 @@ const FORWARD_TYPES = new Set([
   TYPES.AGENT_MESSAGE, TYPES.AGENT_DELEGATED, TYPES.AGENT_HANDOFF,
   TYPES.ORCHESTRATION_ROUTED, TYPES.ORCHESTRATION_COMPLETED, TYPES.ORCHESTRATION_FAILED,
   TYPES.PROJECT_DETECTED, TYPES.PROJECT_INDEXED,
+
+  // Phase 4 / harness-orchestrator
+  TYPES.HARNESS_SELECTED, TYPES.HARNESS_STARTED, TYPES.HARNESS_STOPPED, TYPES.HARNESS_FAILED,
+  TYPES.POLICY_DENIED, TYPES.POLICY_APPROVAL_REQUIRED,
+  TYPES.SANDBOX_CREATED, TYPES.SANDBOX_STARTED, TYPES.SANDBOX_STOPPED, TYPES.SANDBOX_FAILED, TYPES.SANDBOX_PROCESS_REGISTERED,
+  TYPES.SESSION_CREATED, TYPES.SESSION_STARTED, TYPES.SESSION_PAUSED, TYPES.SESSION_RESUMED,
+  TYPES.SESSION_COMPLETED, TYPES.SESSION_FAILED, TYPES.SESSION_STOPPED,
+  TYPES.AGENT_ROUTED, TYPES.ORCHESTRATOR_STEP,
 ]);
 
-function createMainPlatform({ storeDir, cwd, askAuthorization, runShellOverride, root = null }) {
+function createMainPlatform({
+  storeDir, cwd, askAuthorization, runShellOverride, root = null, policyApprover, harnessRunner,
+}) {
   const runShell = runShellOverride || createRunShell({ defaultCwd: typeof cwd === 'function' ? cwd() : cwd });
   // `askAuthorization` is optional now. When the host does not supply one, the
   // platform's ApprovalManager becomes the gate — a listable, auditable record
@@ -57,6 +74,11 @@ function createMainPlatform({ storeDir, cwd, askAuthorization, runShellOverride,
       // core/workspace/environment.js.
       inheritEnv: ['PATH', 'HOME', 'USERPROFILE', 'LANG', 'LC_ALL', 'TMPDIR', 'TEMP', 'SystemRoot', 'ComSpec'],
       hostEnv: process.env,
+      // Phase 4. Both are optional: without them the policy engine denies what
+      // it cannot get approval for, and an external harness reports that it has
+      // no runner. Neither changes the pre-Phase-4 behaviour of the tool gate.
+      ...(policyApprover ? { policy: { approver: policyApprover } } : {}),
+      ...(harnessRunner ? { harness: { runner: harnessRunner } } : {}),
     },
     storeDir,
   });
@@ -171,6 +193,7 @@ function registerIpcHandlers({ ipcMain, platform, forward }) {
   });
 
   registerPhase3Handlers({ handle, platform });
+  registerPhase4Handlers({ handle, platform });
 }
 
 // --- Phase 3 -----------------------------------------------------------------
@@ -374,6 +397,70 @@ function resumeView(r) {
   };
 }
 
+// --- Phase 4: the Agent Control Center (src/core/harness-orchestrator/) ---------
+//
+// Read-only views plus two deliberate actions (`agent:route` is a dry run;
+// `agent:cancelTask` stops work the caller already owns). Every handler is
+// defensive about a platform built without the Phase 4 layers, so a host that
+// disables them still gets a usable surface instead of a crashed window.
+//
+// Distinct from Phase 3's `registerPhase3Handlers` above: `orchestrator` here
+// is `platform.harnessOrchestrator`, not the Phase 3 `platform.orchestrator`
+// the renderer's `orchestrator:*` channels above already use — see the module
+// comment at the top of src/core/index.js for why the two coexist.
+function registerPhase4Handlers({ handle, platform }) {
+  const {
+    harnessOrchestrator: orchestrator, policy, harnesses, sandboxes, sessions,
+    harnessArtifacts: artifacts, harnessCoordinator: coordinator, harnessRouter: router,
+  } = platform;
+  const num = (v, fallback) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : fallback;
+  };
+
+  handle('agent:controlCenter', ({ sessionId, taskId }) =>
+    orchestrator ? orchestrator.controlCenter({ sessionId: sessionId || null, taskId: taskId || null }) : null);
+
+  handle('agent:harnesses', () => (harnesses ? { harnesses: harnesses.list(), backends: sandboxes ? sandboxes.backendInfo() : null } : { harnesses: [], backends: null }));
+
+  handle('agent:harnessDetect', async ({ id }) => (harnesses ? harnesses.detect({ id: id || null }) : {}));
+
+  handle('agent:sandboxes', () => (sandboxes ? sandboxes.controlView() : { backends: null, sandboxes: [] }));
+
+  handle('agent:sandbox', ({ id }) => (sandboxes ? sandboxes.snapshot(id) : null));
+
+  handle('agent:policies', () => (policy ? { policies: policy.list(), stats: policy.stats(), recent: policy.audit({ limit: 20 }) } : { policies: [], stats: null, recent: [] }));
+
+  handle('agent:policyAudit', ({ limit }) => (policy ? policy.audit({ limit: num(limit, 50) }) : []));
+
+  handle('agent:explainPolicy', ({ action, agentId, taskId, toolId, harnessId, workspaceId }) =>
+    policy ? policy.explain({ action, context: { agentId, taskId, toolId, harnessId, workspaceId } }) : null);
+
+  handle('agent:sessions', () => (sessions ? sessions.list() : []));
+
+  handle('agent:session', ({ id }) => (sessions ? sessions.controlView(id) : null));
+
+  handle('agent:artifacts', ({ taskId, sessionId, type, limit }) =>
+    artifacts ? artifacts.list({ taskId, sessionId, type, limit: num(limit, 100) }) : []);
+
+  // The content, fetched only when a view actually opens an artifact.
+  handle('agent:artifact', ({ id }) => {
+    const artifact = artifacts ? artifacts.get(id) : null;
+    return artifact ? { ...artifact } : null;
+  });
+
+  handle('agent:delegations', ({ taskId }) => (coordinator ? coordinator.controlView(taskId) : { taskId, delegations: [], subAgents: [], tree: [] }));
+
+  // Dry-run routing: the same decision the orchestrator would make, with no
+  // resources created. This is what makes "why that agent?" answerable in the UI
+  // before anything runs.
+  handle('agent:route', ({ request, strategy, agentId, harnessId }) =>
+    router ? router.route({ request, strategy: strategy || 'capability', agentId, harnessId }) : null);
+
+  handle('agent:cancelTask', async ({ taskId, sessionId }) =>
+    orchestrator ? orchestrator.cancel({ sessionId: sessionId || null, taskId, reason: 'user cancelled' }) : { task: null, delegations: [], harnessRuns: [], sandboxes: [] });
+}
+
 // --- workflow registry + instance view -------------------------------------------
 
 const workflowRegistry = (() => {
@@ -410,20 +497,38 @@ function installAgentPlatform({ app, ipcMain }) {
   fs.mkdirSync(storeDir, { recursive: true });
 
   const pendingAuth = new Map();
-  const askAuthorization = (opts) => new Promise((resolve) => {
+
+  // One approval modal, two callers: the tool gate (DESTRUCTIVE tools) and the
+  // policy engine (anything a policy gated on approval). Both go out on the
+  // same `approval:event` channel and come back on `agent:authorizeResponse`, so
+  // the app shows exactly one kind of "may I?" prompt.
+  const askApproval = (request) => new Promise((resolve) => {
     const requestId = `auth-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
     pendingAuth.set(requestId, resolve);
-    const payload = { requestId, tool: opts.tool.id, agent: opts.agent.id, note: opts.tool.permissions.note || '' };
     for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send(PUSH_CHANNELS[2], { type: 'approval.required', requestId, payload });
+      win.webContents.send(PUSH_CHANNELS[2], { type: 'approval.required', requestId, payload: { requestId, ...request } });
     }
+    // An unanswered prompt is a refusal, never a silent yes.
     setTimeout(() => { if (pendingAuth.delete(requestId)) resolve(false); }, 60_000);
+  });
+
+  const askAuthorization = (opts) => askApproval({
+    tool: opts.tool.id,
+    agent: opts.agent.id,
+    note: opts.tool.permissions.note || '',
+  });
+
+  const policyApprover = ({ action, decision, context }) => askApproval({
+    tool: action,
+    agent: (context && context.agentId) || '',
+    note: decision.reason,
   });
 
   const platform = createMainPlatform({
     storeDir,
     cwd: () => path.join(app.getPath('home')),
     askAuthorization,
+    policyApprover,
   });
   platform._pendingAuth = pendingAuth;
 

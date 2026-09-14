@@ -158,13 +158,46 @@ contextBridge.exposeInMainWorld('kingagent', {
   // Downloading one. All three fire on every window, because one download
   // serves the whole app — see main's update:download.
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
-  installUpdate: () => ipcRenderer.invoke('update:install'),
+  // { force: true } is the renderer's own "install anyway" — main still runs
+  // the active-work check either way, force only tells it the user already
+  // saw the warning and chose to go ahead.
+  installUpdate: (args) => ipcRenderer.invoke('update:install', args),
   updaterState: () => ipcRenderer.invoke('update:state'),
   liveSessions: () => ipcRenderer.invoke('update:sessions'),
   onUpdateProgress: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:progress', h); return () => ipcRenderer.removeListener('update:progress', h); },
   onUpdateReady: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:ready', h); return () => ipcRenderer.removeListener('update:ready', h); },
   onUpdateFailed: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:failed', h); return () => ipcRenderer.removeListener('update:failed', h); },
   appVersion: () => ipcRenderer.invoke('app:version'),
+
+  // The Smart Update Center's own surface — window.kingagent.updater. Every
+  // method here is a plain invoke/on pair to a channel registered in main.js
+  // (src/main/updater/update-manager.js does the actual work); nothing raw
+  // from Node or Electron crosses this bridge, same rule as the rest of this
+  // file.
+  updater: {
+    getState: () => ipcRenderer.invoke('update:getState'),
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    install: (args) => ipcRenderer.invoke('update:install', args),
+    postpone: (args) => ipcRenderer.invoke('update:postpone', args),
+    getReleaseInfo: () => ipcRenderer.invoke('update:getReleaseInfo'),
+    onStateChange: (cb) => {
+      const h = (_e, ev) => cb(ev);
+      ipcRenderer.on('update:available', h);
+      ipcRenderer.on('update:reminder', h);
+      ipcRenderer.on('update:ready', h);
+      ipcRenderer.on('update:failed', h);
+      return () => {
+        ipcRenderer.removeListener('update:available', h);
+        ipcRenderer.removeListener('update:reminder', h);
+        ipcRenderer.removeListener('update:ready', h);
+        ipcRenderer.removeListener('update:failed', h);
+      };
+    },
+    onProgress: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:progress', h); return () => ipcRenderer.removeListener('update:progress', h); },
+    onUpdateAvailable: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:available', h); return () => ipcRenderer.removeListener('update:available', h); },
+    onReminder: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('update:reminder', h); return () => ipcRenderer.removeListener('update:reminder', h); },
+  },
 
   // Phase 2: the Agent Platform surface. Every invoke channel here is allowed
   // by src/core/security/ipc-guard.js and registered in src/main/agent-platform.js —
@@ -224,6 +257,29 @@ contextBridge.exposeInMainWorld('kingagent', {
 
     agentLifecycles: (taskId) => ipcRenderer.invoke('agents:lifecycles', taskId ? { taskId } : {}),
     agentMessages: (taskId) => ipcRenderer.invoke('agents:messages', { taskId }),
+
+    // --- Phase 4: the Agent Control Center (src/core/harness-orchestrator/) --
+    // All read-only except route (a dry run) and cancelTask. Nothing here can
+    // raise a permission or widen a sandbox. `harness`-prefixed where the name
+    // would otherwise collide with the Phase 3 method above it (both
+    // `listArtifacts`/`getArtifact` exist on two independent artifact stores —
+    // see the module comment in src/core/index.js).
+    controlCenter: (args = {}) => ipcRenderer.invoke('agent:controlCenter', args),
+    listHarnesses: () => ipcRenderer.invoke('agent:harnesses'),
+    detectHarnesses: (id) => ipcRenderer.invoke('agent:harnessDetect', id ? { id } : {}),
+    listSandboxes: () => ipcRenderer.invoke('agent:sandboxes'),
+    getSandbox: (id) => ipcRenderer.invoke('agent:sandbox', { id }),
+    listPolicies: () => ipcRenderer.invoke('agent:policies'),
+    policyAudit: (limit) => ipcRenderer.invoke('agent:policyAudit', limit ? { limit: String(limit) } : {}),
+    explainPolicy: (args) => ipcRenderer.invoke('agent:explainPolicy', args),
+    listSessions: () => ipcRenderer.invoke('agent:sessions'),
+    getSession: (id) => ipcRenderer.invoke('agent:session', { id }),
+    harnessListArtifacts: (args = {}) => ipcRenderer.invoke('agent:artifacts', args),
+    harnessGetArtifact: (id) => ipcRenderer.invoke('agent:artifact', { id }),
+    listDelegations: (taskId) => ipcRenderer.invoke('agent:delegations', { taskId }),
+    route: (args) => ipcRenderer.invoke('agent:route', args),
+    cancelTaskTree: (taskId, sessionId) => ipcRenderer.invoke('agent:cancelTask', sessionId ? { taskId, sessionId } : { taskId }),
+
     onPlatformEvent: (cb) => {
       const h = (_e, ev) => cb(ev);
       ipcRenderer.on('agent:event', h);
