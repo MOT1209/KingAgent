@@ -221,3 +221,41 @@ test('§16/§17: the action a policy must target is the action the gate evaluate
   assert.equal(actionForTool(byId['terminal:run']), 'command.run');
   assert.equal(actionForTool(byId['fs:delete']), 'filesystem.delete');
 });
+
+test('§18: with no approval UI wired, an unanswered request expires as a refusal', async () => {
+  // The most dangerous default in an approval system is "nobody answered, so
+  // proceed". A platform built with no `io.authorize` falls back to the
+  // ApprovalManager, and a host with no UI leaves those requests unanswered
+  // forever. The gate must fail closed, and the call must surface as a denial
+  // rather than hanging indefinitely.
+  const t = makeTempDir('king-phase5-sec-ttl-');
+  try {
+    let ran = 0;
+    const platform = createPlatform({
+      io: {
+        fs,
+        root: t.root,
+        cwd: () => t.root,
+        runShell: async () => { ran += 1; return { exitCode: 0, stdout: '', stderr: '' }; },
+        // No `authorize`: the ApprovalManager becomes the gate.
+      },
+      // A short TTL so the expiry path is exercised in milliseconds rather than
+      // the production minute.
+      approvalOptions: { ttlMs: 50 },
+      loggerOptions: quiet,
+    });
+    const agent = platform.agents.list()[0];
+
+    await assert.rejects(
+      () => platform.tools.execute({ id: 'terminal:run', input: { command: 'rm -rf /' }, agent }),
+      (err) => err.constructor.name === 'ToolDeniedError',
+      'an approval nobody answered must deny, never auto-approve',
+    );
+    assert.equal(ran, 0, 'the shell adapter is never reached');
+
+    // The refusal is an auditable record, not a silent closure.
+    const expired = platform.approvals.list().filter((r) => r.status !== 'approved');
+    assert.ok(expired.length >= 1, 'the unanswered request is still listable after it expired');
+    assert.equal(platform.approvals.list().some((r) => r.status === 'approved'), false);
+  } finally { t.dispose(); }
+});

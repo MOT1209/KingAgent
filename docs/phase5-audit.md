@@ -280,4 +280,7 @@ refused; `%USERPROFILE%`, `$env:PATH` and `$HOME` stay literal filenames rather
 than expansions; shell metacharacters (`&&`, `|`, `;`, backticks, `$( )`) reach
 the authorization gate and a denied call never reaches the shell adapter; a
 policy denial is final and the human gate is never consulted past it; an agent
-cannot author a policy; and the listed policy action agrees with the gated one.
+cannot author a policy; the listed policy action agrees with the gated one; and
+— §18 — a platform with no approval UI wired fails closed: an unanswered
+request expires as an auditable refusal rather than proceeding, and the shell
+adapter is never reached.
