@@ -81,6 +81,43 @@ Design documents: [harness-orchestrator.md](harness-orchestrator.md),
 [harness-multi-agent.md](harness-multi-agent.md),
 [delegation.md](delegation.md), [security-model.md](security-model.md).
 
+## Phase 4: orchestration, governance, execution
+
+Phase 2's runtime still runs the work. Phase 4 wraps it in the control plane
+that decides *what* runs, *where*, *whether it may*, and *in which sandbox*:
+
+| Subsystem | Path | Responsibility |
+| --- | --- | --- |
+| harness | `harness/` | execution backends behind one adapter interface + registry |
+| policy | `policy/` | scoped governance: allow / deny / approval, with an audit trail |
+| sandbox | `sandbox/` | authorized workspaces, limits, process ownership, cleanup |
+| session | `session/` | the container a person's work lives in |
+| artifacts | `artifacts/` | the products of a run, with provenance |
+| orchestrator | `orchestrator/` | routing, multi-agent coordination and the run pipeline |
+
+```
+User
+ ↓
+Orchestrator ── Router ──> Agent + Harness
+ ↓
+Policy ──> Sandbox ──> Workspace
+ ↓
+Agent Runtime (Planning → Tools → Execution → Evaluation → Recovery)
+ ↓
+Artifacts ──> Session ──> Trace
+```
+
+The rule this layer is built on:
+
+> KingAgent owns orchestration, governance, workspace, context, memory,
+> execution control and observability. Harnesses are replaceable execution
+> backends.
+
+Design documents: [orchestrator.md](orchestrator.md), [harness.md](harness.md),
+[routing.md](routing.md), [policies.md](policies.md), [sandbox.md](sandbox.md),
+[sessions.md](sessions.md), [multi-agent.md](multi-agent.md),
+[delegation.md](delegation.md), [security-model.md](security-model.md).
+
 The style is composition over libraries: `io` adapters (fs, shell, cwd) are
 injected, so tests swap them for stubs and the main process injects the real
 ones. No hardcoded OS paths — everything resolves through `io`, `node:path` or

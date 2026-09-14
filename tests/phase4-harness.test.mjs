@@ -223,7 +223,10 @@ test('harness manager: select reports a policy veto instead of falling back', as
   };
   const manager = new HarnessManager({ registry, bus, policy });
 
-  const decision = await manager.select({ capabilities: ['coding'], context: { taskId: 't1' } });
+  // An explicit platform: select() defaults to the host, and this fixture
+  // declares windows/macos, so leaving it out made the test assert a policy
+  // veto on two runners and a platform rejection on the third.
+  const decision = await manager.select({ capabilities: ['coding'], platform: 'windows', context: { taskId: 't1' } });
   assert.equal(decision.allowed, false);
   assert.equal(decision.harness, null);
   assert.match(decision.reasons.join(' '), /denied by policy/);
