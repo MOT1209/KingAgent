@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -130,7 +131,12 @@ test('workspace: resolve refuses a path that escapes the root', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ka-ws-'));
   try {
     const ws = new AgentWorkspace({ identity: createIdentity({}), root });
-    assert.equal(ws.resolve('.'), path.resolve(root));
+    // resolve() goes through the symlink-safe path guard, which returns the
+    // *real* path (fs.realpathSync) of the root. On macOS os.tmpdir() is
+    // itself a symlink (/var/folders/... -> /private/var/folders/...), so the
+    // expected value has to be the real path too, or this assertion is
+    // comparing two different — if textually similar — directories.
+    assert.equal(ws.resolve('.'), realpathSync(path.resolve(root)));
     assert.throws(() => ws.resolve('../outside'), /escapes the workspace root/);
     assert.equal(ws.contains('inside/file.txt'), true);
     assert.equal(ws.contains('../outside'), false);
