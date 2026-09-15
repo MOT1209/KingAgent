@@ -48,7 +48,12 @@ const BLOCKED_IPV4 = Object.freeze([
 // costs it trust score, rather than deleting it.
 const INJECTION_PATTERNS = Object.freeze([
   { id: 'override', re: /\b(ignore|disregard|forget)\s+(all\s+)?(your\s+|the\s+|any\s+)?(previous|prior|earlier|above|system)\s+(instructions?|prompts?|rules?|directives?)/gi },
-  { id: 'role-switch', re: /\b(you\s+are\s+now|from\s+now\s+on,?\s+you|act\s+as|pretend\s+to\s+be)\s+(a|an|the)?\s*\w{0,24}(assistant|agent|admin|developer|system)/gi },
+  // Two shapes, because one regex trying to cover both missed the commonest
+  // phrasing: "From now on, you are a developer assistant" has a copula and an
+  // article between the trigger and the role, and a single pattern that
+  // required the role to follow immediately did not match it.
+  { id: 'role-switch', re: /\b(?:from\s+now\s+on|you\s+are\s+now|starting\s+now|for\s+the\s+rest\s+of\s+this)\b[^.\n]{0,80}?\b(?:assistant|agent|admin(?:istrator)?|developer|system|mode|persona|character)\b/gi },
+  { id: 'role-assume', re: /\b(?:act\s+as|pretend\s+to\s+be|roleplay\s+as|behave\s+(?:as|like)|you\s+must\s+now|your\s+new\s+(?:role|task|instructions?))\b/gi },
   { id: 'system-tag', re: /<\/?\s*(system|assistant|user|tool_call|function_call|im_start|im_end)\s*>/gi },
   { id: 'fake-delimiter', re: /(^|\n)\s*(###\s*)?(system|assistant)\s*(prompt|message|instruction)s?\s*:/gi },
   { id: 'tool-injection', re: /\b(call|invoke|execute|run)\s+(the\s+)?(tool|function|command|shell|bash|terminal)\b[^\n]{0,80}\b(with|:)/gi },
@@ -92,9 +97,19 @@ function isBlockedIpv6(host) {
   const h = host.replace(/^\[|\]$/g, '').toLowerCase();
   if (h === '::1' || h === '::') return true;
   if (h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true; // link-local, ULA
-  // IPv4-mapped (::ffff:127.0.0.1) smuggles a loopback address through v6.
-  const mapped = /::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(h);
-  if (mapped) return isBlockedIpv4(mapped[1]);
+  // IPv4-mapped addresses smuggle a loopback or private address through v6.
+  // Both spellings have to be handled: `::ffff:127.0.0.1` as written, and
+  // `::ffff:7f00:1` as the URL parser normalizes it — WHATWG URL rewrites the
+  // dotted form into hextets, so matching only the readable one lets
+  // `http://[::ffff:127.0.0.1]/` straight through.
+  const dotted = /::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(h);
+  if (dotted) return isBlockedIpv4(dotted[1]);
+  const hex = /::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+  if (hex) {
+    const high = parseInt(hex[1], 16);
+    const low = parseInt(hex[2], 16);
+    return isBlockedIpv4(`${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`);
+  }
   return false;
 }
 

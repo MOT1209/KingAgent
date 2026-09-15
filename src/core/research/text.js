@@ -21,6 +21,11 @@ const { tokenize: baseTokenize, STOP_WORDS } = require('../memory/relevance');
 const QUESTION_WORDS = Object.freeze(new Set([
   'what', 'which', 'who', 'whom', 'whose', 'when', 'where', 'why', 'how',
   'tell', 'explain', 'describe', 'give', 'show', 'list', 'find',
+  // Possessives and demonstratives: "explain its architecture" is a question
+  // about architecture, and counting `its` as a term to match dilutes every
+  // coverage ratio it appears in.
+  'its', 'their', 'his', 'her', 'our', 'your', 'them', 'these', 'those',
+  'analyze', 'analyse', 'summarize', 'summarise', 'compare', 'research',
 ]));
 
 // The lightest possible stemmer: plural and third-person `-s`.

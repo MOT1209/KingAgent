@@ -122,9 +122,23 @@ class EvidenceExtractor {
     if (!body) return [];
 
     const target = claim ? `${claim.text} ${question}` : question;
-    const queryTokens = tokenSet(target);
+    const askedTokens = tokenSet(target);
     const sentences = splitSentences(body);
     if (sentences.length === 0) return [];
+
+    // Score sentences against the query terms this document *can* speak to.
+    //
+    // The document was already judged relevant — that is why it was retrieved.
+    // Scoring its sentences against the whole question re-litigates that
+    // decision and loses: "Analyze the github repository acme/widget and
+    // explain its architecture" has six terms, five of which appear nowhere in
+    // a README, so the one sentence that actually describes the architecture
+    // scored 1/6 and fell under the bar. Intersecting with the document's own
+    // vocabulary asks the right question — which sentence here is most on
+    // point — and falls back to the full query when there is no overlap at all.
+    const docTokens = tokenSet(body);
+    const answerable = new Set([...askedTokens].filter((t) => docTokens.has(t)));
+    const queryTokens = answerable.size ? answerable : askedTokens;
 
     const scored = sentences
       .map((s, i) => ({ i, s, score: BOILERPLATE.test(s.text) ? 0 : scoreSentence(s.text, queryTokens) }))

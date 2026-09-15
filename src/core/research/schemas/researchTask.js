@@ -273,7 +273,15 @@ function recordFailure(task, { stage, sourceId = null, queryId = null, reason, c
 function isPartial(task) {
   return task.failures.some((f) => !f.fatal)
     || task.statusReason.includes('budget')
-    || task.statusReason.includes('deadline');
+    || task.statusReason.includes('deadline')
+    // A plan is a statement of what the answer needs. A query that was skipped
+    // or failed is a piece of that answer nobody got, and a run that spent its
+    // whole budget before reaching them produced less than it set out to —
+    // which the report has to say rather than presenting the remainder as the
+    // complete picture.
+    || task.queries.some((q) => q.status === 'failed' || q.status === 'skipped')
+    || (task.limits.maxSources > 0 && task.usage.sources >= task.limits.maxSources)
+    || (task.limits.maxQueries > 0 && task.usage.queries >= task.limits.maxQueries);
 }
 
 function researchTaskView(task) {

@@ -98,7 +98,9 @@ function createRetrievalCache({ collection = null, maxEntries = DEFAULT_MAX_ENTR
     mem.set(key, entry);
     evict();
     stats.writes += 1;
-    if (collection) await collection.set(key, entry).catch(() => {});
+    // The persistence contract is put/get/delete (collections.js), not
+    // set: a cache that called `set` would silently never persist.
+    if (collection) await collection.put(key, entry).catch(() => {});
     return true;
   }
 

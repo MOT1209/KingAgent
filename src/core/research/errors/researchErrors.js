@@ -44,7 +44,11 @@ class SourceUnavailableError extends ResearchError {
 
 class SourceTimeoutError extends SourceUnavailableError {
   constructor(sourceId, timeoutMs) {
-    super(sourceId, `timed out after ${timeoutMs}ms`, { category: CATEGORY.TIMEOUT });
+    // The wording matters: core/recovery/recovery.js classifies by matching
+    // /timeout/i against the message, and "timed out" does not match it. A
+    // research timeout that classified as `unknown` would be treated as
+    // non-retryable by the platform's own recovery layer.
+    super(sourceId, `timeout after ${timeoutMs}ms`, { category: CATEGORY.TIMEOUT });
     this.name = 'SourceTimeoutError';
     this.code = 'RESEARCH_SOURCE_TIMEOUT';
     this.timeoutMs = timeoutMs;

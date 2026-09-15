@@ -66,6 +66,11 @@ function citationView(citation) {
     title: citation.title,
     publisher: citation.publisher,
     publishedAt: citation.publishedAt,
+    retrievedAt: citation.retrievedAt,
+    // Where in the source the quote is. Dropping this from the view made a
+    // file citation indistinguishable from a web one at the boundary, and
+    // "which line of which file?" is most of what a file citation is for.
+    location: citation.location,
     quote: citation.quote,
     confidence: citation.confidence,
   };

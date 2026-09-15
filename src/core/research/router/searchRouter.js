@@ -37,10 +37,16 @@ const INTENT_LEAD = Object.freeze({
 // Returns { sourceTypes, lead, reasons } — the ordered list of types to try for
 // this query, already intersected with what is permitted.
 function route({ query, strategy, allowed = null, maxFanout = 3 }) {
-  const permitted = new Set(
-    (allowed && allowed.length ? allowed : (strategy ? strategy.sourceTypes : []))
-      .filter((t) => !query.sourceTypes.length || query.sourceTypes.includes(t) || query.sourceTypes.includes(SOURCE_TYPES.WEB)),
-  );
+  const usable = allowed && allowed.length ? allowed : (strategy ? strategy.sourceTypes : []);
+  const asked = usable.filter((t) => !query.sourceTypes.length
+    || query.sourceTypes.includes(t)
+    || query.sourceTypes.includes(SOURCE_TYPES.WEB));
+  // A query naming only source types this task cannot reach falls back to what
+  // it can, rather than routing nowhere. Same reasoning as researchStrategy's
+  // fallback: the query's preference is a preference, and dropping the query
+  // entirely spends a planned search on nothing. The narrowing still holds —
+  // the fallback can only offer types `usable` already contains.
+  const permitted = new Set(asked.length ? asked : usable);
   // A query that named its own types is honoured first, still intersected.
   const named = query.sourceTypes.filter((t) => permitted.has(t));
   const reasons = [];

@@ -51,7 +51,10 @@ function createFileSource({ fs, root = null, extractText = null, pathGuard = nul
 
   async function readDocument(filePath) {
     const screened = screenFilePath(filePath);
-    if (!screened.ok) throw new SourceUnavailableError('file', screened.reason);
+    // The path goes in the message: "a file type is not supported" is useless
+    // in a report listing three files, and §25 requires the user to be told
+    // which document contributed nothing.
+    if (!screened.ok) throw new SourceUnavailableError('file', `${filePath}: ${screened.reason}`);
     const resolved = pathGuard ? pathGuard(root, filePath) : filePath;
     const ext = path.extname(resolved).toLowerCase();
 
@@ -69,7 +72,7 @@ function createFileSource({ fs, root = null, extractText = null, pathGuard = nul
     }
     if (EXTRACTABLE_EXT.includes(ext) || IMAGE_EXT.includes(ext)) {
       if (typeof extractText !== 'function') {
-        throw new SourceUnavailableError('file', `${ext} files need a text extractor, and none is configured`);
+        throw new SourceUnavailableError('file', `${filePath}: ${ext} files need a text extractor, and none is configured`);
       }
       const out = await extractText({ path: resolved, ext, originalPath: filePath });
       const text = out && typeof out === 'object' ? out.text : out;
@@ -78,7 +81,7 @@ function createFileSource({ fs, root = null, extractText = null, pathGuard = nul
       }
       return { text, ext, resolved, stat, extractor: (out && out.extractor) || 'host' };
     }
-    throw new SourceUnavailableError('file', `${ext || '(no extension)'} is not a supported research document`);
+    throw new SourceUnavailableError('file', `${filePath}: ${ext || '(no extension)'} is not a supported research document`);
   }
 
   // Split into overlapping windows, remembering where each one started so the

@@ -14,6 +14,8 @@
 
 const { EventEmitter } = require('node:events');
 
+const { newId } = require('../workspace/identity');
+
 const {
   createResearchTask, validateResearchTask, transition, spend, recordFailure,
   researchTaskView, RESEARCH_STATUS, RESEARCH_MODES, expired, isPartial,
@@ -634,9 +636,15 @@ class ResearchEngine extends EventEmitter {
   _startTrace(ctx) {
     if (!this._traces || typeof this._traces.createTrace !== 'function') return null;
     const { task } = ctx;
+    // A research task started outside an existing run has no trace lineage of
+    // its own, and ExecutionTrace requires one. Minting it here — with the
+    // platform's own id helper, not a second scheme — and writing it back onto
+    // the task is what makes every event this run emits correlate to the same
+    // trace, including the ones emitted before the trace object is returned.
+    if (!task.traceId) task.traceId = newId('trace');
     return this._traces.createTrace({
       identity: {
-        traceId: task.traceId || undefined,
+        traceId: task.traceId,
         taskId: task.taskId || task.id,
         workspaceId: task.workspaceId,
         agentId: task.agentId,

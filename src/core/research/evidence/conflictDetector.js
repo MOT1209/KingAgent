@@ -59,13 +59,33 @@ function detect({ store, claims, sources = null }) {
 // reader uses to judge how contested something is. The most severe survives.
 const SEVERITY_RANK = { minor: 0, material: 1, direct: 2 };
 
+// A conflict whose two positions are both real statements says more than one
+// whose positions are "X" and "not: X". A value conflict names the two numbers;
+// a stance conflict only names the claim and its negation — so when both cover
+// the same pair of sources, the specific positions survive and the severity is
+// the higher of the two.
+function isSpecific(conflict) {
+  return conflict.positions.length === 2
+    && conflict.positions.every((p) => p.statement && !/^not:\s/i.test(p.statement));
+}
+
 function collapse(conflicts, clusterOf) {
   const best = new Map();
   for (const c of conflicts) {
     const pair = [...new Set(c.sourceIds.map((id) => clusterOf.get(id) || id))].sort().join('|');
     const key = `${c.claimId}::${pair}`;
     const incumbent = best.get(key);
-    if (!incumbent || SEVERITY_RANK[c.severity] > SEVERITY_RANK[incumbent.severity]) best.set(key, c);
+    if (!incumbent) { best.set(key, c); continue; }
+
+    const winner = isSpecific(c) === isSpecific(incumbent)
+      ? (SEVERITY_RANK[c.severity] > SEVERITY_RANK[incumbent.severity] ? c : incumbent)
+      : (isSpecific(c) ? c : incumbent);
+    const loser = winner === c ? incumbent : c;
+    // Keep the winner's positions, but never soften the severity: a flat
+    // contradiction is a flat contradiction however it was found.
+    best.set(key, SEVERITY_RANK[loser.severity] > SEVERITY_RANK[winner.severity]
+      ? normalizeConflict({ ...winner, severity: loser.severity })
+      : winner);
   }
   return [...best.values()];
 }

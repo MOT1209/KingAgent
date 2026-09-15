@@ -44,7 +44,18 @@ const STRONG_MIN_INDEPENDENT = 2;
 // merge. This is intentionally conservative — it produces claims the evidence
 // already supports rather than inventing propositions to go looking for.
 function extractClaims({ question, evidence, store, maxClaims = 12, minStrength = 0.25 }) {
-  const questionTokens = tokenSet(question);
+  // Measure "is this on topic?" against the question terms the *corpus* can
+  // speak to, for the same reason the extractor does (see its `answerable`
+  // comment). "Analyze the github repository acme/widget and explain its
+  // architecture" has four terms and a README contains one of them, so the
+  // sentence describing the architecture scored 0.25, fell under the
+  // materiality bar, and was dropped from the answer — the one claim the
+  // question was actually asking for.
+  const askedTokens = tokenSet(question);
+  const corpusTokens = new Set();
+  for (const e of evidence) for (const t of tokenSet(e.text)) corpusTokens.add(t);
+  const answerable = new Set([...askedTokens].filter((t) => corpusTokens.has(t)));
+  const questionTokens = answerable.size ? answerable : askedTokens;
   const candidates = [];
 
   for (const e of evidence) {

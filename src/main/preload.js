@@ -280,15 +280,31 @@ contextBridge.exposeInMainWorld('kingagent', {
     route: (args) => ipcRenderer.invoke('agent:route', args),
     cancelTaskTree: (taskId, sessionId) => ipcRenderer.invoke('agent:cancelTask', sessionId ? { taskId, sessionId } : { taskId }),
 
+    // --- Phase 7: research (src/core/research/) -----------------------------
+    // `startResearch` is the only call that spends anything. Its payload can
+    // only narrow what the install already allows — the main side clamps every
+    // limit and intersects every domain list (see agent-platform.js).
+    startResearch: (args) => ipcRenderer.invoke('research:start', args),
+    researchStatus: (id) => ipcRenderer.invoke('research:status', { id }),
+    cancelResearch: (id, reason) => ipcRenderer.invoke('research:cancel', reason ? { id, reason } : { id }),
+    getResearch: (id) => ipcRenderer.invoke('research:get', { id }),
+    listResearch: () => ipcRenderer.invoke('research:list'),
+    researchSources: (id) => ipcRenderer.invoke('research:sources', { id }),
+    researchEvidence: (id, claimId) => ipcRenderer.invoke('research:evidence', claimId ? { id, claimId } : { id }),
+    researchReport: (id, format) => ipcRenderer.invoke('research:report', format ? { id, format } : { id }),
+    researchCapabilities: () => ipcRenderer.invoke('research:capabilities'),
+
     onPlatformEvent: (cb) => {
       const h = (_e, ev) => cb(ev);
       ipcRenderer.on('agent:event', h);
       ipcRenderer.on('workflow:event', h);
       ipcRenderer.on('approval:event', h);
+      ipcRenderer.on('research:event', h);
       return () => {
         ipcRenderer.removeListener('agent:event', h);
         ipcRenderer.removeListener('workflow:event', h);
         ipcRenderer.removeListener('approval:event', h);
+        ipcRenderer.removeListener('research:event', h);
       };
     },
   },

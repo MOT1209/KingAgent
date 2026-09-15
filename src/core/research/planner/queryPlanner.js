@@ -158,6 +158,24 @@ function dedupeStrings(list) {
   return out;
 }
 
+// Is this line a search query, or did the model answer the question instead?
+//
+// A provider that ignores the instructions and returns prose would otherwise
+// have its sentences submitted to a search engine verbatim — including any URL
+// it invented, which then appears in the research record as something we went
+// looking for. Queries are short, contain no links and cite nothing.
+function looksLikeQuery(line) {
+  if (typeof line !== 'string') return false;
+  const text = line.trim();
+  if (text.length < 4 || text.length > 160) return false;
+  if (/https?:\/\//i.test(text)) return false;      // a query is not a link
+  if (/\[\d{1,3}\]|\[\^\d+\]/.test(text)) return false; // nor a cited sentence
+  if (/["“”]/.test(text) && text.length > 80) return false; // nor a quotation
+  // More than two sentence terminators is prose, not a search.
+  if ((text.match(/[.!?](?:\s|$)/g) || []).length > 2) return false;
+  return true;
+}
+
 // --- the planner ------------------------------------------------------------
 
 // Build the query set for a task. Returns normalized ResearchQuery objects,
@@ -316,7 +334,7 @@ async function expandWithProvider({ task, classification, existing, provider, av
   for (const raw of String(text).split(/\r?\n/)) {
     if (out.length >= room) break;
     const line = raw.replace(/^\s*(?:[-*\d.)\]]+\s*)+/, '').trim();
-    if (line.length < 4 || line.length > 300) continue;
+    if (!looksLikeQuery(line)) continue;
     const key = queryKey(line);
     if (!key || seen.has(key)) continue;
     const types = classification.sourceTypes.filter((t) => !allowed || allowed.has(t));
@@ -331,6 +349,6 @@ async function expandWithProvider({ task, classification, existing, provider, av
 }
 
 module.exports = {
-  FACETS, SCAFFOLD, planQueries, planVerificationQueries, expandWithProvider,
+  FACETS, SCAFFOLD, looksLikeQuery, planQueries, planVerificationQueries, expandWithProvider,
   extractSubjects, cleanSubject,
 };
