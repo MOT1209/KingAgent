@@ -72,7 +72,9 @@ blocks installation outright. A recorded security incident permanently adds both
   is a **refusal** — never an unconfined run.
 * No policy engine at execution time means **no grant**.
 * Content that changed after installation is re-scanned; if the new content is
-  refused, the skill is **quarantined**, not skipped.
+  refused, the skill is **quarantined**, not skipped. "Content" is the entry
+  document and every resource it declares: a digest that covered only the entry
+  document would leave a rewritten resource passing under the old verdict.
 * A tool call outside the skill's declared surface is refused *and* recorded as a
   security incident, which quarantines the skill.
 

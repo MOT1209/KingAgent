@@ -23,6 +23,7 @@
     "test": "node --test tests/*.test.mjs",
     "skills": "node scripts/skills-cli.mjs",
     "test:coverage": "c8 node --test tests/*.test.mjs",
+    "test:coverage:renderer": "c8 --config .c8rc.renderer.json node --test tests/*.test.mjs",
     "lint": "eslint .",
     "shot": "electron . --demo --screenshot shots/app.png",
     "fetch-model": "node scripts/fetch-model.mjs",
@@ -72,14 +73,12 @@
     "marked": "^18.0.11"
   },
   "//deps": "transformers and onnxruntime-node are pinned exactly on purpose: a v3→v4 transformers bump swaps the tokenizer and the wasm-vendoring story, and onnxruntime-node's prebuilt-binary layout moves between napi generations. Re-pin deliberately, never by caret drift. Packaging lives in electron-builder.yml.",
+  "//c8": "Two scopes, because they answer different questions. `test:coverage` is the gate and covers src/main and src/core: those run under node, so a test that imports one exercises it. `test:coverage:renderer` measures src/renderer and is report-only — most of it needs a DOM and app.js needs an Electron window, so the same thresholds there would either fail every build or have to be lowered until passing meant nothing. Measure it, do not gate on it.",
   "c8": {
     "all": true,
     "include": [
       "src/main/**/*.js",
       "src/core/**/*.js"
-    ],
-    "exclude": [
-      "src/renderer/vendor/**"
     ],
     "check-coverage": true,
     "lines": 70,

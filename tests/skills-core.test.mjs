@@ -11,7 +11,7 @@ const S = require('../src/core/skills/registry/SkillSource.js');
 const { SkillRegistry } = require('../src/core/skills/registry/SkillRegistry.js');
 const { SkillRecord } = require('../src/core/skills/registry/SkillMetadata.js');
 const states = require('../src/core/skills/lifecycle/states.js');
-const { SkillCache, digestOf } = require('../src/core/skills/cache/SkillCache.js');
+const { SkillCache, digestOf, digestOfSkill } = require('../src/core/skills/cache/SkillCache.js');
 const dep = require('../src/core/skills/loader/SkillDependencyResolver.js');
 const taxonomy = require('../src/core/skills/taxonomy.js');
 const perms = require('../src/core/skills/schemas/SkillPermissionSchema.js');
@@ -269,6 +269,37 @@ test('cache: entries expire and a skill can be invalidated wholesale', () => {
 test('cache: the digest is content-addressed, so a changed byte changes the key', () => {
   assert.equal(digestOf('abc'), digestOf('abc'));
   assert.notEqual(digestOf('abc'), digestOf('abd'));
+});
+
+// A skill is the instructions *and* the resources they point at. Both are prompt
+// text, so a digest that covers only the entry document pins the smaller half.
+test('cache: the digest a skill is pinned to covers every resource', () => {
+  const skill = (resources, content = 'Read the checklist.') => ({ content, resources });
+
+  assert.equal(digestOfSkill(skill({ 'notes.md': 'Be careful.' })), digestOfSkill(skill({ 'notes.md': 'Be careful.' })));
+  // The order a source happened to read the resources in is not part of the value.
+  assert.equal(digestOfSkill(skill({ 'a.md': 'one', 'b.md': 'two' })), digestOfSkill(skill({ 'b.md': 'two', 'a.md': 'one' })));
+  // Changing, adding or removing one is a different skill...
+  assert.notEqual(digestOfSkill(skill({ 'notes.md': 'Be careful.' })), digestOfSkill(skill({ 'notes.md': 'Be careful!' })));
+  assert.notEqual(digestOfSkill(skill({ 'notes.md': 'x' })), digestOfSkill(skill({ 'notes.md': 'x', 'more.md': 'y' })));
+  assert.notEqual(digestOfSkill(skill({ 'notes.md': 'x' })), digestOfSkill(skill({})));
+  // ...and so is an empty one, which a digest over concatenated values would miss.
+  assert.notEqual(digestOfSkill(skill({ 'notes.md': '' })), digestOfSkill(skill({})));
+  // The instructions are still covered.
+  assert.notEqual(digestOfSkill(skill({ 'notes.md': 'x' }, 'Read the checklist.')), digestOfSkill(skill({ 'notes.md': 'x' }, 'Read the checklist!')));
+  // A digest taken under the previous scheme can never pass as one taken under
+  // this one — which is what makes widening the coverage force a re-scan.
+  assert.notEqual(digestOfSkill(skill({}, 'abc')), digestOf('abc'));
+});
+
+test('cache: set() pins the resources it is handed, not just the instructions', () => {
+  const cache = new SkillCache({});
+  const first = { content: 'x', resources: { 'notes.md': 'one' } };
+  cache.set('a@1.0.0#local', first);
+  cache.set('b@1.0.0#local', { content: 'x', resources: { 'notes.md': 'two' } });
+
+  assert.equal(cache.get('a@1.0.0#local').digest, digestOfSkill(first));
+  assert.notEqual(cache.get('a@1.0.0#local').digest, cache.get('b@1.0.0#local').digest);
 });
 
 // --- taxonomy + permissions --------------------------------------------------

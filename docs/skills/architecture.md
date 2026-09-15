@@ -57,7 +57,7 @@ user request
   → security validation       manifest, scan, provenance (re-checked on load)
   → policy evaluation         every declared permission, through PolicyManager
   → approval                  when trust × risk (or a finding) calls for it
-  → load                      content fetched, digest compared with install time
+  → load                      instructions + resources fetched, digest compared with install time
   → execute                   a host-supplied runner, with an allowlisted tool surface
   → evaluate                  outcome recorded, quality rescored, quarantine if warranted
   → recovery                  one alternative skill, then an honest stop

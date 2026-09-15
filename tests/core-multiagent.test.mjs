@@ -3,9 +3,12 @@
 // a boundary — a delegate cannot out-reach its parent, an agent cannot message
 // one it was never introduced to, and a lead agent's aggregate never rounds a
 // partial failure up to success.
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createRequire } from 'node:module';
+import { makeTempDir } from './test-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const { AgentLifecycle, AGENT_STATES, canTransition } = require('../src/core/agents/lifecycle.js');
@@ -22,6 +25,22 @@ const { Reasoner } = require('../src/core/reasoning/reasoning.js');
 const { buildTaskContext } = require('../src/core/context/context.js');
 const { EventBus } = require('../src/core/events/event-bus.js');
 const { builtinAgents } = require('../src/core/agents/presets/builtin.js');
+
+// The directory every workspace and tool below is rooted in.
+//
+// These tests delegate *real* runs through the real AgentRuntime, and the
+// fixture used to point them at `process.cwd()` — this repository. A "find
+// TODOs" delegation therefore walked node_modules: not what any test here
+// asserts, and it left two of them a couple of seconds from the delegation
+// deadline. They passed alone and failed under coverage instrumentation, where
+// the same machine runs every test file at once and the run is several times
+// slower. A small project with a TODO in it is the whole input they need, and
+// it keeps these assertions about narrowing and schema validation rather than
+// about how loaded the machine is. Same reasoning as core-orchestrator.test.mjs.
+const project = makeTempDir('ka-multiagent-');
+fs.writeFileSync(path.join(project.root, 'a.js'), ['// TODO: probe', 'export const a = 1;', ''].join('\n'));
+fs.writeFileSync(path.join(project.root, 'README.md'), ['# Probe', 'TODO: document it', ''].join('\n'));
+after(() => project.dispose());
 
 // --- lifecycle -----------------------------------------------------------------
 
@@ -112,7 +131,7 @@ test('handoff: is a bounded brief, not the whole history', () => {
 
 test('handoffFromWorkspace derives the brief from what actually happened', () => {
   const wm = new WorkspaceManager({});
-  const ws = wm.create({ root: process.cwd(), identity: { agentId: 'lead' } });
+  const ws = wm.create({ root: project.root, identity: { agentId: 'lead' } });
   ws.noteFile('modify', 'a.js', { before: 'x', after: 'y' });
   const pkg = handoffFromWorkspace(ws, { fromAgent: 'lead', toAgent: 'reviewer', objective: 'review my change' });
   assert.ok(pkg.files.some((f) => f.path === 'a.js'));
@@ -127,7 +146,7 @@ function coordinatorFixture() {
   for (const def of builtinAgents()) registry.register(def);
   const workspaces = new WorkspaceManager({ bus });
   const tools = new ToolManager({ bus, authorize: async () => true });
-  registerBuiltinTools(tools, { fs: require('node:fs/promises'), root: process.cwd(), cwd: () => process.cwd() });
+  registerBuiltinTools(tools, { fs: require('node:fs/promises'), root: project.root, cwd: () => project.root });
   const reasoner = new Reasoner({ provider: null, bus });
   const planner = new Planner({ bus, toolManager: tools, provider: null, reasoner });
   const runtime = new AgentRuntime({ bus, agentRegistry: registry, toolManager: tools, planner, reasoner, contextBuilder: buildTaskContext, config: {} });
@@ -159,7 +178,7 @@ test('intersect: null on either side means unrestricted; two lists intersect, ne
 test('coordinator: delegate narrows the child workspace and never widens it', async () => {
   const { coordinator, workspaces } = coordinatorFixture();
   const parent = workspaces.create({
-    root: process.cwd(),
+    root: project.root,
     identity: { agentId: 'coder' },
     policy: { tools: ['fs:read', 'fs:list'], memoryScopes: ['task'], allowDestructive: false },
   });
@@ -173,7 +192,7 @@ test('coordinator: delegate narrows the child workspace and never widens it', as
 test('coordinator: refuses to delegate past the depth limit', async () => {
   const { coordinator, workspaces } = coordinatorFixture();
   coordinator._opts.maxDepth = 1;
-  const parent = workspaces.create({ root: process.cwd(), identity: { agentId: 'coder' } });
+  const parent = workspaces.create({ root: project.root, identity: { agentId: 'coder' } });
   await assert.rejects(
     () => coordinator.delegate({ from: parent, capabilities: ['read'], request: 'x', depth: 1 }),
     (err) => err instanceof DelegationError && err.code === 'DELEGATION_TOO_DEEP',
@@ -182,7 +201,7 @@ test('coordinator: refuses to delegate past the depth limit', async () => {
 
 test('coordinator: refuses to delegate past the fan-out limit', async () => {
   const { coordinator, workspaces } = coordinatorFixture();
-  const parent = workspaces.create({ root: process.cwd(), identity: { agentId: 'coder' } });
+  const parent = workspaces.create({ root: project.root, identity: { agentId: 'coder' } });
   coordinator._opts.maxFanout = 1;
   workspaces.createChild(parent, { agentId: 'analyst' }); // one sibling already exists
   await assert.rejects(
@@ -193,7 +212,7 @@ test('coordinator: refuses to delegate past the fan-out limit', async () => {
 
 test('coordinator: a delegate result failing its schema is reported as failed', async () => {
   const { coordinator, workspaces } = coordinatorFixture();
-  const parent = workspaces.create({ root: process.cwd(), identity: { agentId: 'coder' } });
+  const parent = workspaces.create({ root: project.root, identity: { agentId: 'coder' } });
   const result = await coordinator.delegate({
     from: parent, capabilities: ['read'], request: 'find TODOs', timeoutMs: 15000,
     resultSchema: { type: 'object', properties: { thisFieldWillNeverExist: { required: true, type: 'string' } } },

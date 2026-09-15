@@ -9,6 +9,11 @@
 // digest means the content changed since it was validated — and that is a
 // quarantine, not a cache miss.
 //
+// Because that comparison is a security decision, what the digest *covers*
+// matters as much as the hash does. `digestOfSkill` is the one this system
+// pins: the entry document and every resource it points at (see `digestOf`
+// below for why a resource is not a detail).
+//
 // Bounded by entry count and total bytes, because skill content arrives from
 // remote sources and an unbounded cache is a memory-exhaustion primitive.
 
@@ -18,8 +23,54 @@ const DEFAULT_MAX_ENTRIES = 200;
 const DEFAULT_MAX_BYTES = 32 * 1024 * 1024; // 32MB of skill text is already generous
 const DEFAULT_TTL_MS = 60 * 60 * 1000;
 
+// The hash of a single document, and no longer what a skill is pinned to — that
+// is `digestOfSkill` below. It stays because "did this one file change" is a
+// fair question about a string a caller already holds, and because the two must
+// not be confused: a digest of the instructions alone is precisely the pin that
+// left every resource unmeasured.
 function digestOf(content) {
   return crypto.createHash('sha256').update(String(content), 'utf8').digest('hex');
+}
+
+// The digest of a whole skill: the instructions a person read and approved, and
+// every resource those instructions can point the model at.
+//
+// A skill is not one file. `entry.resources` names further documents that are
+// fetched alongside the instructions and reach the model as prompt text in
+// exactly the same way the entry document does. Pinning only the entry document
+// leaves the resources an approved-but-unmeasured side channel: leave a skill's
+// instructions untouched, rewrite one resource it references into an instruction
+// the scanner would have refused, and the recorded digest still matches — so the
+// load is treated as the skill that was approved, and the new text is handed to
+// the model under the old verdict.
+//
+// The hash is therefore over both, in a canonical order and with every part
+// length-framed:
+//
+//   * resources are visited in sorted name order, so the order a source happens
+//     to read them in is not part of the value;
+//   * each part carries its name and byte length, so no two different sets of
+//     resources can concatenate into the same byte string, and an added or
+//     removed resource is a change even when its body is empty.
+//
+// The scheme version is hashed in first, which is what keeps a change to *what a
+// digest covers* from being a silent change of meaning. A digest recorded under
+// an older scheme can never compare equal to one produced here, so widening the
+// coverage costs one re-scan per installed skill instead of leaving the newly
+// covered bytes unmeasured behind a matching old digest.
+const DIGEST_SCHEME = 'kingagent-skill-digest/v2';
+
+function digestOfSkill({ content = '', resources = {} } = {}) {
+  const entry = typeof content === 'string' ? content : '';
+  const hash = crypto.createHash('sha256');
+  hash.update(`${DIGEST_SCHEME}\u0000${Buffer.byteLength(entry, 'utf8')}\u0000`, 'utf8');
+  hash.update(entry, 'utf8');
+  for (const name of Object.keys(resources || {}).sort()) {
+    const body = typeof resources[name] === 'string' ? resources[name] : '';
+    hash.update(`\u0000r\u0000${name}\u0000${Buffer.byteLength(body, 'utf8')}\u0000`, 'utf8');
+    hash.update(body, 'utf8');
+  }
+  return hash.digest('hex');
 }
 
 class SkillCache {
@@ -71,7 +122,7 @@ class SkillCache {
     const entry = {
       content,
       resources: { ...resources },
-      digest: digest || digestOf(content),
+      digest: digest || digestOfSkill({ content, resources }),
       bytes,
       storedAt: this._now(),
       hits: 0,
@@ -130,4 +181,4 @@ function byteLength(text) {
   return typeof text === 'string' ? Buffer.byteLength(text, 'utf8') : 0;
 }
 
-module.exports = { SkillCache, digestOf, DEFAULT_TTL_MS, DEFAULT_MAX_ENTRIES, DEFAULT_MAX_BYTES };
+module.exports = { SkillCache, digestOf, digestOfSkill, DIGEST_SCHEME, DEFAULT_TTL_MS, DEFAULT_MAX_ENTRIES, DEFAULT_MAX_BYTES };

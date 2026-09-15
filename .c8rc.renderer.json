@@ -1,0 +1,10 @@
+{
+  "//": "Report-only coverage for src/renderer, run by `npm run test:coverage:renderer`. The gate lives in the `c8` block of package.json and covers src/main and src/core only; see the `//c8` note there for why the two scopes are separate. The vendor exclude belongs here rather than there, because this is the only include set that reaches it — src/renderer/vendor is bundled third-party code, not ours to cover. Reports land in coverage/renderer so they never overwrite the gate's.",
+  "//branch": "Read `lines` and ignore `branches` in this report. With all:true, a module no test ever imported is synthesized as \"0 of 1 branch\", so the branch percentage counts only the branches of files that actually ran — it reads 81% here while a quarter of the lines are executed. The line percentage has no such artifact.",
+  "all": true,
+  "include": ["src/renderer/**/*.mjs", "src/renderer/**/*.js"],
+  "exclude": ["src/renderer/vendor/**"],
+  "check-coverage": false,
+  "reports-dir": "coverage/renderer",
+  "reporter": ["text", "json-summary", "html"]
+}

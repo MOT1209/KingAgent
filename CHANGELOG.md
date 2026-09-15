@@ -25,6 +25,10 @@ always the newest one below.
 - `src/main/folder-scan.js` and `src/main/update-polling.js`, both covered by new
   tests, so folder scanning and the update schedule are no longer untested code
   inside `main.js`.
+- `npm run test:coverage:renderer`: the renderer's coverage, which the gate never
+  counted. Report-only, and the `.c8rc.renderer.json` note says why — most of the
+  renderer needs a DOM and `app.js` needs an Electron window, so gating on it
+  would mean lowering the thresholds until passing stopped meaning anything.
 
 ### Changed
 
@@ -37,9 +41,54 @@ always the newest one below.
   build rather than a silent one.
 - `README.md` states what needs no network or account, real install sizes, and
   the fork's policy toward upstream Nami.
+- The dead `exclude` in the `c8` block is gone. It named
+  `src/renderer/vendor/**` while the `include` listed only `src/main` and
+  `src/core`, so it could not match a file that was being measured — a leftover
+  from a renderer scope that was intended and never wired. The vendor exclude now
+  sits on the renderer scope, which is the only one whose include set reaches it.
+- `eslint.config.mjs` ignores `_local/`. `.gitignore` sends working notes and
+  scratch scripts there, and linting the folder contradicted the file next to it:
+  a throwaway `.cjs` failed `npm run lint` for using `console`.
+
+### Security
+
+- **A skill's integrity digest covered only its instructions, not the resources
+  they point at.** A skill is pinned to a digest of its instructions *and* every
+  file listed under `entry.resources`, and both are prompt text the model reads.
+  Hashing the entry document alone left the resources an approved-but-unmeasured
+  side channel: leave `SKILL.md` byte-identical, rewrite one resource it
+  references into an instruction the scanner refuses, and the recorded digest
+  still matched — so the load was treated as the content that was approved, and
+  the new text went to the model under the old verdict. The installer's idempotent
+  path compared the same single-file digest, so a changed resource could also
+  install as "identical content".
+- The digest is now `digestOfSkill({ content, resources })`
+  (`cache/SkillCache.js`), used by all four sources, the loader, the cache's own
+  default and therefore the installer. Resources are visited in sorted name order
+  and every part is length-framed, so neither the order a source read them in nor
+  an added-and-empty resource can collide with another skill's bytes.
+- The scheme version (`kingagent-skill-digest/v2`) is hashed in first, so widening
+  what a digest covers is a change of digest rather than a silent change of
+  meaning: an existing skill is re-scanned and re-pinned once on its next load,
+  and a pin recorded by the old scheme can never pass as current.
+- Covered from the attack side by three tests: `loader: a resource that turned
+  hostile after installation is refused` (quarantined, with the findings named),
+  `loader: a benign resource change is re-scanned and re-pinned`, and
+  `cache: the digest a skill is pinned to covers every resource`.
 
 ### Fixed
 
+- Two delegation tests no longer depend on how busy the machine is. The
+  multi-agent fixture rooted its workspaces and tools at `process.cwd()`, so a
+  "find TODOs" delegation walked this entire repository including
+  `node_modules` — work none of those tests assert anything about, and enough of
+  it to sit a couple of seconds from the 15s delegation deadline. They passed
+  alone and failed under `npm run test:coverage`, where every test file runs at
+  once and the instrumented run is several times slower: `DELEGATION_TIMEOUT`
+  instead of the `DELEGATION_BAD_RESULT` under test. The fixture now roots at a
+  small temp project with a TODO in it (`core-orchestrator.test.mjs` already did
+  this, and says why). That file went from ~11s to ~1.1s and the coverage run
+  from 240s to 83s, with the assertions unchanged.
 - Recents could sort a pinned folder below a newer plain one. The sort compares
   `Number(pinned)` on both sides, so a row written without that field — a
   hand-edited `state.json`, or one from an older build — produced `NaN`, which is

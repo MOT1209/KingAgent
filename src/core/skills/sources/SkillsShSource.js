@@ -22,7 +22,7 @@
 // and never for a decision. Install pins the content digest so a later change
 // is detected (loader/SkillLoader.js).
 
-const { digestOf } = require('../cache/SkillCache');
+const { digestOfSkill } = require('../cache/SkillCache');
 const { SkillSourceNotWiredError } = require('./GitHubSkillSource');
 
 const DEFAULT_BASE_URL = 'https://skills.sh';
@@ -155,7 +155,7 @@ class SkillsShSource {
       throw new Error(`skills.sh returned no instructions for "${id}"; expected a string under one of: ${this._map.content.join(', ')}`);
     }
 
-    const digest = digestOf(content);
+    const digest = digestOfSkill({ content });
     return {
       manifest: {
         ...manifest,

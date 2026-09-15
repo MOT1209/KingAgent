@@ -15,6 +15,11 @@ export default [
       'dist/**',
       'shots/**',
       'src/renderer/vendor/**',
+      // Where .gitignore tells people to keep working notes, scratch scripts
+      // and review reports. Linting it contradicts that: a throwaway .cjs with a
+      // console.log in it failed this config, which is a rule enforcing the
+      // opposite of the instruction right beside it. Nothing in here ships.
+      '_local/**',
     ],
   },
   js.configs.recommended,

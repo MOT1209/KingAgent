@@ -4,7 +4,10 @@
 // The integrity check is the reason this module exists rather than being three
 // lines inside the runtime. A skill is validated and scanned at install time,
 // and its content digest is recorded. Every load compares the digest of what it
-// just read against that record:
+// just read against that record — and "what it just read" means the entry
+// document *and* every resource it points at, because a resource is prompt text
+// too and restricting the hash to the entry document is how a rewritten
+// resource keeps passing as the skill that was approved:
 //
 //   same digest      -> load, with the verdict that was already reached
 //   different digest -> the bytes changed after they were approved. Re-scan; if
@@ -16,7 +19,7 @@
 // skill safe to keep installed: a file edited after approval is a *new* thing
 // to decide about, not an invisible one.
 
-const { digestOf, SkillCache } = require('../cache/SkillCache');
+const { digestOfSkill, SkillCache } = require('../cache/SkillCache');
 const { scanSkill } = require('../security/SkillScanner');
 const { SKILL_STATES, isLoadable } = require('../lifecycle/states');
 const { TYPES } = require('../../events/event-bus');
@@ -67,10 +70,11 @@ class SkillLoader {
       if (!fetched || typeof fetched.content !== 'string') {
         throw new SkillLoadError(`source ${record.manifest.source.type} returned no content for ${record.id}`, { code: 'SKILL_EMPTY', skillId: record.id });
       }
+      const resources = fetched.resources || {};
       payload = {
         content: fetched.content,
-        resources: fetched.resources || {},
-        digest: digestOf(fetched.content),
+        resources,
+        digest: digestOfSkill({ content: fetched.content, resources }),
       };
       this._cache.set(key, payload);
     }
@@ -81,7 +85,7 @@ class SkillLoader {
     if (changed) {
       // The bytes are not the bytes that were approved. Decide again.
       rescan = scanSkill({ manifest: record.manifest, content: payload.content, resources: payload.resources });
-      this._emit(TYPES.SKILL_SCANNED, record, { reason: 'content changed since installation', blocked: rescan.blocked, findings: rescan.summary });
+      this._emit(TYPES.SKILL_SCANNED, record, { reason: 'content or resources changed since installation', blocked: rescan.blocked, findings: rescan.summary });
       if (rescan.blocked && quarantineOnChange) {
         record.setSecurity({ scanned: true, findings: rescan.findings, sandboxRequired: true, blocked: true });
         this._quarantine(record, 'content changed after installation and the new content was refused by the scanner');
@@ -92,7 +96,7 @@ class SkillLoader {
       }
       record.setSecurity({ scanned: true, findings: rescan.findings, sandboxRequired: record.security.sandboxRequired, blocked: false });
       record.contentDigest = payload.digest;
-      if (this._logger) this._logger.warn(`skill ${record.id} content changed since installation; re-scanned clean`, { digest: payload.digest.slice(0, 12) });
+      if (this._logger) this._logger.warn(`skill ${record.id} changed since installation; re-scanned clean`, { digest: payload.digest.slice(0, 12) });
     } else if (!record.contentDigest) {
       record.contentDigest = payload.digest;
     }

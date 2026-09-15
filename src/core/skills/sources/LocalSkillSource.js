@@ -16,7 +16,7 @@
 // back a gigabyte is a denial of service, not a skill.
 
 const nodePath = require('node:path');
-const { digestOf } = require('../cache/SkillCache');
+const { digestOfSkill } = require('../cache/SkillCache');
 const { isSafeRelativePath } = require('../registry/SkillSource');
 const { satisfies } = require('../registry/SkillVersion');
 
@@ -88,7 +88,10 @@ class LocalSkillSource {
       manifest: { ...manifest, source: { type: 'local', directory: this._root, path: folder } },
       content,
       resources,
-      digest: digestOf(content),
+      // Over the resources too: a local skill folder is the one place a file
+      // can be edited between approval and load, and a resource is as much
+      // prompt text as the entry document is.
+      digest: digestOfSkill({ content, resources }),
     };
   }
 

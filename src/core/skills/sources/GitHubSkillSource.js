@@ -18,7 +18,7 @@
 // a token lives in the host's secret handling and not in a skill source object
 // that gets logged, serialized or handed to a renderer.
 
-const { digestOf } = require('../cache/SkillCache');
+const { digestOfSkill } = require('../cache/SkillCache');
 const { isSafeRelativePath, isSafeRef, COMMIT_SHA } = require('../registry/SkillSource');
 
 const API_HOST = 'api.github.com';
@@ -157,7 +157,9 @@ class GitHubSkillSource {
       },
       content,
       resources,
-      digest: digestOf(content),
+      // Instructions *and* resources. A skill pinned to a commit sha is only
+      // pinned to what was hashed, and a resource is prompt text too.
+      digest: digestOfSkill({ content, resources }),
       pinned: true,
       ref: sha,
     };

@@ -16,7 +16,7 @@
 
 const { BUILTIN_SKILLS } = require('../builtin/catalog');
 const { satisfies } = require('../registry/SkillVersion');
-const { digestOf } = require('../cache/SkillCache');
+const { digestOfSkill } = require('../cache/SkillCache');
 
 class BuiltinSkillSource {
   constructor({ skills = BUILTIN_SKILLS } = {}) {
@@ -56,11 +56,12 @@ class BuiltinSkillSource {
     const entry = this._skills.get(id);
     if (!entry) throw new Error(`no built-in skill "${id}"`);
     const content = entry.content;
+    const resources = {};
     return {
       manifest: { ...entry.manifest, source: { type: 'builtin' } },
       content,
-      resources: {},
-      digest: digestOf(content),
+      resources,
+      digest: digestOfSkill({ content, resources }),
     };
   }
 

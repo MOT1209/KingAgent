@@ -53,7 +53,7 @@ const { SkillEvaluator } = require('./evaluation/SkillEvaluator');
 const SkillQualityScore = require('./evaluation/SkillQualityScore');
 const SkillBenchmarks = require('./evaluation/SkillBenchmarks');
 
-const { SkillCache, digestOf } = require('./cache/SkillCache');
+const { SkillCache, digestOf, digestOfSkill, DIGEST_SCHEME } = require('./cache/SkillCache');
 const { BuiltinSkillSource } = require('./sources/BuiltinSkillSource');
 const { LocalSkillSource } = require('./sources/LocalSkillSource');
 const { GitHubSkillSource } = require('./sources/GitHubSkillSource');
@@ -244,6 +244,8 @@ module.exports = {
   // cache + sources
   SkillCache,
   digestOf,
+  digestOfSkill,
+  DIGEST_SCHEME,
   BuiltinSkillSource,
   LocalSkillSource,
   GitHubSkillSource,

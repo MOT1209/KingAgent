@@ -70,10 +70,17 @@ asks for approval each run.
 
 ## 4. Iterate
 
-Edit `SKILL.md` freely: the loader compares the content digest against the one
-recorded at install, re-scans anything that changed, and re-pins it. An edit that
-introduces something the scanner refuses quarantines the skill — that is the
-mechanism working, not a bug.
+Edit `SKILL.md` freely — and any file you listed under `entry.resources` with it.
+The digest the loader compares against the one recorded at install covers the
+instructions *and* every resource, because a resource is prompt text too and a
+skill whose entry document is untouched is still not the skill that was approved
+if a resource it points at was rewritten. Anything that changed is re-scanned and
+re-pinned; an edit that introduces something the scanner refuses quarantines the
+skill — that is the mechanism working, not a bug.
+
+The digest scheme is versioned. When this project widens what a digest covers,
+every installed skill is re-scanned and re-pinned once on its next load, instead
+of an old pin continuing to pass as current.
 
 ## Testing that it is selected
 
