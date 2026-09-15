@@ -77,10 +77,10 @@
       "src/renderer/vendor/**"
     ],
     "check-coverage": true,
-    "lines": 55,
-    "statements": 55,
-    "functions": 65,
-    "branches": 60,
+    "lines": 70,
+    "statements": 70,
+    "functions": 80,
+    "branches": 70,
     "reporter": [
       "text",
       "json-summary",

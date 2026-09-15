@@ -32,10 +32,10 @@ const { deliverAgents, deliveryState, liftToMaster, importToMaster, sweepCopies 
 const { writePointers, pointerStatus, linkNative, hasForeignSkillsSection, POINTER_FILE } = require('./pointer.js');
 const fsActions = require('./fs-actions');
 const { createDirWatch } = require('./dir-watch');
-const { fmtSize, listDirectory, readTree } = require('./workspace-tree');
+const { fmtSize, listDirectory } = require('./workspace-tree');
 const { ptyCwd } = require('./pty-cwd');
 const settingsStore = require('./settings');
-const { migrateRecents, sortRecents, rememberFolderIn, setPinnedIn, removeFrom } = require('./recents');
+const { migrateRecents, rememberFolderIn, setPinnedIn, removeFrom } = require('./recents');
 const { windowChrome, cacheDir, APP_NAME, APP_DATA_DIRNAME } = require('./platform');
 const { cachedShell } = require('./terminal');
 const { unzip } = require('./unzip');
@@ -48,6 +48,8 @@ const { parseDocUrl, resolveWithinRoot, docContentType } = require('./doc-protoc
 const { browserFileUrl } = require('./browser-file');
 const { wireBrowserViews } = require('./browser-views');
 const stt = require('./stt');
+const { baseName, scanFolder, recentsForRenderer: recentsRows } = require('./folder-scan');
+const { createUpdatePolling } = require('./update-polling');
 
 // kingagent-doc:// — how a viewed HTML page and its neighbouring images are served.
 //
@@ -195,60 +197,9 @@ function writeSettings(patch) { return settingsStore.writeSettings({ file: setti
 function sendWc(wc, channel, payload) { if (wc && !wc.isDestroyed()) wc.send(channel, payload); }
 
 // ---- folder helpers --------------------------------------------------------
-function homeShort(p) { const h = os.homedir(); return p && p.startsWith(h) ? '~' + p.slice(h.length) : p; }
-function baseName(p) { return String(p || '').split(/[\\/]/).filter(Boolean).pop() || ''; }
-
-function scanFolder(folder) {
-  const info = { path: folder, pathShort: homeShort(folder), name: baseName(folder) || folder, tree: [], agents: [], skills: [], hasClaude: false };
-  try {
-    const claudeDir = path.join(folder, '.claude');
-    info.hasClaude = fs.existsSync(claudeDir);
-    // agents
-    const agentsDir = path.join(claudeDir, 'agents');
-    if (fs.existsSync(agentsDir)) {
-      for (const f of fs.readdirSync(agentsDir)) {
-        if (!f.endsWith('.md')) continue;
-        const full = path.join(agentsDir, f);
-        const meta = readFrontmatter(full);
-        info.agents.push({
-          slug: f.replace(/\.md$/, ''),
-          name: meta.name || f.replace(/\.md$/, ''),
-          desc: meta.description || '',
-          tools: meta.tools || '',
-        });
-      }
-    }
-    // skills
-    const skillsDir = path.join(claudeDir, 'skills');
-    if (fs.existsSync(skillsDir)) {
-      for (const d of fs.readdirSync(skillsDir)) {
-        const skillMd = path.join(skillsDir, d, 'SKILL.md');
-        if (fs.existsSync(skillMd)) {
-          const meta = readFrontmatter(skillMd);
-          info.skills.push({ slug: d, name: meta.name || d });
-        }
-      }
-    }
-    // shallow tree (top level)
-    info.tree = readTree(folder, 0, 2);
-  } catch (_) {}
-  return info;
-}
-
-function readFrontmatter(file) {
-  try {
-    const txt = fs.readFileSync(file, 'utf8').slice(0, 4000);
-    const m = txt.match(/^---\s*\n([\s\S]*?)\n---/);
-    const out = {};
-    if (m) {
-      for (const line of m[1].split('\n')) {
-        const mm = line.match(/^(\w[\w-]*):\s*(.*)$/);
-        if (mm) out[mm[1]] = mm[2].replace(/^["']|["']$/g, '').trim();
-      }
-    }
-    return out;
-  } catch (_) { return {}; }
-}
+// Scanning a folder and shaping a Recents row are folder-scan.js's job — pure
+// folder logic with no app state in it, so it can be tested on its own. What
+// stays here is the list these rows are made from.
 
 function rememberFolder(folder) {
   state.recentFolders = rememberFolderIn(state.recentFolders || [], folder, Date.now());
@@ -260,10 +211,7 @@ function rememberFolder(folder) {
 // The list lives in main but every window renders its own copy, so a change in
 // one window has to reach the others or their popovers show a stale order.
 function recentsForRenderer() {
-  return sortRecents(state.recentFolders || []).map((r) => ({
-    path: r.path, pathShort: homeShort(r.path), name: baseName(r.path),
-    at: r.at, pinned: !!r.pinned, missing: !fs.existsSync(r.path),
-  }));
+  return recentsRows(state.recentFolders || []);
 }
 function broadcastRecents() {
   const rows = recentsForRenderer();
@@ -307,9 +255,6 @@ function refreshAppMenu(focusedWindow = BrowserWindow.getFocusedWindow() || win)
 // Never runs in development: the version in package.json is always behind the
 // last published release while working, so every launch would nag about an
 // update you are in the middle of building.
-const UPDATE_EVERY = 6 * 60 * 60 * 1000;
-let lastOffered = null;
-
 // The Smart Update Center — one instance for the process, created on first
 // use so nothing about app.getVersion()/getPath('userData') has to be ready
 // before this file is required. It wraps downloadUpdate/installNow/hasStaged
@@ -336,58 +281,21 @@ function updateManager() {
   return sharedUpdateManager;
 }
 
-async function pollForUpdate() {
-  // Settings → Updates → "Automatically check for updates", on by default —
-  // only an explicit `false` skips the poll.
-  if (readSettings().updatesAutoCheck === false) return;
-  const res = await updateManager().check();
-  if (res.status.state !== 'update') return;
-  lastOffered = { version: res.status.version, url: res.status.url };
-  for (const w of wins) sendWc(w.webContents, 'update:available', lastOffered);
-  // Settings → Updates → "Automatically download updates", off by default —
-  // rule one from updater.js ("nothing downloaded unasked") stays the
-  // default; this is the one door the user can open themselves. Failures are
-  // silent here exactly like the check itself — the card still offers a
-  // manual download, and a background prefetch is not something to alarm
-  // anyone about failing.
-  if (readSettings().updatesAutoDownload) updateManager().download().catch(() => {});
-}
-
-// Section 27: "Install updates automatically on next launch." Off by
-// default, and only when a download from an earlier run is already sitting
-// in the cache — this never triggers a fresh download on its own.
-// installNow() re-validates that cached file against electron-updater's own
-// record before trusting it, the same as the "Install now" button already
-// does. Safe even if a session somehow spawned in the same 8 seconds: this
-// goes through updateManager().install() unforced, which refuses to install
-// while liveSessionCount() is nonzero — the same guard the button gets.
-async function maybeAutoInstallOnLaunch() {
-  if (!app.isPackaged || REVIEW) return;
-  if (!readSettings().updatesInstallOnLaunch) return;
-  if (!stagedUpdateWaiting()) return;
-  try { await updateManager().install(); } catch (_) {}
-}
-
-// A postponed update that has waited out its reminder window, brought back
-// on the next launch rather than left for a background poll that might be
-// hours away. Section 8 of the spec: "do not repeatedly spam the user" — the
-// manager backs the interval off on its own each time this fires without the
-// user acting on it.
-function checkUpdateReminder() {
-  const due = updateManager().checkReminder();
-  if (!due) return;
-  lastOffered = { version: due.postponedVersion, url: lastOffered?.url || null };
-  for (const w of wins) sendWc(w.webContents, 'update:reminder', { version: due.postponedVersion });
-}
-
-function startUpdatePolling() {
-  if (!app.isPackaged || REVIEW) return;
-  // A beat after launch, not during it — the first seconds belong to the window.
-  setTimeout(maybeAutoInstallOnLaunch, 8000).unref?.();
-  setTimeout(pollForUpdate, 8000).unref?.();
-  setTimeout(checkUpdateReminder, 8000).unref?.();
-  setInterval(pollForUpdate, UPDATE_EVERY).unref?.();
-}
+// The schedule itself — one beat after launch, then every six hours, plus the
+// staged-download install and the postponed-update reminder — lives in
+// update-polling.js as a factory over these dependencies. What stays here is
+// only the wiring main.js alone can do: the manager, the settings, the windows
+// to notify, and the fact that a staged download is a real file on disk.
+const polling = createUpdatePolling({
+  manager: updateManager,
+  readSettings,
+  isPackaged: () => app.isPackaged,
+  review: REVIEW,
+  emit: (channel, payload) => {
+    for (const w of wins) sendWc(w.webContents, channel, payload);
+  },
+  hasStagedUpdate: () => stagedUpdateWaiting(),
+});
 
 // ---- window ----------------------------------------------------------------
 // Quit used to restore `state.currentFolder` — one slot, so three open windows
@@ -576,7 +484,7 @@ app.whenReady().then(() => {
   if (restore) for (const w of restore) createWindow(w.folder || null, w.bounds);
   else createWindow();
   if (process.argv.includes('--second-window')) createWindow(null); // dev: multi-window smoke test
-  startUpdatePolling();
+  polling.start();
   // Phase 2: the agent platform (runtime, registry, tools, workflows) behind a
   // validated IPC surface. Wrapped so a platform failure can never keep the
   // desk itself from starting — the terminal and its agents carry on.
@@ -682,7 +590,7 @@ ipcMain.handle('boot', (e) => {
     winId: bootSeq,
     // A window opened after the check already ran would otherwise never hear
     // about the update — the event has been and gone.
-    update: lastOffered,
+    update: polling.lastOffered,
     // And a window opened mid-download, or after one finished, would otherwise
     // offer to start a download that is already running or already done.
     // `staged` is the one that survives a restart: a download left in the cache
@@ -779,7 +687,7 @@ ipcMain.handle('update:status', async () => {
   // A manual check that finds something also re-arms the bar: the renderer
   // clears its "skipped" mark off the back of this, so a version somebody once
   // waved away can be found again.
-  if (st.state === 'update') lastOffered = { version: st.version, url: st.url };
+  if (st.state === 'update') polling.note(st.version, st.url);
   // `version` is always the one running and `latest` the one on offer. They were
   // one field to begin with, and the pane duly announced "KingAgent 0.1.3, updated
   // tonight" about a copy the user did not have.

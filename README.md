@@ -117,6 +117,19 @@ dist:mac` (DMG + zip). `dist` and `dist:mac` fetch the Whisper model the
 installer carries; run `npm run fetch-model` once yourself before `dist:win`.
 Windows build notes are in [docs/windows.md](docs/windows.md).
 
+### What you need
+
+| | |
+|---|---|
+| **Running it** | Windows 10/11 (x64 or arm64) · macOS 13 or later (Apple silicon or Intel) |
+| **Building it** | Node.js **≥ 24** and npm. Nothing else — no bundler, no framework, no build step for the UI |
+| **Disk, installed** | Around 400 MB unpacked, of which ~110 MB is what you download |
+| **Disk, extra** | `npm run fetch-model` pulls `whisper-tiny.en` (~44 MB) into `build/models`; without it the app still runs, dictation just has no engine |
+| **Network** | None required to run. The only outbound call is the update check against this repo's releases, and it is notify-only |
+
+No account, no API key and no cloud service is needed for the app itself. Keys
+are only relevant if you point Voice or Models at a hosted provider.
+
 ## Releases, auto-update and signing
 
 Every push to main publishes a fresh rolling release; the download links at the
@@ -140,7 +153,9 @@ workflow signs every build from then on. Setup steps are in
 [docs/windows-signing.md](docs/windows-signing.md); without them the installer
 ships exactly as it does today, unsigned.
 
-Contributor notes are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributor notes are in [CONTRIBUTING.md](CONTRIBUTING.md), and taking part is
+covered by the [Code of Conduct](CODE_OF_CONDUCT.md). What changed in a given
+version is in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -149,6 +164,25 @@ Contributor notes are in [CONTRIBUTING.md](CONTRIBUTING.md).
 KingAgent is maintained here as a cross-platform fork of Nami, made by
 [Cal](https://dainami.ai) — and made **in Nami**. The upstream project and the
 MIT license it ships under remain credited in this repository's [LICENSE](LICENSE).
+
+### Relation to upstream (Nami)
+
+There is no automatic merge from `mrdainami/nami` and no release schedule tied
+to it. What that means in practice:
+
+- **Windows is fork-only.** `src/main/platform.js`, the shell table, the PATH
+  rules, the NSIS packaging and the Windows half of the updater have no upstream
+  counterpart and are not waiting on one. See [docs/windows.md](docs/windows.md).
+- **The macOS half still tracks upstream's behaviour** — same window chrome,
+  same signing and notarization wiring, same file-association restraint. Mac
+  fixes that still apply here are pulled in as they come; anything upstream
+  changes that only made sense for a Mac-only app is not.
+- **Internal `nami` identifiers are kept on purpose** (data directory, MIME
+  types, `doc:` protocol, tool ids, `NAMI_PING_URL`). Renaming them would break
+  existing installs and the agent configs already written to disk, for no
+  visible gain. User-facing strings are all KingAgent.
+- **Divergence is one-way by default.** Changes land here first; a fix worth
+  sending upstream is sent deliberately rather than by a scheduled sync.
 
 MIT licensed · [Repository](https://github.com/MOT1209/KingAgent) ·
 [Issues](https://github.com/MOT1209/KingAgent/issues)

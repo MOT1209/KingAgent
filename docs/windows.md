@@ -49,6 +49,17 @@ Detection itself is platform-agnostic: `Get-Command` on Windows,
 known-directories fallback (npm prefix, `%LOCALAPPDATA%\Programs`, `~\.local\bin`,
 `~\.bun\bin`).
 
+The Windows route to a CLI is almost always npm or winget rather than a
+curl-pipe, so `installWin` names the package-manager command and the launcher
+tile it runs in; the `PATH` it needs afterwards is the one a just-finished
+installer wrote, which is why the app re-reads the user PATH after any install
+(it asks PowerShell for `$env:PATH` instead of reading the registry directly).
+If an agent has no documented Windows route, the sheet shows the upstream doc
+link and no "Install it for me" button — a dead command is worse than a link.
+Worth knowing when a contributor reports an agent missing: detection and
+execution read the same memo, so a stale tile PATH and a genuinely missing
+binary look identical until the app is restarted or a fresh tile is opened.
+
 ## Model weights and dictation
 
 `onnxruntime-node` ships per-OS native binaries. `electron-builder.yml` now
@@ -70,9 +81,21 @@ shell interpolation, `.cmd` shims resolvable through the scanned PATH.
 
 ```bash
 npm run pack:win    # unpacked build into release/win-unpacked
-npm run dist:win    # NSIS installer + portable exe (x64; arm64 via the nsis target list)
+npm run dist:win    # NSIS installers only (x64 + arm64)
 npm run dist:mac    # DMG + zip on a Mac (signing + notarization as upstream)
 ```
+
+There is no `portable` build, and that is deliberate. Its artifact name
+collides with the x64 NSIS file — same `${arch}`, same `.exe` — so the later
+build silently overwrote the earlier one and `latest.yml` then recorded a size
+the surviving file never had. Every auto-update checks its checksum against
+that dead number, so the portable target is left out of `electron-builder.yml`
+rather than pinned around.
+
+`npm run dist` and `npm run dist:mac` fetch the Whisper weights first through
+their `predist` hook. `npm run dist:win` has no such hook, so run
+`npm run fetch-model` once yourself beforehand — otherwise the installer is
+built with an empty `build/models` and ships without offline dictation.
 
 The Windows installer is per-user NSIS (`perMachine: false`): no admin rights,
 installable without elevation, and — the reason it matters — the auto-updater
