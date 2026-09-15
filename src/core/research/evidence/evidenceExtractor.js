@@ -176,26 +176,11 @@ class EvidenceExtractor {
     return out;
   }
 
-  // Stance, from negation and contradiction markers near the claim's terms.
-  // Deliberately conservative: anything unclear is NEUTRAL, because a
-  // mis-labelled "contradicts" invents a conflict and a mis-labelled "supports"
-  // invents corroboration, and both are worse than "we are not sure".
+  // Stance toward a claim. Delegates to the module-level `stanceToward` so the
+  // claim analyzer uses the identical rule — having two places decide what
+  // "contradicts" means is how a passage ends up supporting a claim it refutes.
   _stanceFor(text, claim) {
-    const claimTokens = tokenSet(claim.text);
-    const onTopic = tokenCoverage(claimTokens, tokenSet(text));
-    if (onTopic < 0.35) return STANCE.NEUTRAL;
-    // A passage that states a different version, price or measurement than the
-    // claim contradicts it, however affirmatively it is worded. Without this
-    // check "the current version is v1.2.0" reads as *supporting* a claim that
-    // says v0.9.0 — both sentences are affirmative, and only the numbers
-    // disagree.
-    if (contradictsValues(text, claim.text)) return STANCE.CONTRADICTS;
-    const negated = /\b(?:not|never|no longer|cannot|can't|doesn't|does not|isn't|is not|unsupported|unavailable|removed|deprecated|false|incorrect|contrary)\b/i.test(text);
-    const affirmed = /\b(?:supports?|provides?|includes?|does|is|are|available|implemented|confirmed|true)\b/i.test(text);
-    if (negated && !affirmed) return STANCE.CONTRADICTS;
-    if (negated && affirmed) return STANCE.NEUTRAL; // mixed: not our call to make
-    if (affirmed) return STANCE.SUPPORTS;
-    return STANCE.NEUTRAL;
+    return stanceToward(text, claim.text);
   }
 
   // Optional model pass: given already-extracted spans, let a provider pick the
@@ -255,6 +240,33 @@ class EvidenceExtractor {
   }
 }
 
+// Stance, from value disagreement and from negation markers near the claim's
+// terms. Deliberately conservative: anything unclear is NEUTRAL, because a
+// mis-labelled "contradicts" invents a conflict and a mis-labelled "supports"
+// invents corroboration, and both are worse than "we are not sure".
+//
+// Exported, and used by claimAnalyzer as well as by the extractor, because
+// every path that attaches evidence to a claim has to agree about the sign.
+const NEGATED = /\b(?:not|never|no longer|cannot|can't|doesn't|does not|isn't|is not|unsupported|unavailable|removed|deprecated|false|incorrect|contrary)\b/i;
+const AFFIRMED = /\b(?:supports?|provides?|includes?|costs?|does|is|are|available|implemented|confirmed|true)\b/i;
+
+function stanceToward(text, claimText, { minOnTopic = 0.35 } = {}) {
+  const claimTokens = tokenSet(claimText);
+  const onTopic = tokenCoverage(claimTokens, tokenSet(text));
+  if (onTopic < minOnTopic) return STANCE.NEUTRAL;
+  // A passage stating a different version, price or measurement contradicts the
+  // claim however affirmatively it is worded. Without this, "the current version
+  // is v1.2.0" reads as *supporting* a claim that says v0.9.0: both sentences
+  // are affirmative and only the numbers disagree.
+  if (contradictsValues(text, claimText)) return STANCE.CONTRADICTS;
+  const negated = NEGATED.test(text);
+  const affirmed = AFFIRMED.test(text);
+  if (negated && !affirmed) return STANCE.CONTRADICTS;
+  if (negated && affirmed) return STANCE.NEUTRAL; // mixed: not our call to make
+  if (affirmed) return STANCE.SUPPORTS;
+  return STANCE.NEUTRAL;
+}
+
 function contextAround(body, start, end, pad = 200) {
   return body.slice(Math.max(0, start - pad), Math.min(body.length, end + pad)).trim();
 }
@@ -269,4 +281,4 @@ function locationFor(source, span, body) {
   return { kind: 'char', start: span.start, end: span.end };
 }
 
-module.exports = { EvidenceExtractor, splitSentences, scoreSentence, kindOf, BOILERPLATE };
+module.exports = { EvidenceExtractor, stanceToward, splitSentences, scoreSentence, kindOf, BOILERPLATE };

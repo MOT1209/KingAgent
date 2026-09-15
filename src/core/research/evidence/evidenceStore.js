@@ -28,6 +28,8 @@ class EvidenceStore {
     this._claims = new Map();        // claimId -> Claim
     this._byClaim = new Map();       // claimId -> Set<evidenceId>
     this._linkStance = new Map();    // `claimId::evidenceId` -> stance
+    this._byDigest = new Map();      // `sourceId::digest` -> evidenceId
+    this._byFingerprint = new Map(); // source fingerprint -> first sourceId seen
     this._bySource = new Map();      // sourceId -> Set<evidenceId>
     this._clusterOf = new Map();     // sourceId -> canonical sourceId
     this._clusters = new Map();      // canonical sourceId -> memberIds
@@ -35,15 +37,48 @@ class EvidenceStore {
 
   // --- sources --------------------------------------------------------------
 
+  // Adding a source the store has already seen — same fingerprint, new id —
+  // folds it into the existing cluster instead of registering a second
+  // document. This matters most during verification, which re-searches and
+  // gets fresh ids for pages already in the set: without it the same page
+  // counts twice toward independent corroboration, and every pair of its spans
+  // reads as a separate disagreement.
   addSources(sources) {
-    for (const s of sources) this._sources.set(s.id, s);
+    for (const s of sources) {
+      this._sources.set(s.id, s);
+      const seen = this._byFingerprint.get(s.fingerprint);
+      if (seen && seen !== s.id) {
+        this._clusterOf.set(s.id, this.canonicalIdFor(seen));
+        const members = this._clusters.get(this.canonicalIdFor(seen));
+        if (members && !members.includes(s.id)) members.push(s.id);
+      } else if (!seen) {
+        this._byFingerprint.set(s.fingerprint, s.id);
+      }
+    }
     return this;
   }
 
   // Record the dedup clustering so independence questions have an answer.
+  // Merged with what is already known rather than replacing it: the
+  // fingerprint links established by addSources are clustering too, and a
+  // later dedup pass must not discard them.
   setClusters({ clusterOf = new Map(), clusters = [] } = {}) {
-    this._clusterOf = new Map(clusterOf);
-    for (const c of clusters) this._clusters.set(c.canonicalId, c.memberIds);
+    for (const [id, canonical] of clusterOf) {
+      // A dedup pass over one batch of results maps every canonical member to
+      // itself. Writing those self-mappings blindly undoes the fingerprint
+      // links addSources established across batches — which is exactly how a
+      // page re-found during verification escaped its cluster and its spans
+      // started conflicting with their own earlier copies. A real merge always
+      // wins over a self-mapping.
+      const resolved = this._clusterOf.get(canonical) || canonical;
+      if (resolved !== id) this._clusterOf.set(id, resolved);
+      else if (!this._clusterOf.has(id)) this._clusterOf.set(id, id);
+    }
+    for (const c of clusters) {
+      const canonical = this.canonicalIdFor(c.canonicalId);
+      const existing = this._clusters.get(canonical) || [];
+      this._clusters.set(canonical, [...new Set([...existing, ...c.memberIds])]);
+    }
     return this;
   }
 
@@ -61,6 +96,22 @@ class EvidenceStore {
         { field: 'sourceId' },
       );
     }
+    // The same passage from the same document is one piece of evidence, however
+    // many queries turned the document up. Without this, a source found by four
+    // queries yields four identical spans, and every cross pair of them reads
+    // as a separate disagreement — one price difference became seventeen
+    // conflicts before this check existed.
+    const key = `${evidence.sourceId}::${evidence.digest}`;
+    const seen = this._byDigest.get(key);
+    if (seen) {
+      const prev = this._evidence.get(seen);
+      // Keep whichever copy scored higher; the text is identical by definition.
+      if (prev && (evidence.strength ?? 0) > (prev.strength ?? 0)) {
+        this._evidence.set(seen, Object.freeze({ ...evidence, id: seen }));
+      }
+      return this._evidence.get(seen);
+    }
+    this._byDigest.set(key, evidence.id);
     this._evidence.set(evidence.id, evidence);
     index(this._bySource, evidence.sourceId, evidence.id);
     if (evidence.claimId) index(this._byClaim, evidence.claimId, evidence.id);

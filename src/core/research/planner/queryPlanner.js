@@ -185,8 +185,11 @@ function planQueries({ task, classification, available = null, limit = null }) {
     const key = queryKey(trimmed);
     if (!key || seen.has(key)) return false;
     // Drop a source type nothing can serve rather than planning into a void.
-    const types = (sourceTypes || classification.sourceTypes)
-      .filter((t) => !allowed || allowed.has(t));
+    // When a facet's preferred types are all unavailable, fall back to whatever
+    // the task *can* reach rather than dropping the facet: "licensing" asked of
+    // the only available source still beats not asking.
+    const preferred = (sourceTypes || classification.sourceTypes).filter((t) => !allowed || allowed.has(t));
+    const types = preferred.length ? preferred : (allowed ? [...allowed] : []);
     if (types.length === 0) return false;
     seen.add(key);
     out.push(normalizeQuery({

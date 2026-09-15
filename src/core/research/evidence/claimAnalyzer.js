@@ -18,9 +18,11 @@
 const { normalizeClaim, VERIFICATION } = require('../schemas/claim');
 const { STANCE } = require('../schemas/evidence');
 const { independentCount } = require('../retrieval/deduplicator');
+const { stanceToward } = require('./evidenceExtractor');
 const { aggregateStrength } = require('./evidenceRanker');
 const { tokenSet, coverage } = require('../text');
 const { clamp01 } = require('../schemas/source');
+const { valuesIn } = require('../values');
 
 // Confidence bands. Stated as constants because they are a policy decision, not
 // an implementation detail: these numbers decide when the system is allowed to
@@ -47,7 +49,7 @@ function extractClaims({ question, evidence, store, maxClaims = 12, minStrength 
 
   for (const e of evidence) {
     if ((e.strength ?? e.relevance ?? 0) < minStrength) continue;
-    const sentence = firstAssertion(e.text);
+    const sentence = firstAssertion(e.text, { questionTokens });
     if (!sentence) continue;
     const onTopic = coverage(questionTokens, tokenSet(sentence));
     if (onTopic < 0.15) continue;
@@ -61,7 +63,11 @@ function extractClaims({ question, evidence, store, maxClaims = 12, minStrength 
     if (claims.length >= maxClaims) break;
     const existing = claims.find((k) => similar(k.text, c.text));
     if (existing) {
-      store.link(existing.id, c.evidence.id, c.evidence.stance === STANCE.NEUTRAL ? STANCE.SUPPORTS : c.evidence.stance);
+      // Similar wording is not agreement. "$20 per month" and "$35 per month"
+      // are near-identical sentences that say opposite things, so the merge
+      // re-derives the stance against the claim it is merging into rather than
+      // inheriting the evidence's own neutral default.
+      store.link(existing.id, c.evidence.id, stanceToward(c.evidence.text, existing.text));
       continue;
     }
     const claim = store.addClaim(normalizeClaim({
@@ -73,25 +79,50 @@ function extractClaims({ question, evidence, store, maxClaims = 12, minStrength 
       material: c.onTopic >= 0.3,
       queryId: c.evidence.queryId,
     }));
-    store.link(claim.id, c.evidence.id, c.evidence.stance === STANCE.NEUTRAL ? STANCE.SUPPORTS : c.evidence.stance);
+    // The evidence that produced a claim supports it by construction.
+    store.link(claim.id, c.evidence.id, c.evidence.stance === STANCE.CONTRADICTS ? STANCE.CONTRADICTS : STANCE.SUPPORTS);
     claims.push(claim);
   }
   return claims;
 }
 
-// The first sentence in a span that actually asserts something. A span often
-// opens with a fragment; the claim should be the proposition, not the lead-in.
-function firstAssertion(text) {
-  const parts = String(text).split(/(?<=[.!?])\s+/);
-  for (const part of parts) {
-    const t = part.trim();
-    if (t.length < 20 || t.length > 400) continue;
-    if (/\b(?:is|are|was|were|has|have|supports?|requires?|provides?|returns?|means|allows?|includes?|does not|cannot)\b/i.test(t)) {
-      return t;
-    }
+// The proposition inside a span. A span often runs several sentences together;
+// the claim should be the one that answers the question.
+//
+// This used to take the first sentence matching a list of verbs, which quietly
+// lost every claim whose verb was not on the list — "The Widget Pro plan costs
+// $20 per month" was skipped in favour of the boilerplate sentence after it,
+// and the price never became a claim at all. Scoring the candidates instead
+// means an unusual verb costs a little rank rather than the whole claim.
+const ASSERTIVE_VERB = /\b(?:is|are|was|were|has|have|supports?|requires?|provides?|returns?|means|allows?|includes?|costs?|offers?|uses?|runs?|ships?|exposes?|implements?|does not|cannot|lacks?)\b/i;
+
+function firstAssertion(text, { questionTokens = null } = {}) {
+  const parts = String(text).split(/(?<=[.!?])\s+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 20 && p.length <= 400);
+  if (parts.length === 0) {
+    const whole = String(text).trim();
+    return whole.length >= 20 && whole.length <= 400 ? whole : null;
   }
-  const whole = String(text).trim();
-  return whole.length >= 20 && whole.length <= 400 ? whole : null;
+
+  let best = null;
+  let bestScore = -1;
+  for (const part of parts) {
+    // A sentence carrying a figure, a version or a price is almost always the
+    // claim someone wants; a sentence with a finite verb is a proposition; a
+    // sentence sharing the question's vocabulary is on topic. Any one of the
+    // three qualifies a sentence, and they compose.
+    let score = 0;
+    if (valuesIn(part).length) score += 2;
+    if (ASSERTIVE_VERB.test(part)) score += 1.5;
+    if (questionTokens) score += coverage(questionTokens, tokenSet(part)) * 2;
+    // Mild preference for the earlier sentence among equals: a span's first
+    // proposition is usually its point.
+    score -= parts.indexOf(part) * 0.01;
+    if (score > bestScore) { bestScore = score; best = part; }
+  }
+  // Nothing in the span asserts anything and nothing is on topic.
+  return bestScore > 0 ? best : null;
 }
 
 function similar(a, b, threshold = 0.7) {
@@ -107,7 +138,7 @@ function similar(a, b, threshold = 0.7) {
 // that produced it. Without this pass a claim is only ever supported by its own
 // origin, and cross-source corroboration — the thing §16 is about — never
 // happens.
-function linkEvidenceToClaims({ claims, evidence, store, minOverlap = 0.4, extractor = null }) {
+function linkEvidenceToClaims({ claims, evidence, store, minOverlap = 0.4 }) {
   for (const claim of claims) {
     const claimTokens = tokenSet(claim.text);
     const linked = new Set(store.evidenceForClaim(claim.id).map((x) => x.id));
@@ -117,9 +148,7 @@ function linkEvidenceToClaims({ claims, evidence, store, minOverlap = 0.4, extra
       // Re-derive the stance against *this* claim: a passage that supports one
       // claim can contradict another, and reusing the original label would
       // propagate the wrong sign.
-      const stance = extractor
-        ? extractor._stanceFor(e.text, claim)
-        : (e.stance === STANCE.NEUTRAL ? STANCE.SUPPORTS : e.stance);
+      const stance = stanceToward(e.text, claim.text);
       if (stance === STANCE.NEUTRAL) continue;
       store.link(claim.id, e.id, stance);
     }

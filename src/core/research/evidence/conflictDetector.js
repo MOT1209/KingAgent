@@ -43,10 +43,31 @@ function detect({ store, claims, sources = null }) {
     const evidence = store.evidenceForClaim(claim.id);
     if (evidence.length < 2) continue;
 
-    conflicts.push(...stanceConflicts({ claim, evidence, sourcesById, clusterOf }));
-    conflicts.push(...valueConflicts({ claim, evidence, sourcesById, clusterOf }));
+    const found = [
+      ...stanceConflicts({ claim, evidence, sourcesById, clusterOf }),
+      ...valueConflicts({ claim, evidence, sourcesById, clusterOf }),
+    ];
+    conflicts.push(...collapse(found, clusterOf));
   }
   return conflicts;
+}
+
+// One disagreement per claim per pair of sources.
+//
+// A stance conflict and a value conflict over the same two documents are the
+// same argument described twice, and reporting both inflates every count a
+// reader uses to judge how contested something is. The most severe survives.
+const SEVERITY_RANK = { minor: 0, material: 1, direct: 2 };
+
+function collapse(conflicts, clusterOf) {
+  const best = new Map();
+  for (const c of conflicts) {
+    const pair = [...new Set(c.sourceIds.map((id) => clusterOf.get(id) || id))].sort().join('|');
+    const key = `${c.claimId}::${pair}`;
+    const incumbent = best.get(key);
+    if (!incumbent || SEVERITY_RANK[c.severity] > SEVERITY_RANK[incumbent.severity]) best.set(key, c);
+  }
+  return [...best.values()];
 }
 
 function stanceConflicts({ claim, evidence, sourcesById, clusterOf }) {

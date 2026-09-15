@@ -70,13 +70,23 @@ function buildStrategy({ task, classification, capabilities = [], available = nu
       ? available
       : capabilities.filter((c) => c.available).map((c) => c.type),
   );
-  const wanted = (classification ? classification.sourceTypes : [])
-    .filter((t) => usable.has(t));
-  const unavailable = (classification ? classification.sourceTypes : [])
-    .filter((t) => !usable.has(t));
+  const suggested = classification ? classification.sourceTypes : [];
+  let wanted = suggested.filter((t) => usable.has(t));
+  const unavailable = suggested.filter((t) => !usable.has(t));
 
   // Reconcile ambition with reality.
-  if (wanted.length === 0) {
+  if (wanted.length === 0 && usable.size > 0) {
+    // The classifier's suggestion and what this task can reach do not overlap.
+    // That is not a dead end: a task that explicitly asked for a source type
+    // (sourcePreferences, filesOnly) or an install that only has one has *told*
+    // us where to look, and refusing because the classifier would have
+    // preferred the open web would be obeying a guess over an instruction.
+    wanted = [...usable];
+    downgrades.push({
+      what: 'sourceTypes',
+      why: `the question suggests ${suggested.join(', ') || 'no particular source'}, which this task cannot reach; using ${wanted.join(', ')} instead`,
+    });
+  } else if (wanted.length === 0) {
     downgrades.push({
       what: 'sources',
       why: unavailable.length
