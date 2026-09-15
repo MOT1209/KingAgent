@@ -15,7 +15,7 @@
 const { normalizeQuery, QUERY_INTENT, queryKey } = require('../schemas/researchQuery');
 const { SOURCE_TYPES } = require('../schemas/source');
 const { CATEGORY } = require('./queryClassifier');
-const { tokenize } = require('../../memory/relevance');
+const { tokenize } = require('../text');
 
 // Facet templates per category. Each entry is `[suffix, intent, sourceTypes]`.
 // The suffix is appended to the subject, not to the whole question: "X

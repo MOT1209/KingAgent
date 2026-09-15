@@ -20,7 +20,7 @@
 // value are compared. That keeps it near-linear without the recall hole.
 
 const crypto = require('node:crypto');
-const { tokenize } = require('../../memory/relevance');
+const { tokenize } = require('../text');
 
 const SHINGLE_SIZE = 5;
 const NEAR_DUPLICATE_THRESHOLD = 0.82;

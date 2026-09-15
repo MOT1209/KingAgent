@@ -19,7 +19,7 @@
 const path = require('node:path');
 const { SOURCE_TYPES } = require('../schemas/source');
 const { normalizeResult } = require('../schemas/researchResult');
-const { tokenize } = require('../../memory/relevance');
+const { tokenSet, coverage } = require('../text');
 const { screenFilePath } = require('../security/researchSecurity');
 const { SourceUnavailableError } = require('../errors/researchErrors');
 
@@ -98,10 +98,7 @@ function createFileSource({ fs, root = null, extractText = null, pathGuard = nul
 
   function scoreChunk(queryTokens, chunkText) {
     if (queryTokens.size === 0) return 0.35;
-    const tokens = new Set(tokenize(chunkText));
-    let hits = 0;
-    for (const t of queryTokens) if (tokens.has(t)) hits += 1;
-    return hits / queryTokens.size;
+    return coverage(queryTokens, tokenSet(chunkText));
   }
 
   return Object.freeze({
@@ -119,7 +116,7 @@ function createFileSource({ fs, root = null, extractText = null, pathGuard = nul
     available() { return true; },
 
     async search({ query, limit = 10, files = [], signal = null, onFailure = null }) {
-      const queryTokens = new Set(tokenize(query.text));
+      const queryTokens = tokenSet(query.text);
       const scored = [];
       for (const file of files) {
         if (signal && signal.aborted) break;

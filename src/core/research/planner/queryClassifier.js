@@ -14,7 +14,7 @@
 
 const { SOURCE_TYPES } = require('../schemas/source');
 const { FRESHNESS } = require('../retrieval/retrievalCache');
-const { tokenize } = require('../../memory/relevance');
+const { tokenize } = require('../text');
 
 const CATEGORY = Object.freeze({
   SIMPLE_FACT: 'simple_fact',

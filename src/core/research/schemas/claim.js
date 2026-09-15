@@ -92,6 +92,11 @@ function normalizeConflict(def = {}) {
     severity: Object.values(CONFLICT_SEVERITY).includes(def.severity) ? def.severity : CONFLICT_SEVERITY.MATERIAL,
     resolution: Object.values(CONFLICT_RESOLUTION).includes(def.resolution) ? def.resolution : CONFLICT_RESOLUTION.UNRESOLVED,
     resolutionReason: isString(def.resolutionReason) ? def.resolutionReason.slice(0, 400) : '',
+    // Set when a conflict is resolved: the evidence on the losing side, which
+    // claimAnalyzer then discounts, and the evidence that won. Empty while the
+    // conflict is unresolved, which is the default and a legitimate end state.
+    supersededEvidenceIds: Object.freeze([...(def.supersededEvidenceIds || [])]),
+    winningEvidenceIds: Object.freeze([...(def.winningEvidenceIds || [])]),
     confidence: typeof def.confidence === 'number' ? def.confidence : 0,
     detectedAt: typeof def.detectedAt === 'number' ? def.detectedAt : Date.now(),
   });

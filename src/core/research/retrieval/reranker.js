@@ -18,7 +18,7 @@
 // repository they do not. A host that has one supplies `semanticScore` and only
 // the relevance term changes.
 
-const { tokenize, overlap } = require('../../memory/relevance');
+const { tokenSet, coverage } = require('../text');
 const { clamp01 } = require('../schemas/source');
 
 // Weights sum to 1 before the diversity pass. Ordered by how much each term
@@ -94,7 +94,7 @@ function scoreSource(source, {
   authority = null, quality = null, semanticScore = null, corroboration = 0,
 } = {}) {
   const text = `${source.title} ${source.snippet} ${source.content}`;
-  const lexical = overlap(queryTokens, new Set(tokenize(text)));
+  const lexical = coverage(queryTokens, tokenSet(text));
   const relevance = typeof semanticScore === 'number'
     ? clamp01(semanticScore * 0.7 + lexical * 0.3)
     : lexical;
@@ -121,7 +121,7 @@ function rerank(sources, {
   clusterSizes = null, providerRankOf = null,
   diversityPenalty = DIVERSITY_PENALTY,
 } = {}) {
-  const queryTokens = new Set(tokenize(query));
+  const queryTokens = tokenSet(query);
 
   const scored = sources.map((source) => {
     // How many distinct retrievals found this document. Capped low: being found
