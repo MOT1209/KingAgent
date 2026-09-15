@@ -50,7 +50,7 @@ class SkillUpdater {
       return { id, current: record.version, latest: null, available: false, reason: `source ${record.manifest.source.type} cannot be queried for updates` };
     }
 
-    let listing = null;
+    let listing;
     try {
       listing = await adapter.find({ id: record.manifest.source.slug || id, range });
     } catch (err) {

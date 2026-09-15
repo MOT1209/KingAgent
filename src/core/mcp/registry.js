@@ -20,7 +20,7 @@
 // credential. Those belong to the host's MCP client wiring.
 
 const { classifyServer } = require('./classify');
-const { isPlainObject, isString, validId } = require('../schema/validate');
+const { isString, validId } = require('../schema/validate');
 const { TYPES } = require('../events/event-bus');
 
 const SERVER_STATES = Object.freeze(['registered', 'connected', 'failed', 'disabled', 'quarantined']);

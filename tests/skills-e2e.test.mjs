@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import {
   renderSkillsPane, skillRowHtml, skillDetailHtml, planHtml, searchRowHtml,
-  reliabilityLabel, permissionSummary, mcpServerHtml,
+  reliabilityLabel, mcpServerHtml,
 } from '../src/renderer/skills-pane.mjs';
 
 const require = createRequire(import.meta.url);
@@ -17,7 +17,6 @@ const { createPlatform } = require('../src/core/index.js');
 const { CHANNELS } = require('../src/core/security/ipc-guard.js');
 const mainWiring = require('../src/main/agent-platform.js');
 const { TYPES } = require('../src/core/events/event-bus.js');
-const SkillResult = require('../src/core/skills/runtime/SkillResult.js');
 
 async function platformWith(io = {}) {
   const platform = createPlatform({ io });

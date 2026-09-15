@@ -92,7 +92,10 @@ class GitHubSkillSource {
     return out;
   }
 
-  async find({ id, range = '*' } = {}) {
+  // No range parameter: a repository path carries exactly one version of a
+  // skill at a given ref, so there is nothing to select between. A caller that
+  // needs a specific version pins the ref instead.
+  async find({ id } = {}) {
     const rows = await this.search({ query: id, limit: 50 });
     return rows.find((r) => r.id === id) || null;
   }

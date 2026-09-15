@@ -6,6 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const Scanner = require('../src/core/skills/security/SkillScanner.js');
@@ -218,15 +219,29 @@ test('sandbox: only the features the permissions imply are requested', () => {
 
 // --- hostile paths -----------------------------------------------------------
 
-function fakeFs(files, { realpaths = {} } = {}) {
+// Keys are written POSIX-style for readability and resolved through node:path,
+// so the same fixture addresses `D:\\skills\\x\\SKILL.md` on Windows. Without
+// this the source resolves a Windows path, the table misses, and the read fails
+// with ENOENT *before* the containment check it is supposed to be testing —
+// which is exactly how this test passed on Linux and failed on the Windows CI
+// job that exists to catch POSIX assumptions.
+function fakeFs(files, { realpaths = {}, impl = path } = {}) {
+  const table = new Map(Object.entries(files).map(([k, v]) => [impl.resolve(k), v]));
+  const links = new Map(Object.entries(realpaths).map(([k, v]) => [impl.resolve(k), v]));
   return {
-    async readdir() { return Object.keys(files).map((f) => f.split('/')[0]); },
+    async readdir() {
+      return [...new Set(Object.keys(files).map((f) => f.replace(/^\//, '').split('/')[0]))];
+    },
     async readFile(p) {
-      if (files[p] === undefined) { const err = new Error('ENOENT'); err.code = 'ENOENT'; throw err; }
-      return files[p];
+      const key = impl.resolve(p);
+      if (!table.has(key)) { const err = new Error('ENOENT'); err.code = 'ENOENT'; throw err; }
+      return table.get(key);
     },
     async stat() { return { size: 10 }; },
-    async realpath(p) { return realpaths[p] || p; },
+    async realpath(p) {
+      const key = impl.resolve(p);
+      return links.has(key) ? links.get(key) : p;
+    },
   };
 }
 
@@ -243,6 +258,41 @@ test('local source: a symlink out of the skills directory is refused', async () 
   );
   const source = new LocalSkillSource({ fs, directory: '/skills' });
   await assert.rejects(() => source.read({ id: 'x', source: { path: 'x' }, entry: { instructions: 'SKILL.md' } }), /symlink/);
+});
+
+// Windows path semantics, exercised on every platform.
+//
+// `LocalSkillSource` takes its path module by injection, so the Windows
+// containment rules can be tested from Linux instead of being discovered by the
+// Windows CI job after a merge — which is how they were discovered this time.
+test('local source: Windows path semantics — backslashes, drive letters and symlinks', async () => {
+  const win = path.win32;
+  const fs = fakeFs(
+    { 'D:\\skills\\x\\SKILL.md': 'content', 'D:\\skills\\y\\SKILL.md': 'other' },
+    { realpaths: { 'D:\\skills\\y\\SKILL.md': 'C:\\Windows\\System32\\config\\SAM' }, impl: win },
+  );
+  const source = new LocalSkillSource({ fs, directory: 'D:\\skills', path: win });
+
+  const ok = await source.read({ id: 'x', source: { path: 'x' }, entry: { instructions: 'SKILL.md' } });
+  assert.equal(ok.content, 'content');
+
+  // A symlink pointing at a system file is refused even though every string
+  // check passes.
+  await assert.rejects(
+    () => source.read({ id: 'y', source: { path: 'y' }, entry: { instructions: 'SKILL.md' } }),
+    /symlink/,
+  );
+
+  // A backslash separator and a drive letter in a manifest path are both
+  // refused before any read — they are the Windows spellings of traversal.
+  await assert.rejects(
+    () => source.read({ id: 'x', source: { path: 'x' }, entry: { instructions: '..\\..\\Windows\\win.ini' } }),
+    /unsafe skill path|escapes/,
+  );
+  await assert.rejects(
+    () => source.read({ id: 'x', source: { path: 'x' }, entry: { instructions: 'C:\\Windows\\win.ini' } }),
+    /unsafe skill path|escapes/,
+  );
 });
 
 test('local source: an oversized file is refused', async () => {

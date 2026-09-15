@@ -112,7 +112,7 @@ class LocalSkillSource {
         return parsed;
       } catch (err) {
         if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) continue;
-        throw new Error(`${folder}/${name}: ${err.message}`);
+        throw new Error(`${folder}/${name}: ${err.message}`, { cause: err });
       }
     }
     throw new Error(`no ${MANIFEST_NAMES.join(' or ')} in ${folder}`);

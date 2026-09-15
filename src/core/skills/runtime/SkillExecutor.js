@@ -122,7 +122,7 @@ class SkillExecutor {
 
     // 3. Sandbox, if the posture requires it. A required sandbox that cannot be
     // created stops the run — it never degrades to an unconfined one.
-    let sandbox = null;
+    let sandbox;
     try {
       const created = await createSandbox(record, {
         sandboxes: this._sandboxes,
