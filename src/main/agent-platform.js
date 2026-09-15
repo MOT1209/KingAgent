@@ -54,6 +54,17 @@ const FORWARD_TYPES = new Set([
   TYPES.SESSION_CREATED, TYPES.SESSION_STARTED, TYPES.SESSION_PAUSED, TYPES.SESSION_RESUMED,
   TYPES.SESSION_COMPLETED, TYPES.SESSION_FAILED, TYPES.SESSION_STOPPED,
   TYPES.AGENT_ROUTED, TYPES.ORCHESTRATOR_STEP,
+
+  // Phase 6. `skill.discovered` is deliberately absent: bootstrapping the
+  // built-in catalogue would put twenty messages on the wire before the window
+  // has finished opening, and the pane reads the list over `skill:list`
+  // anyway. What streams is what changes while a person is watching.
+  TYPES.SKILL_INSTALLED, TYPES.SKILL_UPDATED, TYPES.SKILL_REMOVED,
+  TYPES.SKILL_ENABLED, TYPES.SKILL_DISABLED, TYPES.SKILL_QUARANTINED,
+  TYPES.SKILL_REJECTED, TYPES.SKILL_SELECTED, TYPES.SKILL_STARTED,
+  TYPES.SKILL_COMPLETED, TYPES.SKILL_FAILED, TYPES.SKILL_EVALUATED,
+  TYPES.MCP_SERVER_REGISTERED, TYPES.MCP_SERVER_REMOVED,
+  TYPES.MCP_TOOL_CLASSIFIED, TYPES.MCP_TOOL_DENIED,
 ]);
 
 function createMainPlatform({
@@ -200,6 +211,7 @@ function registerIpcHandlers({ ipcMain, platform, forward }) {
 
   registerPhase3Handlers({ handle, platform });
   registerPhase4Handlers({ handle, platform });
+  registerPhase6Handlers({ handle, platform });
 }
 
 // --- Phase 3 -----------------------------------------------------------------
@@ -501,6 +513,186 @@ function registerPhase4Handlers({ handle, platform }) {
 
   handle('agent:cancelTask', async ({ taskId, sessionId }) =>
     orchestrator ? orchestrator.cancel({ sessionId: sessionId || null, taskId, reason: 'user cancelled' }) : { task: null, delegations: [], harnessRuns: [], sandboxes: [] });
+}
+
+
+// --- Phase 6: skills (src/core/skills/) + MCP (src/core/mcp/) -------------------
+//
+// The skills pane is the first renderer surface that *changes* platform state —
+// installing, enabling and removing skills — so two rules apply to every
+// handler here:
+//
+//   1. the renderer names things, it never supplies decisions. `actor` is
+//      'user' because the person at the app is who acted; a renderer cannot
+//      claim to be 'system' or name someone else in an audit line;
+//   2. nothing here bypasses a control. Install runs the same validator,
+//      scanner, policy evaluation and approval flow as the CLI, and a skill
+//      the user declines is not installed.
+//
+// A platform built without the skill layer answers these honestly rather than
+// crashing the window: `available: false` with the reason.
+function registerPhase6Handlers({ handle, platform }) {
+  const { skills, mcp, policy } = platform;
+  const ACTOR = 'user';
+
+  const need = () => {
+    if (!skills) throw new Error('the skill platform is not enabled in this build');
+    return skills;
+  };
+  const needMcp = () => {
+    if (!mcp) throw new Error('the MCP layer is not enabled in this build');
+    return mcp;
+  };
+  const record = (id, version) => {
+    const found = version ? need().registry.getExact(id, version) : need().registry.get(id);
+    if (!found) throw new Error(`skill "${id}" is not installed`);
+    return found;
+  };
+
+  // --- reading ---------------------------------------------------------------
+  handle('skill:list', ({ category, state, query, sourceType }) => {
+    if (!skills) return { available: false, reason: 'the skill platform is not enabled in this build', skills: [], stats: null };
+    return {
+      available: true,
+      skills: skills.registry.list({ category: category || null, state: state || null, query: query || null, sourceType: sourceType || null }).map((r) => r.view()),
+      stats: skills.registry.stats(),
+    };
+  });
+
+  handle('skill:get', ({ id, version }) => {
+    if (!skills) return null;
+    const found = version ? skills.registry.getExact(id, version) : skills.registry.get(id);
+    return found ? found.view() : null;
+  });
+
+  // The instruction text, fetched only when a pane actually opens a skill. It
+  // is not part of `skill:list` on purpose: skill documents are long, and a
+  // list channel that carries them makes every refresh expensive.
+  handle('skill:content', async ({ id }) => {
+    const found = record(id);
+    const loaded = await need().loader.load(found, { refresh: false });
+    return {
+      id: found.id,
+      version: found.version,
+      instructions: loaded.instructions,
+      resources: Object.keys(loaded.resources),
+      digest: loaded.digest,
+      changedSinceInstall: loaded.changed,
+    };
+  });
+
+  handle('skill:search', ({ query, includeRemote, limit }) =>
+    need().search(query, { includeRemote: includeRemote !== false, limit: Math.min(Number(limit) || 25, 50) }));
+
+  handle('skill:discover', ({ request }) => need().discover(request));
+  handle('skill:plan', ({ request }) => need().plan(request));
+  handle('skill:audit', () => ({ report: need().evaluator.report(), concerns: need().evaluator.concerns() }));
+  handle('skill:benchmark', () => need().benchmark());
+  handle('skill:sources', () => need().controlView().sources);
+  handle('skill:updates', () => need().updater.checkAll());
+
+  // A dry run: fetch, validate and scan without installing. This is what the
+  // "inspect before install" affordance calls, and it is the only way to see a
+  // remote skill's findings without admitting it to the registry.
+  handle('skill:inspect', ({ source, id, repository, ref, path }) =>
+    need().installer.inspect({ source, id, repository, ref, path }).then((verdict) => ({
+      ok: verdict.ok,
+      stage: verdict.stage,
+      errors: verdict.errors,
+      warnings: verdict.warnings,
+      manifest: verdict.manifest ? require('../core/skills').manifestView(verdict.manifest) : null,
+      findings: verdict.findings,
+      blocked: verdict.blocked,
+      posture: verdict.posture,
+      sandbox: verdict.sandbox,
+      request: verdict.request,
+      contentBytes: verdict.contentBytes,
+      digest: verdict.digest,
+    })));
+
+  // --- changing state --------------------------------------------------------
+  handle('skill:install', async ({ source, id, repository, ref, path }) => {
+    const result = await need().installer.install({ source, id, repository, ref, path }, { actor: ACTOR });
+    return {
+      installed: result.installed,
+      skill: result.record.view(),
+      dependencies: result.dependencies || [],
+      warnings: result.warnings || [],
+      reason: result.reason || null,
+    };
+  });
+
+  handle('skill:update', async ({ id }) => {
+    const result = await need().updater.update(id, { actor: ACTOR });
+    return {
+      updated: result.updated,
+      from: result.from,
+      to: result.to,
+      kind: result.kind || null,
+      permissionsAdded: result.permissionsAdded || [],
+      permissionsRemoved: result.permissionsRemoved || [],
+      trustReset: result.trustReset === true,
+      reason: result.reason || null,
+      skill: result.record ? result.record.view() : null,
+    };
+  });
+
+  handle('skill:remove', async ({ id, force }) => {
+    const result = await need().remover.remove(id, { actor: ACTOR, force: force === true });
+    return { id: result.id, removed: result.removed, forced: result.forced, brokenDependents: result.brokenDependents };
+  });
+
+  handle('skill:enable', async ({ id }) => {
+    const result = await need().enabler.enable(id, { actor: ACTOR });
+    return { id, state: result.state, changed: result.changed, skill: result.record.view() };
+  });
+
+  handle('skill:disable', ({ id }) => {
+    const result = need().enabler.disable(id, { actor: ACTOR });
+    return { id, state: result.state, changed: result.changed, skill: result.record.view() };
+  });
+
+  handle('skill:quarantine', ({ id, reason }) => {
+    const result = need().enabler.quarantine(id, { actor: ACTOR, reason });
+    return { id, state: result.state, changed: result.changed, reason };
+  });
+
+  // The actor is this process's idea of the signed-in user, never a string the
+  // renderer chose: a quarantine release is an accountable act.
+  handle('skill:release', ({ id, note }) => {
+    const result = need().enabler.release(id, { actor: ACTOR, note: note || '' });
+    return { id, state: result.state, note: result.note };
+  });
+
+  // --- MCP -------------------------------------------------------------------
+  handle('mcp:list', () => (mcp ? mcp.controlView() : { servers: [], stats: null, surface: [] }));
+
+  handle('mcp:get', ({ id }) => {
+    const server = needMcp().registry.get(id);
+    return server ? needMcp().registry.list().find((s) => s.id === id) || null : null;
+  });
+
+  handle('mcp:inspect', ({ id }) => {
+    const server = needMcp().registry.get(id);
+    if (!server) return null;
+    return needMcp().inspect({
+      serverId: server.id,
+      name: server.name,
+      transport: server.transport,
+      url: server.url,
+      // The descriptors as they were last advertised, rebuilt from the
+      // classified record so inspection never needs a live connection.
+      tools: server.tools.map((t) => ({ name: t.name, description: t.description || '', annotations: {} })),
+    });
+  });
+
+  handle('mcp:explain', ({ id }) => needMcp().explain(id, { policy }));
+  handle('mcp:testPlan', ({ id }) => {
+    const server = needMcp().registry.get(id);
+    return server ? needMcp().testPlan({ serverId: id, tools: server.tools.map((t) => ({ name: t.name })) }) : null;
+  });
+  handle('mcp:remove', ({ id }) => ({ removed: needMcp().registry.remove(id) }));
+  handle('mcp:quarantine', ({ id, reason }) => needMcp().quarantine(id, { reason }));
 }
 
 // --- workflow registry + instance view -------------------------------------------

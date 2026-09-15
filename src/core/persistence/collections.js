@@ -22,6 +22,10 @@ const NAMESPACES = Object.freeze({
   PROJECT: 'project',
   ARTIFACT: 'artifact',
   WORKFLOW: 'workflow',
+  // Phase 6. Skills are keyed `<id>@<version>` so two versions of one skill can
+  // be installed side by side while a dependency range is resolved.
+  SKILL: 'skill',
+  MCP_SERVER: 'mcpserver',
 });
 
 function assertStore(store) {
@@ -98,6 +102,8 @@ function createCollections(store) {
     projects: createCollection(store, NAMESPACES.PROJECT),
     artifacts: createCollection(store, NAMESPACES.ARTIFACT),
     workflows: createCollection(store, NAMESPACES.WORKFLOW),
+    skills: createCollection(store, NAMESPACES.SKILL),
+    mcpServers: createCollection(store, NAMESPACES.MCP_SERVER),
   };
 }
 

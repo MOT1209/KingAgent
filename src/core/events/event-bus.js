@@ -33,6 +33,10 @@ function makeEvent(type, refs = {}, payload) {
     policyId: refs.policyId || null,
     sandboxId: refs.sandboxId || null,
     delegationId: refs.delegationId || null,
+    // Phase 6 correlation refs: which skill (and which MCP server) an event
+    // belongs to, so a run that composed five skills can be read back per skill.
+    skillId: refs.skillId || null,
+    mcpServerId: refs.mcpServerId || null,
     payload: payload === undefined ? null : payload,
   };
   return Object.freeze(ev);
@@ -186,6 +190,32 @@ const TYPES = Object.freeze({
   SESSION_FAILED: 'session.failed',
   SESSION_STOPPED: 'session.stopped',
   ORCHESTRATOR_STEP: 'orchestrator.step',
+  // --- Phase 6 (skills + MCP capability layer: src/core/skills/, src/core/mcp/) ---
+  // The skill lifecycle is a security surface, so every state change a person
+  // could be asked to explain has an event: what was discovered, what was
+  // refused, what ran, and what was stopped.
+  SKILL_DISCOVERED: 'skill.discovered',
+  SKILL_VALIDATED: 'skill.validated',
+  SKILL_REJECTED: 'skill.rejected',
+  SKILL_INSTALLED: 'skill.installed',
+  SKILL_UPDATED: 'skill.updated',
+  SKILL_REMOVED: 'skill.removed',
+  SKILL_ENABLED: 'skill.enabled',
+  SKILL_DISABLED: 'skill.disabled',
+  SKILL_QUARANTINED: 'skill.quarantined',
+  SKILL_LOADED: 'skill.loaded',
+  SKILL_SELECTED: 'skill.selected',
+  SKILL_STARTED: 'skill.started',
+  SKILL_COMPLETED: 'skill.completed',
+  SKILL_FAILED: 'skill.failed',
+  SKILL_EVALUATED: 'skill.evaluated',
+  SKILL_SCANNED: 'skill.scanned',
+  MCP_SERVER_REGISTERED: 'mcp.server.registered',
+  MCP_SERVER_REMOVED: 'mcp.server.removed',
+  MCP_TOOL_CLASSIFIED: 'mcp.tool.classified',
+  MCP_TOOL_INVOKED: 'mcp.tool.invoked',
+  MCP_TOOL_DENIED: 'mcp.tool.denied',
+
   // AGENT_DELEGATED, AGENT_HANDOFF, AGENT_MESSAGE and ARTIFACT_CREATED were
   // also defined here under Phase 4 with the identical key and value the
   // Phase 3 block above already declares; not repeated.

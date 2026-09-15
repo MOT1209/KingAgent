@@ -172,6 +172,34 @@ injected, so tests swap them for stubs and the main process injects the real
 ones. No hardcoded OS paths — everything resolves through `io`, `node:path` or
 `process.env` (e.g. `ComSpec`/`$SHELL` for the shell adapter).
 
+## Phase 6: the skill ecosystem and the MCP capability layer
+
+Phase 6 adds `src/core/skills/` and `src/core/mcp/`, wired into the factory as
+`platform.skills` and `platform.mcp`, plus `platform.initSkills()` (construction
+stays synchronous and side-effect free; a host decides when to pay for
+validation and scanning).
+
+A skill is a capability package — instructions, metadata, declared permissions,
+provenance — not a plugin and not something the platform executes. The layer
+takes the subsystems that already exist rather than growing parallel ones:
+permissions are policy actions evaluated by the `PolicyManager`, human decisions
+are `ApprovalManager` records, isolation is the Phase 4 `SandboxManager`, actions
+are `ToolManager` calls, and outcomes are scoped memory entries. A deployment
+that denies `command.run` blocks a skill wanting a shell without a
+skill-specific rule existing anywhere.
+
+MCP is governed by the same seam: `src/core/mcp/` classifies each advertised
+tool (READ_ONLY … PRIVILEGED, with a server's own hints able to raise a class but
+never lower it), and the bridge registers those tools *as tools*, so there is no
+path by which an MCP call reaches an agent without the permission gate and the
+policy engine.
+
+Full detail in [docs/skills/architecture.md](skills/architecture.md);
+[security](skills/security.md), [MCP](skills/mcp.md),
+[manifests](skills/skill-manifest.md), [evaluation](skills/evaluation.md),
+[authoring](skills/creating-skills.md) and
+[skills.sh](skills/skills-sh.md) each have their own document.
+
 ## Mode of transport
 
 - Main is CJS (`"type": "commonjs"`, entry `src/main/main.js`); the renderer is

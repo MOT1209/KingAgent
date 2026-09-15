@@ -101,7 +101,10 @@ See [docs/windows.md](docs/windows.md) for terminal, PATH and per-agent notes
 on Windows. How the pieces fit together — the agent runtime, the harness layer
 that makes agents swappable, the policy engine, the sandbox and the
 orchestrator — is in [docs/architecture.md](docs/architecture.md) and the
-documents it links to.
+documents it links to. The skill ecosystem — how KingAgent discovers, validates,
+governs and evaluates the capabilities it uses, and how MCP servers are
+classified before their tools reach an agent — is in
+[docs/skills/architecture.md](docs/skills/architecture.md).
 
 ## Build it yourself
 

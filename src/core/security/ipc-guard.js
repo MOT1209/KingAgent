@@ -23,6 +23,28 @@ function isShortText(v) {
   return typeof v === 'string' && v.length <= 2000;
 }
 
+// A taxonomy category, a lifecycle state, a source type, a git ref: short,
+// lowercase-ish tokens. Deliberately narrower than free text — these values end
+// up in filters, action strings and (for a ref) a URL path.
+const SKILL_TERM = /^[A-Za-z0-9][A-Za-z0-9._@/-]{0,120}$/;
+function isSkillTerm(v) {
+  return typeof v === 'string' && SKILL_TERM.test(v) && !v.includes('..');
+}
+
+// `owner/repo`, with no segment that is `.` or `..`.
+const REPOSITORY = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}\/[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$/;
+function isRepository(v) {
+  return typeof v === 'string' && REPOSITORY.test(v);
+}
+
+// A relative path inside a source. The source adapters check this again; a
+// renderer payload should not even reach them with a traversal in it.
+function isRelPath(v) {
+  if (typeof v !== 'string' || v.length === 0 || v.length > 300) return false;
+  if (v.startsWith('/') || v.startsWith('\\') || /^[A-Za-z]:/.test(v)) return false;
+  return v.split('/').every((seg) => seg && seg !== '.' && seg !== '..');
+}
+
 const CHANNELS = Object.freeze({
   'agent:listAgents': {},
   'agent:get': { id: { required: true, check: validId } },
@@ -124,6 +146,60 @@ const CHANNELS = Object.freeze({
   'agent:delegations': { taskId: { required: true, check: isString } },
   'agent:route': { request: { required: true, check: isString }, strategy: { check: isString }, agentId: { check: validId }, harnessId: { check: isString } },
   'agent:cancelTask': { taskId: { required: true, check: isString }, sessionId: { check: isString } },
+
+  // --- Phase 6: skills (src/core/skills/) and the MCP capability layer -------
+  //
+  // Unlike the Phase 4 block above, some of these channels *do* change state —
+  // installing, enabling and removing a skill are things a user does from the
+  // skills pane. Each one is still a request, never a grant: the main side runs
+  // the same validation, policy evaluation and approval flow the CLI does, and
+  // there is deliberately no channel that can raise a skill's trust, skip its
+  // scan, or release it from quarantine without the app's own flow (see
+  // `skill:release`, which takes no actor from the renderer — the main process
+  // supplies the signed-in user).
+  'skill:list': { category: { check: isSkillTerm }, state: { check: isSkillTerm }, query: { check: isShortText }, sourceType: { check: isSkillTerm } },
+  'skill:get': { id: { required: true, check: validId }, version: { check: isSkillTerm } },
+  'skill:content': { id: { required: true, check: validId } },
+  'skill:search': { query: { required: true, check: isShortText }, includeRemote: { check: isBoolean }, limit: {} },
+  'skill:discover': { request: { required: true, check: isShortText } },
+  'skill:plan': { request: { required: true, check: isShortText } },
+  'skill:sources': {},
+  'skill:audit': {},
+  'skill:benchmark': {},
+  // Installation names a source and an identifier. The repository/ref/path
+  // shapes are validated again on the main side by the source adapters, which
+  // is where traversal and ref-injection are actually refused.
+  'skill:inspect': {
+    source: { required: true, check: isSkillTerm },
+    id: { check: validId },
+    repository: { check: isRepository },
+    ref: { check: isSkillTerm },
+    path: { check: isRelPath },
+  },
+  'skill:install': {
+    source: { required: true, check: isSkillTerm },
+    id: { check: validId },
+    repository: { check: isRepository },
+    ref: { check: isSkillTerm },
+    path: { check: isRelPath },
+  },
+  'skill:update': { id: { required: true, check: validId } },
+  'skill:updates': {},
+  'skill:remove': { id: { required: true, check: validId }, force: { check: isBoolean } },
+  'skill:enable': { id: { required: true, check: validId } },
+  'skill:disable': { id: { required: true, check: validId } },
+  'skill:quarantine': { id: { required: true, check: validId }, reason: { required: true, check: isShortText } },
+  // No `actor` field on purpose: releasing a quarantine is attributed to the
+  // signed-in user by the main process, not to a name the renderer chose.
+  'skill:release': { id: { required: true, check: validId }, note: { check: isShortText } },
+
+  'mcp:list': {},
+  'mcp:get': { id: { required: true, check: validId } },
+  'mcp:inspect': { id: { required: true, check: validId } },
+  'mcp:explain': { id: { required: true, check: validId } },
+  'mcp:testPlan': { id: { required: true, check: validId } },
+  'mcp:remove': { id: { required: true, check: validId } },
+  'mcp:quarantine': { id: { required: true, check: validId }, reason: { required: true, check: isShortText } },
 });
 
 const PUSH_CHANNELS = Object.freeze(['agent:event', 'workflow:event', 'approval:event']);
@@ -154,4 +230,4 @@ function allowedChannel(channel) {
   return channel in CHANNELS;
 }
 
-module.exports = { CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel, isOpaqueId, isShortText };
+module.exports = { CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel, isOpaqueId, isShortText, isSkillTerm, isRepository, isRelPath };

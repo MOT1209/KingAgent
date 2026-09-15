@@ -92,6 +92,10 @@ const {
   Orchestrator: HarnessOrchestrator,
 } = require('./harness-orchestrator');
 
+// --- Phase 6 subsystems -------------------------------------------------------
+const { createSkillPlatform, currentPlatform: currentSkillPlatform } = require('./skills');
+const { createMcpLayer } = require('./mcp');
+
 function createPlatform({
   io = {}, // { fs, root, cwd, runShell, authorize, hostEnv, inheritEnv, policy, harness, sandbox, costs, metrics }
   loggerOptions = {},
@@ -101,6 +105,11 @@ function createPlatform({
   loadBaselinePolicies = true,
   policies = {},
   approvalOptions = {},
+  // Phase 6. Skills are on by default because the built-in catalogue is part of
+  // the product; `installBuiltinSkills: false` gives a host an empty registry
+  // without disabling the layer, and `skills: false` disables it entirely.
+  skills: skillsEnabled = true,
+  installBuiltinSkills = true,
 }) {
   const bus = new EventBus();
   const logger = createLogger({ scope: 'platform', ...loggerOptions });
@@ -391,6 +400,56 @@ function createPlatform({
     evaluate: harnessOptions.evaluate || null,
   });
 
+  // --- Phase 6: skills + the MCP capability layer -----------------------------
+  //
+  // Both are wired *on top of* what already exists rather than beside it: the
+  // skill layer takes this platform's policy engine, approval manager, sandbox
+  // manager, tool manager and memory, and the MCP layer puts its tools on the
+  // same ToolManager every other tool goes through. There is no second policy
+  // check, no second approval queue and no second tool surface — which is the
+  // whole reason a skill can be governed by a policy document written before
+  // skills existed. See docs/skills/architecture.md.
+  const skillIo = io.skills || {};
+  const skills = skillsEnabled
+    ? createSkillPlatform({
+      bus,
+      logger,
+      collection: collections.skills,
+      policy,
+      approvals,
+      sandboxes,
+      tools,
+      memory: memoryManager,
+      platform: currentSkillPlatform(),
+      io: {
+        fs,
+        // Where a user's own skills live. Absent one, the local source is not
+        // registered at all rather than pointed at a guessed directory.
+        skillsDir: skillIo.directory || null,
+        // No HTTP client in the core: the host injects one, and without it the
+        // remote sources report that they are not wired (they never silently
+        // return "no results").
+        http: skillIo.http || null,
+        githubAuthorize: skillIo.githubAuthorize || null,
+        skillsShAuthorize: skillIo.skillsShAuthorize || null,
+      },
+      // The agent loop that actually runs a skill's instructions. Without it a
+      // skill run reports `prepared` — assembled and permitted, not executed —
+      // instead of claiming a success that never happened.
+      runner: skillIo.runner || null,
+      skillsShOptions: skillIo.skillsSh || {},
+      githubOptions: skillIo.github || {},
+    })
+    : null;
+
+  const mcp = createMcpLayer({
+    tools,
+    bus,
+    logger: logger.child('mcp'),
+    collection: collections.mcpServers,
+    policy,
+  });
+
   return {
     bus,
     logger,
@@ -433,6 +492,20 @@ function createPlatform({
     harnessCoordinator,
     harnessOrchestrator,
 
+    // Phase 6
+    skills,
+    mcp,
+
+    // Load persisted skills and seed the built-in catalogue. Deliberately not
+    // called by the factory: construction stays synchronous and side-effect
+    // free, and a host decides when (and whether) to pay for validation and
+    // scanning at startup.
+    async initSkills({ actor = 'system' } = {}) {
+      if (!skills) return { restored: 0, builtins: { installed: [], skipped: [], failed: [] }, skills: 0 };
+      await mcp.registry.load().catch(() => 0);
+      return skills.bootstrap({ actor, installBuiltins: installBuiltinSkills });
+    },
+
     // Release every timer, in-flight decision and spawned process a host is
     // holding. Called when the app quits, so a pending approval or a sandboxed
     // process cannot keep the app alive after the window closes.
@@ -441,6 +514,7 @@ function createPlatform({
       orchestrator.scheduler.cancelAll('platform disposed');
       await harnessManager.dispose().catch(() => {});
       await sandboxes.cleanup('platform disposed').catch(() => {});
+      if (skills) skills.cache.clear();
       return true;
     },
   };

@@ -280,6 +280,40 @@ contextBridge.exposeInMainWorld('kingagent', {
     route: (args) => ipcRenderer.invoke('agent:route', args),
     cancelTaskTree: (taskId, sessionId) => ipcRenderer.invoke('agent:cancelTask', sessionId ? { taskId, sessionId } : { taskId }),
 
+    // --- Phase 6: skills (src/core/skills/) + MCP (src/core/mcp/) -----------
+    // The first renderer surface that changes platform state. Each call is a
+    // request on a guarded channel: the main side validates the payload, runs
+    // the skill validator and scanner, evaluates policy and opens the approval
+    // flow. Nothing here can raise a skill's trust or skip its scan, and
+    // `releaseSkill` takes no actor — the main process attributes it to the
+    // signed-in user.
+    listSkills: (args = {}) => ipcRenderer.invoke('skill:list', args),
+    getSkill: (id, version) => ipcRenderer.invoke('skill:get', version ? { id, version } : { id }),
+    skillContent: (id) => ipcRenderer.invoke('skill:content', { id }),
+    searchSkills: (args) => ipcRenderer.invoke('skill:search', typeof args === 'string' ? { query: args } : args),
+    discoverSkills: (request) => ipcRenderer.invoke('skill:discover', { request }),
+    planSkills: (request) => ipcRenderer.invoke('skill:plan', { request }),
+    skillSources: () => ipcRenderer.invoke('skill:sources'),
+    skillAudit: () => ipcRenderer.invoke('skill:audit'),
+    skillBenchmark: () => ipcRenderer.invoke('skill:benchmark'),
+    skillUpdates: () => ipcRenderer.invoke('skill:updates'),
+    inspectSkill: (args) => ipcRenderer.invoke('skill:inspect', args),
+    installSkill: (args) => ipcRenderer.invoke('skill:install', args),
+    updateSkill: (id) => ipcRenderer.invoke('skill:update', { id }),
+    removeSkill: (id, force) => ipcRenderer.invoke('skill:remove', force ? { id, force: true } : { id }),
+    enableSkill: (id) => ipcRenderer.invoke('skill:enable', { id }),
+    disableSkill: (id) => ipcRenderer.invoke('skill:disable', { id }),
+    quarantineSkill: (id, reason) => ipcRenderer.invoke('skill:quarantine', { id, reason }),
+    releaseSkill: (id, note) => ipcRenderer.invoke('skill:release', note ? { id, note } : { id }),
+
+    listMcpServers: () => ipcRenderer.invoke('mcp:list'),
+    getMcpServer: (id) => ipcRenderer.invoke('mcp:get', { id }),
+    inspectMcpServer: (id) => ipcRenderer.invoke('mcp:inspect', { id }),
+    explainMcpServer: (id) => ipcRenderer.invoke('mcp:explain', { id }),
+    mcpTestPlan: (id) => ipcRenderer.invoke('mcp:testPlan', { id }),
+    removeMcpServer: (id) => ipcRenderer.invoke('mcp:remove', { id }),
+    quarantineMcpServer: (id, reason) => ipcRenderer.invoke('mcp:quarantine', { id, reason }),
+
     onPlatformEvent: (cb) => {
       const h = (_e, ev) => cb(ev);
       ipcRenderer.on('agent:event', h);
