@@ -17,13 +17,44 @@
 const { SOURCE_TYPES, normalizeSource } = require('../schemas/source');
 const { withSource } = require('../schemas/researchResult');
 const { QUERY_STATUS } = require('../schemas/researchQuery');
-const { spend, remaining, recordFailure } = require('../schemas/researchTask');
+const { spend, remaining, recordFailure, expired } = require('../schemas/researchTask');
 const { screenContent, screenOutbound, screenUrl } = require('../security/researchSecurity');
 const { evaluateSource, actionForSourceType } = require('../policies/researchPolicy');
 const { FRESHNESS } = require('../retrieval/retrievalCache');
 const {
   SourceUnavailableError, ResearchDeniedError, ResearchBudgetError, ResearchCancelledError, isRetryable,
 } = require('../errors/researchErrors');
+const { classifyError, CATEGORIES } = require('../../recovery/recovery');
+
+// §35's first recovery strategy, before falling back to another provider.
+//
+// A rate limit or a dropped connection is not a reason to give up on a provider
+// that works — it is a reason to wait. The backoff mirrors
+// core/recovery/recovery.js's table rather than inventing a second policy, and
+// the ceiling is deliberately small: research already has a fallback provider
+// and a deadline, so a long retry ladder would spend the task's whole window
+// being polite to one server.
+const MAX_ATTEMPTS = 2;
+const BACKOFF_MS = Object.freeze({
+  [CATEGORIES.TRANSIENT]: 400,
+  [CATEGORIES.TIMEOUT]: 800,
+  [CATEGORIES.ENVIRONMENT_FAILURE]: 0, // not retryable in place; fall through
+});
+
+function backoffFor(err, attempt) {
+  const base = BACKOFF_MS[classifyError(err)] ?? 0;
+  return base ? base * Math.pow(2, attempt) : 0;
+}
+
+function sleep(ms, signal) {
+  if (!ms) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    if (signal) {
+      signal.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted')); }, { once: true });
+    }
+  });
+}
 
 class SourceManager {
   constructor({
@@ -135,41 +166,78 @@ class SourceManager {
     let lastError = null;
     for (const adapter of adapters) {
       outcome.adapterId = adapter.id;
-      // File and MCP adapters are their own providers; everything else resolves
-      // through the provider registry and falls back down its list.
+      // File and MCP adapters are their own providers — they implement search()
+      // directly; everything else resolves through the provider registry and
+      // falls back down its list.
       const providers = adapter.providersFrom(this._providers);
+      const selfServing = typeof adapter.search === 'function';
+      if (providers.length === 0 && !selfServing) {
+        // Reported as unconfigured rather than attempted. Calling a
+        // provider-backed adapter with no provider used to surface as
+        // "adapter.search is not a function", which tells a user nothing about
+        // what is actually missing.
+        lastError = new SourceUnavailableError(
+          adapter.id,
+          `no provider is configured for ${adapter.providerTypes.join(' or ')}`,
+        );
+        continue;
+      }
       const attempts = providers.length ? providers : [null];
 
       for (const provider of attempts) {
-        if (signal && signal.aborted) throw new ResearchCancelledError(task.id, 'signal aborted');
-        try {
-          const raw = provider
-            ? await adapter.searchWith(provider, { query, limit: cap, signal })
-            : await adapter.search({
-              query, limit: cap, signal,
-              files: task.files,
-              onFailure: (f) => recordFailure(task, { stage: 'retrieve', queryId: query.id, reason: f.reason, code: f.code }),
-            });
-          outcome.providerId = provider ? provider.id : adapter.id;
-          spend(task, 'providerCalls', 1);
+        // Retry in place before falling back (§35). A rate limit is a reason to
+        // wait, not a reason to abandon a provider that works — and the
+        // fallback list is finite, so burning it on transient failures leaves
+        // nothing for a real outage.
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+          if (signal && signal.aborted) throw new ResearchCancelledError(task.id, 'signal aborted');
+          if (expired(task)) throw new ResearchCancelledError(task.id, 'deadline exceeded');
+          try {
+            const raw = provider
+              ? await adapter.searchWith(provider, { query, limit: cap, signal })
+              : await adapter.search({
+                query, limit: cap, signal,
+                files: task.files,
+                onFailure: (f) => recordFailure(task, { stage: 'retrieve', queryId: query.id, reason: f.reason, code: f.code }),
+              });
+            outcome.providerId = provider ? provider.id : adapter.id;
+            outcome.attempts = attempt + 1;
+            spend(task, 'providerCalls', 1);
 
-          // 6. inbound screen + 7. budget
-          outcome.results = this._screen(task, raw, query, sourceType);
-          if (key && outcome.results.length) {
-            await this._cache.set(key, outcome.results, { freshness });
+            // 6. inbound screen + 7. budget
+            outcome.results = this._screen(task, raw, query, sourceType);
+            if (key && outcome.results.length) {
+              await this._cache.set(key, outcome.results, { freshness });
+            }
+            return this._finish(task, query, outcome, started);
+          } catch (err) {
+            if (err instanceof ResearchBudgetError || err instanceof ResearchCancelledError) throw err;
+            lastError = err;
+            const who = provider ? provider.id : adapter.id;
+            spend(task, 'providerCalls', 1);
+
+            const delay = isRetryable(err) && attempt + 1 < MAX_ATTEMPTS ? backoffFor(err, attempt) : 0;
+            recordFailure(task, {
+              stage: 'retrieve', queryId: query.id, sourceId: who,
+              reason: delay ? `${err.message} (retrying in ${delay}ms)` : err.message,
+              code: err.code || null,
+            });
+            this._emit({
+              type: 'SOURCE_REJECTED',
+              payload: {
+                sourceType, queryId: query.id, providerId: who, reason: err.message,
+                retryable: isRetryable(err), attempt: attempt + 1, retryingIn: delay, by: 'provider',
+              },
+            });
+            if (this._logger) this._logger.debug(`research source ${sourceType} failed via ${who}`, { reason: err.message, attempt: attempt + 1 });
+
+            if (!delay) break; // not retryable here: fall through to the next provider
+            try {
+              await sleep(delay, signal);
+            } catch {
+              throw new ResearchCancelledError(task.id, 'cancelled while backing off');
+            }
           }
-          return this._finish(task, query, outcome, started);
-        } catch (err) {
-          if (err instanceof ResearchBudgetError || err instanceof ResearchCancelledError) throw err;
-          lastError = err;
-          const who = provider ? provider.id : adapter.id;
-          recordFailure(task, { stage: 'retrieve', queryId: query.id, sourceId: who, reason: err.message, code: err.code || null });
-          this._emit({
-            type: 'SOURCE_REJECTED',
-            payload: { sourceType, queryId: query.id, providerId: who, reason: err.message, retryable: isRetryable(err), by: 'provider' },
-          });
-          if (this._logger) this._logger.debug(`research source ${sourceType} failed via ${who}`, { reason: err.message });
-          // Fall through to the next provider, then the next adapter (§35).
         }
       }
     }
@@ -177,7 +245,11 @@ class SourceManager {
     outcome.error = lastError
       ? lastError.message
       : `no provider is configured for source type "${sourceType}"`;
-    outcome.deniedBy = lastError ? 'provider' : 'unconfigured';
+    outcome.deniedBy = lastError && lastError.code !== 'RESEARCH_SOURCE_UNAVAILABLE'
+      ? 'provider'
+      : lastError && /no provider is configured/.test(lastError.message)
+        ? 'unconfigured'
+        : lastError ? 'provider' : 'unconfigured';
     return this._finish(task, query, outcome, started);
   }
 

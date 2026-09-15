@@ -14,6 +14,7 @@
 // deliberation by accident.
 
 import { reduceActivity, renderProgress, statusDot } from './agent-activity.mjs';
+import { mountResearch } from './research-panel.mjs';
 
 const PANEL_CLASS = 'agent-platform-panel';
 
@@ -167,6 +168,12 @@ function mountAgentPlatform() {
         <section class="events"><h2>Events</h2>${eventsHtml || '<div class="muted">Listen in live…</div>'}</section>
       </div>`;
 
+    // The research section is a *live* node, not part of the innerHTML rebuild
+    // above: it owns its own event subscription and poll, and re-creating it on
+    // every render would restart both and lose whatever was on screen. So it is
+    // built once and re-attached after each rebuild.
+    attachResearch(panel.querySelector('.agent-platform-scroll'));
+
     for (const node of panel.querySelectorAll('.approval')) {
       const id = node.getAttribute('data-approval');
       for (const btn of node.querySelectorAll('button[data-decide]')) {
@@ -201,6 +208,59 @@ function mountAgentPlatform() {
     panel.querySelector('.agent-platform-close').addEventListener('click', toggle);
   }
 
+  // --- research (Phase 7) ----------------------------------------------------
+
+  let researchSection = null;
+  let researchView = null;
+
+  function buildResearchSection() {
+    const section = document.createElement('section');
+    const heading = document.createElement('h2');
+    heading.textContent = 'Research';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Ask a question — e.g. what transports does MCP support?';
+    const controls = document.createElement('div');
+    controls.className = 'facts';
+    const go = document.createElement('button');
+    go.className = 'primary';
+    go.textContent = 'Research';
+    const stop = document.createElement('button');
+    stop.textContent = 'Cancel';
+    stop.disabled = true;
+    const host = document.createElement('div');
+
+    const start = () => {
+      const question = input.value.trim();
+      if (!question || !researchView) return;
+      stop.disabled = false;
+      input.value = '';
+      researchView.start(question).catch(() => {}).finally(() => { stop.disabled = !researchView.taskId; });
+    };
+    go.addEventListener('click', start);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
+    stop.addEventListener('click', () => {
+      if (researchView) researchView.cancel().catch(() => {});
+      stop.disabled = true;
+    });
+
+    controls.append(go, stop);
+    section.append(heading, input, controls, host);
+    researchView = mountResearch(host, { api });
+    // No research in this build: the section says so rather than offering a
+    // button that does nothing.
+    if (!researchView) host.innerHTML = '<div class="muted">Research is not available in this build.</div>';
+    return section;
+  }
+
+  function attachResearch(scroll) {
+    if (!scroll) return;
+    if (!researchSection) researchSection = buildResearchSection();
+    // Re-attaching moves the existing node; it is never rebuilt, so the live
+    // view keeps its subscription and its state.
+    scroll.appendChild(researchSection);
+  }
+
   function pushEvent(ev) {
     events = events.concat([{ type: ev.type, ts: ev.timestamp }]);
     if (events.length > 200) events = events.slice(-200);
@@ -219,7 +279,10 @@ function mountAgentPlatform() {
       approvals = approvals.filter((a) => a.id !== ev.payload.requestId);
     }
     if (ev.type === 'task.completed' || ev.type === 'task.failed' || ev.type === 'task.cancelled') refreshTasks();
-    render();
+    // The research view has its own subscription and repaints itself; a full
+    // panel render on every research tick would tear down and re-attach it
+    // dozens of times per run for no benefit.
+    if (!ev.type.startsWith('research.')) render();
   }
 
   function toggle() {

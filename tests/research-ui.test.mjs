@@ -158,3 +158,21 @@ test('ui: the panel reaches the platform only through the guarded preload surfac
     assert.ok(src.includes(`api.${method}`), `the panel does not use api.${method}`);
   }
 });
+
+test('ui: the research section is mounted into the agent platform panel', () => {
+  const src = code('agent-platform.mjs');
+  assert.match(src, /import \{ mountResearch \}/, 'the panel does not import the research view');
+  assert.match(src, /attachResearch\(panel\.querySelector\('\.agent-platform-scroll'\)\)/,
+    'the research section is not attached after a render');
+  // The panel rebuilds itself with innerHTML; the research view owns a live
+  // subscription and a poll, so it must be re-attached rather than re-created.
+  assert.match(src, /if \(!researchSection\) researchSection = buildResearchSection\(\)/,
+    'the research section is rebuilt on every render');
+  assert.match(src, /if \(!ev\.type\.startsWith\('research\.'\)\) render\(\)/,
+    'a research event triggers a full panel render');
+});
+
+test('ui: a build without research says so rather than offering a dead button', () => {
+  const src = code('agent-platform.mjs');
+  assert.match(src, /Research is not available in this build/);
+});
