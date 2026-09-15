@@ -114,6 +114,15 @@ deduplication needs.
 | `fileSource` | `file` | none — uses `io.fs` | never touches the network |
 | `mcpSource` | `mcp` | `io.research.mcp` | discovers capabilities, calls only search-shaped tools |
 
+An MCP tool is called speculatively only if it is *not* an action. That is a
+veto rather than a vote, and it has to be: a tool described as "Run a database
+query" matches the search family on the word "query" and exposes a `query`
+string parameter, so without the veto a research run would have executed SQL
+against someone's database on a guess. Browser, database and file capabilities
+disqualify a tool outright, as do action verbs in its name. Such tools are still
+discovered and reported — `inventory()` says what was found and why each unused
+tool is unused — so "we saw your MCP server and did nothing" is never silent.
+
 `SourceManager` is the single funnel. Adapters know how to talk to a kind of
 source; it knows the rules that apply to all of them, in a fixed order no
 adapter can skip: task gates (`filesOnly`, `allowWeb`, preferences) → policy →

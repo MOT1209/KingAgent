@@ -56,6 +56,23 @@ const QUERYABLE = Object.freeze([
   MCP_CAPABILITY.GITHUB, MCP_CAPABILITY.KNOWLEDGE,
 ]);
 
+// Capabilities that disqualify a tool from speculative use *however else it was
+// classified*. This is a veto, not a vote, and it has to be: a tool described as
+// "Run a database query" matches the `search` family on the word "query" and
+// exposes a `query` string parameter, so without the veto a research run would
+// have executed SQL against someone's database on a guess.
+const ACTION_ONLY = Object.freeze([
+  MCP_CAPABILITY.BROWSER, MCP_CAPABILITY.DATABASE, MCP_CAPABILITY.FILES,
+]);
+
+// Names that mark a tool as an action whatever its description claims.
+const ACTION_NAME = /\b(?:exec|execute|run|write|create|update|delete|drop|insert|navigate|click|type|upload|send|post|put|patch|install|deploy|shell|bash|sql)\b/i;
+
+function isActionTool(tool, capabilities) {
+  if (capabilities.some((c) => ACTION_ONLY.includes(c))) return true;
+  return ACTION_NAME.test(String(tool.name || '').replace(/[_-]/g, ' '));
+}
+
 function classifyTool(tool) {
   const hay = `${tool.name || ''} ${tool.description || ''}`.toLowerCase().replace(/[_-]/g, '_');
   const caps = [];
@@ -108,6 +125,7 @@ function createMcpSource({ client = null } = {}) {
     discovered = tools.map((t) => {
       const capabilities = classifyTool(t);
       const queryParam = queryParamFor(t);
+      const action = isActionTool(t, capabilities);
       return {
         name: String(t.name || ''),
         serverId: t.serverId || t.server || null,
@@ -115,16 +133,19 @@ function createMcpSource({ client = null } = {}) {
         capabilities,
         queryParam,
         limitParam: limitParamFor(t),
-        queryable: Boolean(queryParam) && capabilities.some((c) => QUERYABLE.includes(c)),
+        action,
+        queryable: !action && Boolean(queryParam) && capabilities.some((c) => QUERYABLE.includes(c)),
         // Why a discovered tool is not being used. Surfaced in the research
         // report so "we saw your MCP server and did nothing" is never silent.
-        unusableReason: !capabilities.length
-          ? 'no research capability recognized in its name or description'
-          : !queryParam
-            ? 'no string query parameter in its input schema'
-            : !capabilities.some((c) => QUERYABLE.includes(c))
-              ? `capabilities [${capabilities.join(', ')}] are actions, not searches`
-              : null,
+        unusableReason: action
+          ? 'it performs an action rather than answering a question; research never calls it on a guess'
+          : !capabilities.length
+            ? 'no research capability recognized in its name or description'
+            : !queryParam
+              ? 'no string query parameter in its input schema'
+              : !capabilities.some((c) => QUERYABLE.includes(c))
+                ? `capabilities [${capabilities.join(', ')}] are actions, not searches`
+                : null,
       };
     });
     return discovered;
@@ -227,5 +248,5 @@ function createMcpSource({ client = null } = {}) {
 
 module.exports = {
   createMcpSource, classifyTool, queryParamFor, limitParamFor,
-  MCP_CAPABILITY, QUERYABLE, CAPABILITY_TOKENS,
+  MCP_CAPABILITY, QUERYABLE, ACTION_ONLY, CAPABILITY_TOKENS, isActionTool,
 };
