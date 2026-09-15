@@ -19,7 +19,7 @@
 // is refused outright.
 
 const { isString } = require('../../schema/validate');
-const { domainOf, canonicalize } = require('../schemas/source');
+const { canonicalize } = require('../schemas/source');
 const { ResearchDeniedError } = require('../errors/researchErrors');
 
 const ALLOWED_SCHEMES = Object.freeze(['https:', 'http:']);

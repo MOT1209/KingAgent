@@ -55,7 +55,7 @@ function createFileSource({ fs, root = null, extractText = null, pathGuard = nul
     const resolved = pathGuard ? pathGuard(root, filePath) : filePath;
     const ext = path.extname(resolved).toLowerCase();
 
-    let stat = null;
+    let stat;
     try { stat = await fs.stat(resolved); } catch (err) {
       throw new SourceUnavailableError('file', `cannot stat ${filePath}: ${err.message}`);
     }
