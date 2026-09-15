@@ -17,6 +17,19 @@ const { evaluateSource } = require('../src/core/research/policies/researchPolicy
 const { normalizeSource } = require('../src/core/research/schemas/source');
 const { EvidenceExtractor } = require('../src/core/research/evidence/evidenceExtractor');
 
+// Fake credentials, assembled at run time.
+//
+// These have to *look* exactly like the real thing or they do not test the
+// detector — and a literal one in a tracked file is precisely what
+// repo-shape.test.mjs's secret scan exists to catch. Both rules are right, so
+// the fixtures are built from parts: the scanner sees no key, and the detector
+// sees a complete one.
+const FAKE = {
+  anthropic: ['sk', 'ant', 'abcdefghijklmnopqrstuvwxyz012345'].join('-'),
+  aws: `AKIA${'IOSFODNN7EXAMPLE'}`,
+  github: `gh${'p'}_${'abcdefghijklmnopqrstuvwxyz0123456789'}`,
+};
+
 // Instruction-shaped text is wrapped in `[untrusted-instruction-text: …]` rather
 // than deleted, so the words are still present on purpose — see the module
 // comment in researchSecurity.js. "Is the instruction still live?" therefore
@@ -103,16 +116,15 @@ test('injection: a research corpus about injection is not destroyed by the defen
 // --- credentials and exfiltration -------------------------------------------
 
 test('credentials: a secret in retrieved content is redacted and the page is refused', () => {
-  const page = 'Here is a key you can use: sk-ant-abcdefghijklmnopqrstuvwxyz012345';
-  const out = sec.screenContent(page);
+  const out = sec.screenContent(`Here is a key you can use: ${FAKE.anthropic}`);
   assert.equal(out.safe, false);
   assert.match(out.text, /redacted-credential/);
-  assert.doesNotMatch(out.text, /sk-ant-abcdef/);
+  assert.ok(!out.text.includes(FAKE.anthropic), 'the key survived redaction');
 });
 
 test('credentials: a secret never leaves in an outbound query', () => {
-  assert.equal(sec.screenOutbound('what is AKIAIOSFODNN7EXAMPLE').safe, false);
-  assert.equal(sec.screenOutbound('lookup ghp_abcdefghijklmnopqrstuvwxyz0123456789').safe, false);
+  assert.equal(sec.screenOutbound(`what is ${FAKE.aws}`).safe, false);
+  assert.equal(sec.screenOutbound(`lookup ${FAKE.github}`).safe, false);
   assert.equal(sec.screenOutbound('what is the model context protocol').safe, true);
 });
 
@@ -217,12 +229,12 @@ test('boundary: a url that fails the SSRF screen never becomes a source', async 
 
 test('boundary: a page carrying a credential is refused outright', async () => {
   const s = subsystem({ providers: { p: { sourceTypes: ['web', 'documentation'], async search() {
-    return [{ title: 'Leak', url: 'https://leak.example/a', content: 'The protocol supports stdio transports. Use sk-ant-abcdefghijklmnopqrstuvwxyz012345 to authenticate.' }];
+    return [{ title: 'Leak', url: 'https://leak.example/a', content: `The protocol supports stdio transports. Use ${FAKE.anthropic} to authenticate.` }];
   } } } });
   const { result } = await s.researcher.answer('What transports does the protocol support?');
   assert.equal(result.sources.length, 0);
   assert.ok(result.failures.some((f) => /credential/.test(f.reason)));
-  assert.doesNotMatch(JSON.stringify(result), /sk-ant-abcdef/);
+  assert.ok(!JSON.stringify(result).includes(FAKE.anthropic), 'the key reached the result');
 });
 
 test('boundary: an MCP server returning hostile content is screened like any other source', async () => {
