@@ -94,6 +94,25 @@ candidate(observation, { policy, scope })
 commitCandidate(candidate, { policy, force })
 ```
 
+## Research memory (Phase 7)
+
+`src/core/research/memory/researchMemory.js` is a *policy* over this manager,
+not a second store: it decides what a completed research run may offer up and
+when it expires, then hands candidates to `store()` like any other caller.
+
+- Only `supported` / `strongly_supported` claims at confidence ≥ 0.6, carrying
+  citations, become entries. An unverified claim is not a fact, and storing one
+  means the next run treats our own uncertainty as established background.
+- `expiresAt` is set from how fast the subject moves. A **realtime** question
+  has a zero TTL, so nothing from it is remembered as fact — it would be wrong
+  before it was read. `researchRouter` applies the same rule on the way in and
+  re-researches rather than serving a stale answer.
+- Scope is `project` when the task has one, else `session`. Never `global`.
+- Citations travel in the entry's metadata, so a remembered claim can be
+  re-cited rather than asserted on trust.
+- A memory denial is not a research failure: the answer is already produced,
+  and remembering it is a bonus.
+
 ## Testing
 
 `tests/core-memory.test.mjs` covers scope isolation (including "same scope

@@ -99,9 +99,10 @@ the [shortcuts and gestures reference](docs/shortcuts.md).
 
 See [docs/windows.md](docs/windows.md) for terminal, PATH and per-agent notes
 on Windows. How the pieces fit together — the agent runtime, the harness layer
-that makes agents swappable, the policy engine, the sandbox and the
-orchestrator — is in [docs/architecture.md](docs/architecture.md) and the
-documents it links to.
+that makes agents swappable, the policy engine, the sandbox, the orchestrator
+and the research engine — is in [docs/architecture.md](docs/architecture.md)
+and the documents it links to, with the research layer covered in detail in
+[docs/research.md](docs/research.md).
 
 ## Build it yourself
 
