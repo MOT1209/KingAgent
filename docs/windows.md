@@ -92,10 +92,18 @@ the surviving file never had. Every auto-update checks its checksum against
 that dead number, so the portable target is left out of `electron-builder.yml`
 rather than pinned around.
 
-`npm run dist` and `npm run dist:mac` fetch the Whisper weights first through
-their `predist` hook. `npm run dist:win` has no such hook, so run
-`npm run fetch-model` once yourself beforehand — otherwise the installer is
-built with an empty `build/models` and ships without offline dictation.
+Every packaging entry point fetches the Whisper weights through a hook of its
+own: `prepack` covers `pack`, `prepack:win` and `prepack:mac` cover the pack
+scripts, and `predist` / `predist:win` cover the installers. Each name needs its
+own hook because npm runs `pre<name>` for the exact script name and nothing
+else — a missing one is not a build failure, it is a build that copies nothing
+into `resources/models` and an app that quietly goes to the network on the first
+dictation, which is the one thing the offline engine exists to prevent. Both
+lessons are now mechanical: `ci.yml` inspects the packed output for an `.onnx`
+file and fails the build if it is absent.
+
+`fetch-model` is idempotent, so running `npm run fetch-model` by hand first
+costs nothing.
 
 The Windows installer is per-user NSIS (`perMachine: false`): no admin rights,
 installable without elevation, and — the reason it matters — the auto-updater

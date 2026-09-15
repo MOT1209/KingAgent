@@ -12,26 +12,45 @@ always the newest one below.
 
 ## [Unreleased]
 
+### Added
+
+- The skill ecosystem and MCP capability layer: `src/core/skills/` (discovery,
+  ranking, evaluation, lifecycle, registry, runtime, security scanning, four
+  sources), `src/core/mcp/` (registry, inspection, classification, bridge),
+  `npm run skills`, and `docs/skills/`.
+- The Phase 3 foundation — `src/core/agents/`, `workspace/`, `context/`,
+  `memory/`, `approval/`, `trace/`, `state/`, `project/` — and the consolidated
+  Phase 5 control plane in `src/core/harness-orchestrator/`.
+- `CHANGELOG.md` (this file) and `CODE_OF_CONDUCT.md`.
+- `src/main/folder-scan.js` and `src/main/update-polling.js`, both covered by new
+  tests, so folder scanning and the update schedule are no longer untested code
+  inside `main.js`.
+
 ### Changed
 
 - Coverage floors raised from 55/55/65/60 to 70/70/80/70 (lines/statements/
-  functions/branches). The old floors sat well under the measured 78% and let a
+  functions/branches). The old floors sat far under the measured figure and let a
   silent regression through; CI now fails closer to where the code actually is.
+- Every packaging entry point now fetches the Whisper weights through a hook of
+  its own (`prepack:win`, `prepack:mac`, `predist:win`), and CI checks the packed
+  output for an `.onnx` file. A build without the offline model is now a failed
+  build rather than a silent one.
+- `README.md` states what needs no network or account, real install sizes, and
+  the fork's policy toward upstream Nami.
 
 ### Fixed
 
+- Recents could sort a pinned folder below a newer plain one. The sort compares
+  `Number(pinned)` on both sides, so a row written without that field — a
+  hand-edited `state.json`, or one from an older build — produced `NaN`, which is
+  falsy, and the pin was ignored. `pinned` is now normalised before the sort.
 - `docs/windows.md` no longer claims a portable Windows build. `portable` was
-  removed from `electron-builder.yml` on purpose (its artifact name collided
-  with the x64 NSIS file and corrupted `latest.yml`), so the docs were describing
-  an artifact that is not produced.
-- `docs/windows.md` states that `npm run dist:win` has no `predist` hook, so
-  `npm run fetch-model` must be run by hand first or the installer ships without
-  Whisper weights.
+  removed from `electron-builder.yml` on purpose (its artifact name collided with
+  the x64 NSIS file and corrupted `latest.yml`), so the docs were describing an
+  artifact that is not produced.
 - `KINGAGENT-WINDOWS-PORT-REPORT.md` carries an addendum marking the gaps it
-  lists that have since been closed, so it cannot be misread as a current state
-  of the repository.
-- `README.md` documents what needs no network or account, real install sizes, and
-  the fork's policy toward upstream Nami.
+  lists that have since been closed and the ones that have not, so it cannot be
+  misread as a current state of the repository.
 
 ## [0.5.4] — 2026-09-14
 

@@ -50,6 +50,12 @@ const ALLOWED_ROOT = new Set([
   'package.json', 'package-lock.json', 'electron-builder.yml',
   'electron-builder.review.yml',
   'README.md', 'LICENSE', 'CONTRIBUTING.md', '.gitignore',
+  // The two files a reader looks for beside CONTRIBUTING.md: what changed
+  // between versions, and the terms of taking part. They belong here for the
+  // same reason the check below requires a licence — a repo that has them is
+  // readable by a stranger, and one without them puts the rules somewhere
+  // nobody can find.
+  'CHANGELOG.md', 'CODE_OF_CONDUCT.md',
   'KINGAGENT-WINDOWS-PORT-REPORT.md',
   'eslint.config.mjs',
 ]);

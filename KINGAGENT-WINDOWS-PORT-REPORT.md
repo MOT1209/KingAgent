@@ -19,21 +19,36 @@ port stood. The table below is the correction a new contributor needs.
 
 | Item in this report | Status today |
 |---|---|
-| §Executive summary — "الفجوات المتبقية (غير منفّذة)": Agent Runtime، محرّكات التخطيط/الاستدلال، محرك Workflow، مدير أدوات مركزي، نظام ذاكرة، بيئة تنفيذ كود، Self-Healing | **Built.** `7e2f336 feat(core): add Phase 4 orchestration, harness, policy and sandbox layers` created `src/core/` whole: `runtime/`, `planning/`, `reasoning/`, `workflows/`, `memory/`, `context/`, `tools/`, `execution/`, `recovery/`, `harness/`, `policy/`, `sandbox/`, `orchestrator/`, `session/`, `artifacts/` — 23 subsystems, none of which import Electron. |
+| §Executive summary — "الفجوات المتبقية (غير منفّذة)": Agent Runtime، محرّكات التخطيط/الاستدلال، محرك Workflow، مدير أدوات مركزي، نظام ذاكرة، بيئة تنفيذ كود، Self-Healing | **Built.** `7e2f336 feat(core): add Phase 4 orchestration, harness, policy and sandbox layers` created `src/core/` whole: `runtime/`, `planning/`, `reasoning/`, `workflows/`, `memory/`, `context/`, `tools/`, `execution/`, `recovery/`, `harness/`, `policy/`, `sandbox/`, `orchestrator/`, `session/`, `artifacts/` — none of which import Electron. Addendum 2 below counts what is there now. |
 | §5 — "CI won't run" (§7.2): the folder was untracked inside a parent workspace repo | **Closed.** KingAgent is its own repository now (`450d3a1`) and three workflows run: `ci.yml` (linux/macOS/Windows matrix + a `windows-latest` build job), `release.yml` (macOS), `ship.yml` (version, build both platforms, publish). |
 | §7.3 — "`release.yml` is macOS-only — add a Windows job once Windows CI exists" | **Partly closed, on purpose.** Windows CI exists (`ci.yml`), and Windows installers are built and published by `ship.yml`. `release.yml` stays macOS-only; it is the signing/notarization path, not the general ship path. |
-| §5 — test counts (1173 total · 1158 pass · 0 fail · 15 skipped) | **Superseded.** The suite is now **1457 tests · 1444 pass · 0 fail · 13 skipped**, and coverage floors are enforced in CI at 70% lines/statements, 80% functions, 70% branches (measured: 78% lines, 84% functions, 77% branches). |
+| §5 — test counts (1173 total · 1158 pass · 0 fail · 15 skipped) | **Superseded twice over.** The suite is now **1845 tests · 1831 pass · 0 fail · 14 skipped**, and coverage floors are enforced in CI at 70% lines/statements, 80% functions, 70% branches (measured: 83.5% lines, 82.5% functions, 75.8% branches). |
 | §Executive summary — build "NSIS + Portable" | **Portable was removed, deliberately.** Its artifact name collided with the x64 NSIS file and corrupted the update metadata. Windows output is NSIS only (x64 + arm64). |
 
 Still open as of 2026-09-15:
 
-1. **§7.1 — `dist:win` ships without Whisper weights.** Unchanged: `predist`
-   covers `dist` and `dist:mac`, but the standalone `dist:win`/`pack:win`
-   scripts have no such hook. Run `npm run fetch-model` first.
-2. **§7.4 — cloud/enterprise layer.** Not implemented, by design; the app is a
+1. **§7.4 — cloud/enterprise layer.** Not implemented, by design; the app is a
    local desk.
-3. **Signing.** Both platforms still build unsigned in the rolling pipeline;
+2. **Signing.** Both platforms still build unsigned in the rolling pipeline;
    the wiring only needs repository secrets.
+
+### Addendum 2 — the same day, after `origin/main` was merged
+
+The first addendum was written against a checkout that turned out to be ten
+commits behind. Its remaining open item and its subsystem count are both out of
+date, and the rest of §5 is not the whole picture either. What `origin/main`
+carried, now merged:
+
+| Item | Status |
+|---|---|
+| §7.1 — "`dist:win` ships without Whisper weights" | **Closed — and made mechanical.** `prepack:win`, `prepack:mac` and `predist:win` now exist (npm runs `pre<name>` for the exact script name, so each entry point needs its own hook), and `ci.yml` inspects the packed output for an `.onnx` file and fails the build without one. No developer has to remember it. |
+| §3 — "Agent Runtime … not implemented" (and the rest of the executive summary's gap list) | **Built out far past Phase 4.** `src/core/` now holds **30** subsystem directories and **163** modules: `agents/` (coordinator, handoff, lifecycle, messaging), `workspace/`, `context/`, `memory/`, `approval/`, `trace/`, `state/`, `project/`, `skills/`, `mcp/` in addition to the Phase 4 set. None import Electron. |
+| §13 — "Skills: skills folder" (listed as simply ✅) | **A system, not a folder.** `src/core/skills/` covers discovery, ranking, recommendation, evaluation, lifecycle, registry, runtime, schemas, security scanning and four sources; `src/core/mcp/` covers registry, inspection, classification and the bridge. `scripts/skills-cli.mjs` is `npm run skills`. |
+| §35 — "docs/start-here" (listed as the whole docs story) | **34 documents now**, including `docs/skills/` (seven files), `docs/phase5-audit.md`, and per-subsystem documents for workspace, context, memory, artifacts, approvals, workflows, state recovery and the execution trace. |
+| §3 — "agent workspace, context, memory, trace, artifacts, approvals" listed ❌ | Also closed; the modules land in Phase 3's `src/core/` tree. |
+
+What this does *not* change: §7.4 (cloud/enterprise) is still absent by design,
+and both platforms still build unsigned.
 
 ---
 
