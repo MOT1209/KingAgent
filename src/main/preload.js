@@ -221,8 +221,49 @@ contextBridge.exposeInMainWorld('kingagent', {
     cancelWorkflow: (id) => ipcRenderer.invoke('workflow:cancel', { id }),
     authorizeResponse: (requestId, approved) => ipcRenderer.invoke('agent:authorizeResponse', { requestId, approved }),
 
-    // Phase 4: the Agent Control Center. All read-only except route (a dry run)
-    // and cancelTask. Nothing here can raise a permission or widen a sandbox.
+    // --- Phase 3 -------------------------------------------------------------
+    // Every one of these is on the guarded channel list
+    // (src/core/security/ipc-guard.js); tests/core-wiring.test.mjs checks that
+    // this surface stays a subset of it.
+    orchestrate: (args) => ipcRenderer.invoke('orchestrator:run', args),
+    routeRequest: (args) => ipcRenderer.invoke('orchestrator:route', args),
+    getRun: (id) => ipcRenderer.invoke('orchestrator:get', { id }),
+    listRuns: () => ipcRenderer.invoke('orchestrator:list'),
+    cancelRun: (id) => ipcRenderer.invoke('orchestrator:cancel', { id }),
+    orchestratorPolicies: () => ipcRenderer.invoke('orchestrator:policies'),
+
+    getWorkspace: (id) => ipcRenderer.invoke('workspace:get', { id }),
+    listWorkspaces: () => ipcRenderer.invoke('workspace:list'),
+    workspaceFiles: (id) => ipcRenderer.invoke('workspace:files', { id }),
+
+    listTraces: () => ipcRenderer.invoke('trace:list'),
+    getTrace: (id) => ipcRenderer.invoke('trace:get', { id }),
+    traceActivity: (id) => ipcRenderer.invoke('trace:activity', { id }),
+
+    listArtifacts: (args) => ipcRenderer.invoke('artifact:list', args || {}),
+    getArtifact: (id, workspaceId) => ipcRenderer.invoke('artifact:get', { id, workspaceId }),
+
+    searchMemory: (args) => ipcRenderer.invoke('memory:search', args),
+    listMemory: (args) => ipcRenderer.invoke('memory:list', args),
+
+    pendingApprovals: (taskId) => ipcRenderer.invoke('approval:pending', taskId ? { taskId } : {}),
+    decideApproval: (id, approved, note) => ipcRenderer.invoke('approval:decide', { id, approved, note }),
+
+    interruptedTasks: () => ipcRenderer.invoke('state:interrupted'),
+    resumeTask2: (taskId) => ipcRenderer.invoke('state:resume', { taskId }),
+    latestSnapshot: (taskId) => ipcRenderer.invoke('state:snapshot', { taskId }),
+
+    detectProject: (root) => ipcRenderer.invoke('project:detect', { root }),
+
+    agentLifecycles: (taskId) => ipcRenderer.invoke('agents:lifecycles', taskId ? { taskId } : {}),
+    agentMessages: (taskId) => ipcRenderer.invoke('agents:messages', { taskId }),
+
+    // --- Phase 4: the Agent Control Center (src/core/harness-orchestrator/) --
+    // All read-only except route (a dry run) and cancelTask. Nothing here can
+    // raise a permission or widen a sandbox. `harness`-prefixed where the name
+    // would otherwise collide with the Phase 3 method above it (both
+    // `listArtifacts`/`getArtifact` exist on two independent artifact stores —
+    // see the module comment in src/core/index.js).
     controlCenter: (args = {}) => ipcRenderer.invoke('agent:controlCenter', args),
     listHarnesses: () => ipcRenderer.invoke('agent:harnesses'),
     detectHarnesses: (id) => ipcRenderer.invoke('agent:harnessDetect', id ? { id } : {}),
@@ -233,11 +274,46 @@ contextBridge.exposeInMainWorld('kingagent', {
     explainPolicy: (args) => ipcRenderer.invoke('agent:explainPolicy', args),
     listSessions: () => ipcRenderer.invoke('agent:sessions'),
     getSession: (id) => ipcRenderer.invoke('agent:session', { id }),
-    listArtifacts: (args = {}) => ipcRenderer.invoke('agent:artifacts', args),
-    getArtifact: (id) => ipcRenderer.invoke('agent:artifact', { id }),
+    harnessListArtifacts: (args = {}) => ipcRenderer.invoke('agent:artifacts', args),
+    harnessGetArtifact: (id) => ipcRenderer.invoke('agent:artifact', { id }),
     listDelegations: (taskId) => ipcRenderer.invoke('agent:delegations', { taskId }),
     route: (args) => ipcRenderer.invoke('agent:route', args),
     cancelTaskTree: (taskId, sessionId) => ipcRenderer.invoke('agent:cancelTask', sessionId ? { taskId, sessionId } : { taskId }),
+
+    // --- Phase 6: skills (src/core/skills/) + MCP (src/core/mcp/) -----------
+    // The first renderer surface that changes platform state. Each call is a
+    // request on a guarded channel: the main side validates the payload, runs
+    // the skill validator and scanner, evaluates policy and opens the approval
+    // flow. Nothing here can raise a skill's trust or skip its scan, and
+    // `releaseSkill` takes no actor — the main process attributes it to the
+    // signed-in user.
+    listSkills: (args = {}) => ipcRenderer.invoke('skill:list', args),
+    getSkill: (id, version) => ipcRenderer.invoke('skill:get', version ? { id, version } : { id }),
+    skillContent: (id) => ipcRenderer.invoke('skill:content', { id }),
+    searchSkills: (args) => ipcRenderer.invoke('skill:search', typeof args === 'string' ? { query: args } : args),
+    discoverSkills: (request) => ipcRenderer.invoke('skill:discover', { request }),
+    planSkills: (request) => ipcRenderer.invoke('skill:plan', { request }),
+    skillSources: () => ipcRenderer.invoke('skill:sources'),
+    skillAudit: () => ipcRenderer.invoke('skill:audit'),
+    skillBenchmark: () => ipcRenderer.invoke('skill:benchmark'),
+    skillUpdates: () => ipcRenderer.invoke('skill:updates'),
+    inspectSkill: (args) => ipcRenderer.invoke('skill:inspect', args),
+    installSkill: (args) => ipcRenderer.invoke('skill:install', args),
+    updateSkill: (id) => ipcRenderer.invoke('skill:update', { id }),
+    removeSkill: (id, force) => ipcRenderer.invoke('skill:remove', force ? { id, force: true } : { id }),
+    enableSkill: (id) => ipcRenderer.invoke('skill:enable', { id }),
+    disableSkill: (id) => ipcRenderer.invoke('skill:disable', { id }),
+    quarantineSkill: (id, reason) => ipcRenderer.invoke('skill:quarantine', { id, reason }),
+    releaseSkill: (id, note) => ipcRenderer.invoke('skill:release', note ? { id, note } : { id }),
+
+    listMcpServers: () => ipcRenderer.invoke('mcp:list'),
+    getMcpServer: (id) => ipcRenderer.invoke('mcp:get', { id }),
+    inspectMcpServer: (id) => ipcRenderer.invoke('mcp:inspect', { id }),
+    explainMcpServer: (id) => ipcRenderer.invoke('mcp:explain', { id }),
+    mcpTestPlan: (id) => ipcRenderer.invoke('mcp:testPlan', { id }),
+    removeMcpServer: (id) => ipcRenderer.invoke('mcp:remove', { id }),
+    quarantineMcpServer: (id, reason) => ipcRenderer.invoke('mcp:quarantine', { id, reason }),
+
     onPlatformEvent: (cb) => {
       const h = (_e, ev) => cb(ev);
       ipcRenderer.on('agent:event', h);

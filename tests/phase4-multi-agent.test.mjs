@@ -17,7 +17,7 @@ const {
   TEAM_TEMPLATES,
   ROLES,
   DelegationDeniedError,
-} = require('../src/core/orchestrator');
+} = require('../src/core/harness-orchestrator');
 const { AgentRegistry } = require('../src/core/agents/registry');
 const { EventBus, TYPES } = require('../src/core/events/event-bus');
 

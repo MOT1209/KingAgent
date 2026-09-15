@@ -91,6 +91,15 @@ class ToolManager {
   }
 
   // Metadata-only view safe to ship to a renderer.
+  //
+  // `policyAction` is part of the view on purpose. A tool may declare its own
+  // policy action (`terminal:run` evaluates as `command.run`, not
+  // `tool.call.terminal:run`), and the policy engine gates on *that* string. If
+  // the view omitted it, the only action visible to a person — or to a policy
+  // UI reading this list — would be the `tool.call.<id>` fallback, and a deny
+  // rule written against that would silently never match while the tool kept
+  // running. Exposing it keeps "which action do I write a policy for?"
+  // answerable from the same data the UI already has (§17).
   peek(id) {
     const t = this._tools.get(id);
     if (!t) return undefined;
@@ -101,6 +110,7 @@ class ToolManager {
       category: t.category,
       capabilities: [...t.capabilities],
       permissions: { ...t.permissions },
+      policyAction: t.policyAction || null,
       timeoutMs: t.timeoutMs,
     };
   }

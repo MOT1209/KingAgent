@@ -1,68 +1,26 @@
-// The orchestration layer's public surface.
+// Barrel for the orchestration layer.
+//
+// The Orchestrator sits *above* the AgentRuntime, never in place of it: it
+// routes a request into a shape, builds the workspace/context/trace that shape
+// needs, and calls the existing runtime, coordinator or workflow engine.
 
-const {
-  ROUTING_STRATEGIES,
-  AGENT_CAPABILITY_MAP,
-  TASK_TYPE_HINTS,
-  classifyTask,
-  requiredTagsFor,
-  AgentRouter,
-} = require('./router');
-const { MESSAGE_TYPES, createMessage, validateMessage, replyTo, createMailbox } = require('./messages');
-const {
-  DELEGATION_STATUS,
-  createDelegation,
-  validateDelegation,
-  containment,
-  delegationView,
-} = require('./delegation');
-const { HANDOFF_FIELDS, createHandoff, validateHandoff, summarizeHandoff, readyToAccept } = require('./handoff');
-const { createFileLockManager, normalizeKey } = require('./locks');
-const {
-  createAgentCoordinator,
-  ROLES,
-  TEAM_TEMPLATES,
-  MAX_DEPTH,
-  DelegationDeniedError,
-} = require('./coordinator');
-const { Orchestrator, OrchestratorError } = require('./orchestrator');
+const { Orchestrator } = require('./orchestrator');
+const { Router, detectCapabilities } = require('./router');
+const { Scheduler, PRIORITY, JOB_STATUS } = require('./scheduler');
+const policies = require('./policies');
+const delegation = require('./delegation');
 
 module.exports = {
-  // routing
-  ROUTING_STRATEGIES,
-  AGENT_CAPABILITY_MAP,
-  TASK_TYPE_HINTS,
-  classifyTask,
-  requiredTagsFor,
-  AgentRouter,
-  // protocol
-  MESSAGE_TYPES,
-  createMessage,
-  validateMessage,
-  replyTo,
-  createMailbox,
-  // delegation
-  DELEGATION_STATUS,
-  createDelegation,
-  validateDelegation,
-  containment,
-  delegationView,
-  // handoff
-  HANDOFF_FIELDS,
-  createHandoff,
-  validateHandoff,
-  summarizeHandoff,
-  readyToAccept,
-  // parallelism
-  createFileLockManager,
-  normalizeKey,
-  // coordination
-  createAgentCoordinator,
-  ROLES,
-  TEAM_TEMPLATES,
-  MAX_DEPTH,
-  DelegationDeniedError,
-  // top level
   Orchestrator,
-  OrchestratorError,
+  Router,
+  Scheduler,
+  PRIORITY,
+  JOB_STATUS,
+  EXECUTION_MODES: policies.EXECUTION_MODES,
+  DEFAULT_POLICIES: policies.DEFAULT_POLICIES,
+  createPolicies: policies.createPolicies,
+  detectCapabilities,
+  planDelegations: delegation.planDelegations,
+  readyDelegations: delegation.readyDelegations,
+  auditDelegations: delegation.auditDelegations,
 };

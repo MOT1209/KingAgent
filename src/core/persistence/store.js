@@ -31,13 +31,27 @@ function createMemoryStore(seed = {}) {
 // Single-file JSON store with atomic replace (write temp file, rename over the
 // real one) so a crash mid-write cannot corrupt the previous state. All keys on
 // one path means one file per concern (agents.json, workflows.json, tasks.json).
-async function createJsonStore({ dir, name, fs }) {
+//
+// The factory is deliberately synchronous. It used to be `async`, which meant
+// `createPlatform({ storeDir })` handed every subsystem a *Promise* instead of a
+// store — `store.set` was undefined and the whole persisted path threw on the
+// first write. Directory creation is therefore lazy: it happens on the first
+// persist, once, which is also the first moment it is actually needed.
+// `await createJsonStore(...)` still works for existing callers, because
+// awaiting a non-promise is a no-op.
+function createJsonStore({ dir, name, fs }) {
   const { mkdir, readFile, writeFile, rename } = fs;
-  await mkdir(dir, { recursive: true });
   const file = `${dir}/${name}`;
   const tmp = `${file}.tmp`;
 
   let cache = null;
+  let dirReady = null;
+
+  async function ensureDir() {
+    if (!dirReady) dirReady = mkdir(dir, { recursive: true });
+    return dirReady;
+  }
+
   async function load() {
     if (cache !== null) return cache;
     try {
@@ -49,6 +63,7 @@ async function createJsonStore({ dir, name, fs }) {
   }
 
   async function persist() {
+    await ensureDir();
     await writeFile(tmp, JSON.stringify(cache, null, 2), 'utf8');
     await rename(tmp, file);
   }

@@ -1,228 +1,130 @@
-// Delegation: handing a scoped piece of work to another agent.
+// Turning a routing decision into concrete, bounded delegation specs.
 //
-// §27 lists the fields a delegation must carry — id, parentTaskId,
-// parentAgentId, childAgentId, workspaceId, permissions, scope, timeout,
-// resultSchema, traceId — and every one of them is here for the same reason:
-// a delegated task has to be *auditable on its own*, without reading the
-// parent's context.
+// The router says "this needs analysis, code and tests, and no single agent
+// covers it". Something still has to decide *which* sub-tasks exist, who gets
+// each one, in what order, and with what reach. Doing that inside the
+// orchestrator would bury the most security-relevant arithmetic in the platform
+// — permission narrowing — inside a control-flow function.
 //
-// The security core of this file is `containment()`. A delegation is the one
-// place one agent can increase another's reach, so it is the one place an
-// escalation bug would live. The rule is a subset check, applied to both
-// permission levels and paths:
-//
-//   child.permission levels ⊆ parent.permission levels
-//   child.allowDestructive   → parent.allowDestructive
-//   child.scope paths        ⊆ parent scope paths (when the parent declared any)
-//
-// A delegation that widens any of those is refused at construction, not at
-// execution, and the refusal says exactly which dimension widened.
+// So it lives here, as a pure planner: routing decision in, delegation specs
+// out, nothing executed. That makes "can a delegate be handed more than its
+// parent has?" a question a test can answer directly.
 
-const crypto = require('node:crypto');
-const { isPlainObject, isString, isArray, fail } = require('../schema/validate');
-const { levelRank } = require('../tools/definition');
+const { EXECUTION_MODES } = require('./policies');
 
-const DELEGATION_STATUS = Object.freeze({
-  PENDING: 'pending',
-  RUNNING: 'running',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-  CANCELLED: 'cancelled',
-});
+// Capability → the phase it belongs to, and what that phase needs to reach.
+// Phases run in this order; a phase with no matched capability is skipped.
+const PHASES = [
+  {
+    id: 'analysis',
+    capabilities: ['repository_analysis', 'read', 'code_search', 'research'],
+    label: 'Analyze',
+    // Read-only work gets read-only reach. Stated here rather than inherited,
+    // so widening it is a visible edit.
+    policy: { allowDestructive: false, allowNetwork: false },
+    resultSchema: { type: 'object', properties: { taskId: { type: 'string' } } },
+  },
+  {
+    id: 'implementation',
+    capabilities: ['code', 'write'],
+    label: 'Implement',
+    policy: { allowDestructive: false },
+    dependsOn: ['analysis'],
+  },
+  {
+    id: 'verification',
+    capabilities: ['run_tests', 'shell'],
+    label: 'Test',
+    policy: { allowDestructive: false },
+    dependsOn: ['implementation'],
+  },
+  {
+    id: 'review',
+    capabilities: ['report', 'git'],
+    label: 'Review',
+    policy: { allowDestructive: false, allowNetwork: false },
+    dependsOn: ['verification'],
+  },
+];
 
-const STATUS_EDGES = Object.freeze({
-  [DELEGATION_STATUS.PENDING]: [DELEGATION_STATUS.RUNNING, DELEGATION_STATUS.CANCELLED, DELEGATION_STATUS.FAILED],
-  [DELEGATION_STATUS.RUNNING]: [DELEGATION_STATUS.COMPLETED, DELEGATION_STATUS.FAILED, DELEGATION_STATUS.CANCELLED],
-  [DELEGATION_STATUS.COMPLETED]: [],
-  [DELEGATION_STATUS.FAILED]: [DELEGATION_STATUS.RUNNING, DELEGATION_STATUS.CANCELLED],
-  [DELEGATION_STATUS.CANCELLED]: [],
-});
+// A delegate never receives more than its parent holds. Two-sided intersection,
+// with `null` meaning "unrestricted on that side" — the same rule the workspace
+// uses, applied one level earlier so a bad plan is caught before a workspace
+// exists.
+function narrow(parentPolicy, phasePolicy) {
+  const parent = parentPolicy || {};
+  const out = { ...phasePolicy };
+  for (const flag of ['allowNetwork', 'allowDestructive']) {
+    out[flag] = Boolean(parent[flag] && (phasePolicy[flag] ?? parent[flag]));
+  }
+  if (Array.isArray(parent.tools)) {
+    out.tools = Array.isArray(phasePolicy.tools) ? phasePolicy.tools.filter((t) => parent.tools.includes(t)) : [...parent.tools];
+  } else if (Array.isArray(phasePolicy.tools)) {
+    out.tools = [...phasePolicy.tools];
+  }
+  if (Array.isArray(parent.memoryScopes)) {
+    out.memoryScopes = Array.isArray(phasePolicy.memoryScopes)
+      ? phasePolicy.memoryScopes.filter((s) => parent.memoryScopes.includes(s))
+      : [...parent.memoryScopes];
+  }
+  return out;
+}
 
-const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
-
-function createDelegation({
-  id = null,
-  role = 'worker', // lead | worker | reviewer | research | tester
-  parentTaskId,
-  parentAgentId,
-  childAgentId,
-  workspaceId = null,
-  objective = '',
-  permissions = null,
-  scope = null,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
-  resultSchema = null,
-  traceId = null,
-  sessionId = null,
-  harnessId = null,
-  parentDelegationId = null,
-  depth = 1,
+// Build the ordered specs for a multi-agent run. Pure: no agent is selected
+// here (the coordinator owns selection), no workspace is created.
+function planDelegations({
+  request,
+  decision,
+  parentPolicy = {},
+  maxDelegations = 6,
+  timeoutMs = 5 * 60 * 1000,
 } = {}) {
-  const delegation = {
-    id: id || `del-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`,
-    role,
-    status: DELEGATION_STATUS.PENDING,
-    parentTaskId: parentTaskId || null,
-    parentDelegationId: parentDelegationId || null,
-    parentAgentId: parentAgentId || null,
-    childAgentId: childAgentId || null,
-    workspaceId: workspaceId || null,
-    harnessId: harnessId || null,
-    objective,
-    permissions,
-    scope: scope || { paths: [], tools: [] },
-    timeoutMs,
-    resultSchema,
-    traceId: traceId || null,
-    sessionId: sessionId || null,
-    depth,
-    createdAt: Date.now(),
-    startedAt: null,
-    completedAt: null,
-    cancellation: null,
-    error: null,
-    artifactIds: [],
-  };
-  const { ok, errors } = validateDelegation(delegation);
-  if (!ok) throw new Error(`invalid delegation: ${errors.join('; ')}`);
-  return delegation;
-}
+  if (!decision || decision.mode !== EXECUTION_MODES.MULTI_AGENT) return [];
+  const caps = new Set(decision.capabilities || []);
+  const specs = [];
 
-function validateDelegation(d) {
-  if (!isPlainObject(d)) return fail(['delegation must be an object']);
-  if (!isString(d.id) || !d.id) return fail(['delegation requires an id']);
-  if (!isString(d.childAgentId) || !d.childAgentId) return fail(['delegation requires a childAgentId']);
-  if (!isString(d.objective) || d.objective.trim() === '') return fail(['delegation requires an objective']);
-  if (!Number.isFinite(d.timeoutMs) || d.timeoutMs <= 0) return fail(['delegation timeoutMs must be a positive number']);
-  if (!(d.status in STATUS_EDGES)) return fail([`unknown delegation status: ${JSON.stringify(d.status)}`]);
-  if (d.scope !== null && d.scope !== undefined && !isPlainObject(d.scope)) return fail(['delegation scope must be an object']);
-  return { ok: true, errors: [] };
-}
-
-function canTransition(from, to) {
-  const edges = STATUS_EDGES[from];
-  return Boolean(edges) && edges.includes(to);
-}
-
-function completeDelegation(d, { status, error = null, artifactIds = [] } = {}) {
-  if (!canTransition(d.status, status)) {
-    throw new Error(`delegation ${d.id} cannot move from ${d.status} to ${status}`);
+  for (const phase of PHASES) {
+    const matched = phase.capabilities.filter((c) => caps.has(c));
+    if (matched.length === 0) continue;
+    specs.push({
+      id: phase.id,
+      label: phase.label,
+      request: `${phase.label}: ${request}`,
+      capabilities: matched,
+      policy: narrow(parentPolicy, phase.policy),
+      dependsOn: (phase.dependsOn || []).filter((d) => specs.some((s) => s.id === d)),
+      timeoutMs,
+      resultSchema: phase.resultSchema || null,
+    });
+    if (specs.length >= maxDelegations) break;
   }
-  d.status = status;
-  d.completedAt = Date.now();
-  d.error = error;
-  d.artifactIds = [...artifactIds];
-  return d;
+  return specs;
 }
 
-// Is `child` a subset of `parent`? Returns `{ ok, reasons }` — never throws, so
-// a router can report why it refused instead of exploding.
-function containment(parent, child) {
-  const reasons = [];
-  const p = normalizePermissionSet(parent);
-  const c = normalizePermissionSet(child);
+// Which specs can run now, given what has finished. Dependencies come from the
+// phase table, so a verification step cannot start before implementation did.
+function readyDelegations(specs, completedIds = []) {
+  const done = new Set(completedIds);
+  return specs.filter((s) => !done.has(s.id) && s.dependsOn.every((d) => done.has(d)));
+}
 
-  if (!p || !c) {
-    // Without a declared permission set there is nothing to contain, and
-    // pretending otherwise would be worse than saying so. The policy engine is
-    // still the gate for every actual call.
-    return { ok: true, reasons: ['no declared permission sets to compare'], compared: false };
-  }
-
-  const parentMax = Math.max(...p.levels.map(levelRank), -1);
-  for (const level of c.levels) {
-    if (levelRank(level) > parentMax) {
-      reasons.push(`child grants "${level}" but the parent grants at most "${maxLevel(p.levels)}"`);
+// A last check before anything executes: no spec may carry a permission its
+// parent lacks. Returns the violations, so the orchestrator can refuse loudly
+// rather than silently dropping them.
+function auditDelegations(specs, parentPolicy = {}) {
+  const problems = [];
+  for (const spec of specs) {
+    for (const flag of ['allowNetwork', 'allowDestructive']) {
+      if (spec.policy[flag] && !parentPolicy[flag]) {
+        problems.push(`delegation "${spec.id}" would grant ${flag} that the parent does not hold`);
+      }
+    }
+    if (Array.isArray(parentPolicy.tools) && Array.isArray(spec.policy.tools)) {
+      const extra = spec.policy.tools.filter((t) => !parentPolicy.tools.includes(t));
+      if (extra.length) problems.push(`delegation "${spec.id}" would grant tools the parent lacks: ${extra.join(', ')}`);
     }
   }
-  if (c.allowDestructive && !p.allowDestructive) {
-    reasons.push('child allows destructive tools but the parent does not');
-  }
-
-  const pScope = normalizeScope(parent.scope);
-  const cScope = normalizeScope(child.scope);
-  for (const path of cScope.paths) {
-    if (!withinAny(pScope.paths, path)) reasons.push(`child scope path "${path}" is outside the parent scope`);
-  }
-  for (const toolId of cScope.tools) {
-    if (pScope.tools.length && !pScope.tools.includes(toolId)) {
-      reasons.push(`child may use tool "${toolId}" which the parent does not grant`);
-    }
-  }
-  return { ok: reasons.length === 0, reasons, compared: true };
+  return problems;
 }
 
-function normalizePermissionSet(input) {
-  const perms = input && input.permissions ? input.permissions : (isPlainObject(input) && isArray(input.levels) ? input : null);
-  if (!isPlainObject(perms)) return null;
-  const levels = isArray(perms.levels) ? perms.levels.filter(isString) : [];
-  return {
-    levels,
-    allowDestructive: perms.allowDestructive === true,
-    scope: input.scope || perms.scope || null,
-  };
-}
-
-function normalizeScope(scope) {
-  if (!isPlainObject(scope)) return { paths: [], tools: [] };
-  return {
-    paths: isArray(scope.paths) ? scope.paths.filter(isString) : [],
-    tools: isArray(scope.tools) ? scope.tools.filter(isString) : [],
-  };
-}
-
-function withinAny(paths, candidate) {
-  if (paths.length === 0) return true; // parent declared no path scope
-  const normal = (p) => String(p).replace(/\\/g, '/').replace(/\/+$/, '');
-  const target = normal(candidate);
-  return paths.some((p) => {
-    const base = normal(p);
-    return target === base || target.startsWith(`${base}/`);
-  });
-}
-
-function maxLevel(levels) {
-  return levels.slice().sort((a, b) => levelRank(b) - levelRank(a))[0] || 'none';
-}
-
-// Serializable view for IPC and the sub-agent list in the UI.
-function delegationView(d) {
-  return {
-    id: d.id,
-    role: d.role,
-    status: d.status,
-    parentTaskId: d.parentTaskId,
-    parentDelegationId: d.parentDelegationId,
-    parentAgentId: d.parentAgentId,
-    childAgentId: d.childAgentId,
-    workspaceId: d.workspaceId,
-    harnessId: d.harnessId,
-    objective: d.objective,
-    depth: d.depth,
-    timeoutMs: d.timeoutMs,
-    resultSchema: d.resultSchema,
-    permissions: d.permissions ? { levels: [...(d.permissions.levels || [])], allowDestructive: d.permissions.allowDestructive === true } : null,
-    scope: { paths: [...((d.scope && d.scope.paths) || [])], tools: [...((d.scope && d.scope.tools) || [])] },
-    traceId: d.traceId,
-    sessionId: d.sessionId,
-    artifactIds: [...d.artifactIds],
-    createdAt: d.createdAt,
-    startedAt: d.startedAt,
-    completedAt: d.completedAt,
-    error: d.error,
-    cancelled: Boolean(d.cancellation),
-  };
-}
-
-module.exports = {
-  DELEGATION_STATUS,
-  STATUS_EDGES,
-  DEFAULT_TIMEOUT_MS,
-  createDelegation,
-  validateDelegation,
-  canTransition,
-  completeDelegation,
-  containment,
-  delegationView,
-  withinAny,
-};
+module.exports = { PHASES, planDelegations, readyDelegations, auditDelegations, narrow };

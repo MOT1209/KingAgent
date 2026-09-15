@@ -34,16 +34,19 @@ renderer (ESM) ── contextBridge ──> preload ── ipcMain.handle ──
 | planning | `planning/planner.js` | deterministic / structured / autonomous plans |
 | reasoning | `reasoning/reasoning.js` | analyze / decide / evaluate / diagnose, CoT-free |
 | runtime | `runtime/runtime.js` | the analyze → plan → execute → evaluate loop |
-| workflows | `workflows/engine.js` | node-graph workflows with approvals |
-| context | `context/context.js` | immutable snapshot of the task world per step |
-| memory | `memory/memory.js` | scoped session/task key-value memory |
+| workflows | `workflows/engine.js` | node-graph workflows with approvals, real cancellation and persisted instance history |
+| context | `context/context.js` | immutable snapshot of the task world per step (Phase 2) |
+| memory | `memory/memory.js` | in-process session/task key-value memory (Phase 2) |
 | execution | `execution/code-exec.js` | sandboxed code execution interface |
-| recovery | `recovery/recovery.js` | retry / replan / ask-human decisions |
+| recovery | `recovery/recovery.js` | retry / replan / ask-human decisions for a failed **step** |
 
 ## Phase 4: orchestration, governance, execution
 
-Phase 2's runtime still runs the work. Phase 4 wraps it in the control plane
-that decides *what* runs, *where*, *whether it may*, and *in which sandbox*:
+Phase 2's runtime still runs the work. Phase 4 wraps it in a second,
+independent control plane that decides *what* runs, *where*, *whether it
+may*, and *in which sandbox* — built alongside the Phase 3 layer below
+rather than in place of it (see that section for why both exist and how
+`src/core/index.js` reconciles them):
 
 | Subsystem | Path | Responsibility |
 | --- | --- | --- |
@@ -51,8 +54,8 @@ that decides *what* runs, *where*, *whether it may*, and *in which sandbox*:
 | policy | `policy/` | scoped governance: allow / deny / approval, with an audit trail |
 | sandbox | `sandbox/` | authorized workspaces, limits, process ownership, cleanup |
 | session | `session/` | the container a person's work lives in |
-| artifacts | `artifacts/` | the products of a run, with provenance |
-| orchestrator | `orchestrator/` | routing, multi-agent coordination and the run pipeline |
+| artifacts | `harness-orchestrator/artifacts.js` | the products of a run, with harness/session provenance (`platform.harnessArtifacts`) |
+| orchestrator | `harness-orchestrator/` | routing, multi-agent coordination and the run pipeline (`platform.harnessOrchestrator`) |
 
 ```
 User
@@ -72,15 +75,130 @@ The rule this layer is built on:
 > execution control and observability. Harnesses are replaceable execution
 > backends.
 
-Design documents: [orchestrator.md](orchestrator.md), [harness.md](harness.md),
-[routing.md](routing.md), [policies.md](policies.md), [sandbox.md](sandbox.md),
-[sessions.md](sessions.md), [multi-agent.md](multi-agent.md),
+Design documents: [harness-orchestrator.md](harness-orchestrator.md),
+[harness.md](harness.md), [routing.md](routing.md), [policies.md](policies.md),
+[sandbox.md](sandbox.md), [sessions.md](sessions.md),
+[harness-multi-agent.md](harness-multi-agent.md),
 [delegation.md](delegation.md), [security-model.md](security-model.md).
+
+## Phase 3: the world a run happens inside
+
+Phase 2 answers "how does an agent execute a task?" (analyze → plan → execute →
+evaluate → recover). Phase 3 answers the question above that: **what is an
+agent running inside, and what does it leave behind?** Nothing in Phase 2 is
+replaced — the `AgentRuntime`, `Planner`, `ToolManager`, `WorkflowEngine` and
+`EventBus` are constructed exactly as before. Phase 3 adds a layer that
+composes them:
+
+```
+                         Orchestrator
+                              │
+                    ┌─────────┴─────────┐
+                    ▼                   ▼
+            AgentCoordinator        WorkflowEngine  (Phase 2, unchanged)
+                    │
+                    ▼
+              AgentRuntime  (Phase 2, unchanged: analyze → plan → execute → evaluate)
+                    │
+                    ▼
+             AgentWorkspace
+        ┌────────────┼─────────────┐
+        ▼             ▼            ▼
+   ContextManager  MemoryManager  ToolManager (Phase 2)
+        └────────────┬─────────────┘
+                      ▼
+              ExecutionTrace ── ArtifactManager ── ApprovalManager
+                      │
+                      ▼
+             StateRecoveryManager (snapshots, pause/resume, crash recovery)
+```
+
+| Subsystem | Path | Responsibility | Doc |
+| --- | --- | --- | --- |
+| orchestrator | `orchestrator/orchestrator.js` | routes a request to a shape, builds the world it runs in, calls the runtime/coordinator/workflow engine | [orchestrator.md](./orchestrator.md) |
+| workspace | `workspace/workspace.js`, `workspace/manager.js` | the execution boundary: identity, root containment, policy, file tracking, environment | [workspace.md](./workspace.md) |
+| context | `context/manager.js` | layered, selected, budgeted `ContextPacket` — never the whole repository | [context.md](./context.md) |
+| memory | `memory/manager.js` | scoped, importance-scored, searched — never dumped; candidates before persistence | [memory.md](./memory.md) |
+| project | `project/indexer.js` | marker-based detection + a bounded, cached tree — not a semantic index | [architecture.md](#phase-3-the-world-a-run-happens-inside) (below) |
+| trace | `trace/store.js` | correlated, bounded, scrubbed operational telemetry | [execution-trace.md](./execution-trace.md) |
+| artifacts | `artifacts/manager.js` | owned, typed outputs agents exchange instead of prose | [artifacts.md](./artifacts.md) |
+| approval | `approval/manager.js` | auditable human-approval records; supplies the Phase 2 tool-authorize gate | [approvals.md](./approvals.md) |
+| agents (multi) | `agents/coordinator.js`, `agents/messaging/` | selection, delegation (narrowing-only), handoff, messaging | [multi-agent.md](./multi-agent.md) |
+| state | `state/recovery.js` | snapshots, pause/resume, crash recovery — never blind replay of a mutation | [state-recovery.md](./state-recovery.md) |
+
+Every one of these takes its storage as a *collection*
+(`persistence/collections.js`), a namespaced wrapper over the same
+`{ get, set, delete, keys, clear }` store contract Phase 2 already defined —
+so the whole set can move from the local JSON store to SQLite or a remote
+backend by changing construction in `core/index.js` alone; no subsystem knows
+what backs it.
+
+### Identity (`workspace/identity.js`)
+
+Every Phase 3 record — a workspace, a context packet, a memory entry, a trace
+event, an artifact, a message — carries the same six correlation keys:
+`workspaceId`, `projectId`, `taskId`, `sessionId`, `agentId`, `traceId`. A
+delegated child mints its own `workspaceId`/`taskId` but inherits
+`projectId`/`sessionId`/`traceId` from its parent and records
+`parentWorkspaceId`, so a multi-agent run is traceable both as one run and as
+its parts. `identityRefs()` is the subset the `EventBus` carries on every
+event; `EventBus.emit` and every trace event accept and propagate it.
+
+## Phase 5: one path, asserted rather than described
+
+Phase 5 consolidated what Phase 3 and Phase 4 had each built independently. It
+removed five unreachable modules — four of them byte-identical copies, one of
+them a coordinator whose containment check resolved to `undefined` — replaced
+two IPC handlers that answered from constants, and turned the layering rules
+into tests. The findings and what was done about each are recorded in
+[phase5-audit.md](phase5-audit.md).
+
+What the layering means in practice:
+
+| Question | Answer |
+| --- | --- |
+| Which orchestrator is public? | `platform.orchestrator`. `platform.harnessOrchestrator` is the harness-aware pipeline beneath it. |
+| Who owns agent delegation? | `AgentCoordinator` — selection, lifecycles, aggregation through the `AgentRuntime`. |
+| Who owns the execution backend? | `HarnessCoordinator` — delegation records, file locks, harness runs, sandboxes, the control view. |
+| How many artifact shapes does the UI see? | One. Two stores remain (different ownership rules); one `artifactView` at the IPC boundary. |
+| Can a workflow actually be cancelled? | Yes, and `cancel()` reports only what it achieved. See [workflows.md](workflows.md). |
+
+These are enforced by `tests/phase5-architecture.test.mjs`, so a future copy of a
+module, a dangling sibling import, or a placeholder handler fails CI rather than
+surviving in the tree.
 
 The style is composition over libraries: `io` adapters (fs, shell, cwd) are
 injected, so tests swap them for stubs and the main process injects the real
 ones. No hardcoded OS paths — everything resolves through `io`, `node:path` or
 `process.env` (e.g. `ComSpec`/`$SHELL` for the shell adapter).
+
+## Phase 6: the skill ecosystem and the MCP capability layer
+
+Phase 6 adds `src/core/skills/` and `src/core/mcp/`, wired into the factory as
+`platform.skills` and `platform.mcp`, plus `platform.initSkills()` (construction
+stays synchronous and side-effect free; a host decides when to pay for
+validation and scanning).
+
+A skill is a capability package — instructions, metadata, declared permissions,
+provenance — not a plugin and not something the platform executes. The layer
+takes the subsystems that already exist rather than growing parallel ones:
+permissions are policy actions evaluated by the `PolicyManager`, human decisions
+are `ApprovalManager` records, isolation is the Phase 4 `SandboxManager`, actions
+are `ToolManager` calls, and outcomes are scoped memory entries. A deployment
+that denies `command.run` blocks a skill wanting a shell without a
+skill-specific rule existing anywhere.
+
+MCP is governed by the same seam: `src/core/mcp/` classifies each advertised
+tool (READ_ONLY … PRIVILEGED, with a server's own hints able to raise a class but
+never lower it), and the bridge registers those tools *as tools*, so there is no
+path by which an MCP call reaches an agent without the permission gate and the
+policy engine.
+
+Full detail in [docs/skills/architecture.md](skills/architecture.md);
+[security](skills/security.md), [MCP](skills/mcp.md),
+[manifests](skills/skill-manifest.md), [evaluation](skills/evaluation.md),
+[authoring](skills/creating-skills.md) and
+[skills.sh](skills/skills-sh.md) each have their own document.
 
 ## Mode of transport
 

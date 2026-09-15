@@ -6,22 +6,36 @@
 // boundary the UI sees. All I/O (fs, shell, workspace) arrives through `io` so
 // the factory is fully host-agnostic and unit-testable.
 //
-// Phase 4 adds the governance and execution layers around the Phase 2 runtime:
+// Two independent layers sit on top of the unchanged Phase 2 runtime here,
+// side by side rather than one replacing the other:
 //
-//   harnesses   execution backends (this runtime, Claude Code, Codex, …)
-//   policy      the governance seam every sensitive operation passes through
-//   sandboxes   authorized workspaces, limits and process ownership
-//   sessions    the container a person's work lives in
-//   artifacts   the products of a run, with provenance
-//   orchestrator  routing + coordination on top of all of the above
+//   Phase 3 (src/core/{workspace,context,memory,project,trace,artifacts,
+//   approval,agents,state,orchestrator}/) — a workspace with an identity, a
+//   budgeted context packet, scoped memory, an execution trace, artifacts,
+//   approvals, state snapshots and an orchestrator that composes them. This
+//   is what `platform.orchestrator`, `platform.coordinator` and
+//   `platform.artifacts` are. See docs/architecture.md.
 //
-// Nothing here executes work at construction time. Registering a harness,
-// loading the baseline policies and building the orchestrator are all inert;
-// a fresh install can be constructed on a machine with no agents installed.
+//   Phase 4 / harness-orchestrator (src/core/{harness,policy,sandbox,session,
+//   harness-orchestrator}/) — governance and execution-backend layers: which
+//   external harness (Claude Code, Codex, …) runs a task, the policy engine
+//   every sensitive operation passes through, sandboxed process ownership,
+//   and a second, harness-aware orchestrator built on top of those. This is
+//   `platform.policy`, `platform.harnesses`, `platform.sandboxes`,
+//   `platform.sessions` and the `platform.harness*`-prefixed properties. See
+//   docs/harness-orchestrator.md and docs/harness-multi-agent.md.
+//
+// They were built independently and reconciled rather than merged into one
+// design: same-named concepts (an orchestrator, a coordinator, an artifact
+// store) exist on both sides with different shapes, so each keeps its own
+// module path and its own property name on the returned platform rather than
+// one silently overwriting the other. The one seam that *is* shared is the
+// tool-authorization gate (see `composeAuthorize` below): a policy `deny` is
+// final, and everything else still goes through Phase 3's auditable
+// ApprovalManager exactly as it did before Phase 4 existed.
 //
 // `io` additions for Phase 4 (all optional):
 //
-//   io.authorize            the human approval callback the tool gate already used
 //   io.policy.approver      approval callback for policy decisions
 //   io.policy.defaultEffect 'allow' (default) or 'deny' for a locked-down install
 //   io.harness.probe        host probe: ({ id, command }) -> { installed, version, path }
@@ -41,6 +55,7 @@ const { builtinAgents } = require('./agents/presets/builtin');
 const { ToolManager, ToolDeniedError } = require('./tools/manager');
 const { registerBuiltinTools } = require('./tools/builtin');
 const { createMemoryStore, createJsonStore } = require('./persistence/store');
+const { createCollections } = require('./persistence/collections');
 const { Planner } = require('./planning/planner');
 const { Reasoner } = require('./reasoning/reasoning');
 const { AgentRuntime } = require('./runtime/runtime');
@@ -48,26 +63,53 @@ const { WorkflowEngine } = require('./workflows/engine');
 const { buildTaskContext } = require('./context/context');
 const { CodeExecutor } = require('./execution/code-exec');
 
-// Phase 4
+// --- Phase 3 subsystems ------------------------------------------------------
+const { WorkspaceManager } = require('./workspace/manager');
+const { createEnvironment } = require('./workspace/environment');
+const { ContextManager } = require('./context/manager');
+const { MemoryManager } = require('./memory/manager');
+const { createInMemoryProvider, createStoreProvider } = require('./memory/provider');
+const { ProjectIndexer } = require('./project/indexer');
+const { ExecutionTraceStore } = require('./trace/store');
+const { ArtifactManager } = require('./artifacts/manager');
+const { ApprovalManager } = require('./approval/manager');
+const { AgentMessageBus } = require('./agents/messaging/bus');
+const { AgentCoordinator } = require('./agents/coordinator');
+const { AgentStateStore } = require('./state/store');
+const { StateRecoveryManager } = require('./state/recovery');
+const { Orchestrator } = require('./orchestrator/orchestrator');
+
+// --- Phase 4 / harness-orchestrator subsystems --------------------------------
 const { HarnessRegistry, HarnessManager, registerBuiltinHarnesses } = require('./harness');
 const { PolicyManager, actionForTool } = require('./policy');
 const { SandboxManager, DEFAULT_CEILING } = require('./sandbox');
 const { SessionManager } = require('./session');
-const { createArtifactStore } = require('./artifacts');
+const { createArtifactStore } = require('./harness-orchestrator/artifacts');
 const {
   AgentRouter,
   createAgentCoordinator,
   createFileLockManager,
-  Orchestrator,
-} = require('./orchestrator');
+  Orchestrator: HarnessOrchestrator,
+} = require('./harness-orchestrator');
+
+// --- Phase 6 subsystems -------------------------------------------------------
+const { createSkillPlatform, currentPlatform: currentSkillPlatform } = require('./skills');
+const { createMcpLayer } = require('./mcp');
 
 function createPlatform({
-  io = {}, // { fs, root, cwd, runShell, authorize, policy, harness, sandbox, costs, metrics }
+  io = {}, // { fs, root, cwd, runShell, authorize, hostEnv, inheritEnv, policy, harness, sandbox, costs, metrics }
   loggerOptions = {},
   storeDir = null,
   autoRegisterBuiltinAgents = true,
   autoRegisterBuiltinHarnesses = true,
   loadBaselinePolicies = true,
+  policies = {},
+  approvalOptions = {},
+  // Phase 6. Skills are on by default because the built-in catalogue is part of
+  // the product; `installBuiltinSkills: false` gives a host an empty registry
+  // without disabling the layer, and `skills: false` disables it entirely.
+  skills: skillsEnabled = true,
+  installBuiltinSkills = true,
 }) {
   const bus = new EventBus();
   const logger = createLogger({ scope: 'platform', ...loggerOptions });
@@ -79,6 +121,11 @@ function createPlatform({
     ? createJsonStore({ dir: storeDir, name: 'platform.json', fs })
     : createMemoryStore();
 
+  // Each subsystem takes its storage as a *collection*
+  // (persistence/collections.js) rather than a store, so the whole set moves to
+  // SQLite or a remote backend by changing one construction here.
+  const collections = createCollections(store);
+
   const providers = createProviderRegistry();
   const memory = createMemory();
 
@@ -87,12 +134,22 @@ function createPlatform({
     for (const def of builtinAgents()) agents.register(def);
   }
 
-  // --- policy ----------------------------------------------------------------
-  // Built before the tools, because the tool gate consults it. The default
-  // effect is 'allow' so a fresh install behaves exactly as it did before Phase
-  // 4 unless a host opts into 'deny'; either way the baseline documents are
-  // loaded, and because the merge is most-restrictive-wins a host policy can
-  // only ever tighten them.
+  // --- approvals ------------------------------------------------------------
+  // Constructed before the ToolManager because it supplies the authorization
+  // callback: the Phase 2 per-call gate and the Phase 3 approval record are one
+  // decision, not two systems that can disagree.
+  const approvals = new ApprovalManager({
+    bus,
+    logger: logger.child('approval'),
+    ...approvalOptions,
+  });
+
+  // --- policy (Phase 4) -------------------------------------------------------
+  // Built before the tools, because the tool gate consults it too. The default
+  // effect is 'allow' so a fresh install behaves exactly as it did before this
+  // layer existed unless a host opts into 'deny'; either way the baseline
+  // documents are loaded, and because the merge is most-restrictive-wins a host
+  // policy can only ever tighten them.
   const policy = new PolicyManager({
     bus,
     logger: logger.child('policy'),
@@ -103,11 +160,15 @@ function createPlatform({
   if (loadBaselinePolicies) policy.loadBaseline();
 
   // --- tools -----------------------------------------------------------------
-  const hostAuthorize = typeof io.authorize === 'function' ? io.authorize : null;
+  // Two gates in front of one call: a policy `deny` is final (the human loop
+  // below is never reached, so a human cannot accidentally approve what policy
+  // forbids); everything else still becomes a listable, auditable
+  // ApprovalManager request exactly as it did before the policy layer existed,
+  // unless the host supplies its own callback.
   const tools = new ToolManager({
     bus,
     logger: logger.child('tools'),
-    authorize: composeAuthorize({ policy, hostAuthorize }),
+    authorize: composeAuthorize({ policy, hostAuthorize: io.authorize || approvals.toolAuthorizer() }),
   });
   registerBuiltinTools(tools, {
     fs,
@@ -148,6 +209,9 @@ function createPlatform({
     bus,
     toolManager: tools,
     runtime,
+    // §12: workflow instances outlive the process. Without a storeDir this is
+    // the in-memory store, so tests and unsaved sessions behave as before.
+    collection: collections.workflows,
     shellIo: io.runShell
       ? { run: async (command, opts) => io.runShell({ command, cwd: opts.cwd || io.root || process.cwd(), timeoutMs: opts.timeoutMs, ...opts }) }
       : null,
@@ -155,7 +219,104 @@ function createPlatform({
     logger: logger.child('workflows'),
   });
 
-  // --- Phase 4 layers ---------------------------------------------------------
+  // --- Phase 3: the world a run happens inside ------------------------------
+  //
+  const workspaces = new WorkspaceManager({
+    bus,
+    collection: collections.workspaces,
+    logger: logger.child('workspace'),
+  });
+
+  const memoryManager = new MemoryManager({
+    bus,
+    logger: logger.child('memory'),
+    provider: storeDir
+      ? createStoreProvider({ collection: collections.memory })
+      : createInMemoryProvider(),
+  });
+
+  const projects = new ProjectIndexer({
+    fs,
+    bus,
+    collection: collections.projects,
+    logger: logger.child('project'),
+  });
+
+  const traces = new ExecutionTraceStore({
+    collection: collections.traces,
+    bus,
+    logger: logger.child('trace'),
+  });
+
+  const artifacts = new ArtifactManager({
+    collection: collections.artifacts,
+    bus,
+    logger: logger.child('artifacts'),
+  });
+
+  const contextManager = new ContextManager({
+    bus,
+    memory: memoryManager,
+    projects,
+    toolManager: tools,
+    logger: logger.child('context'),
+    budget: (policies.context && policies.context.maxChars) ? { maxChars: policies.context.maxChars } : {},
+  });
+
+  const messages = new AgentMessageBus({ bus, logger: logger.child('messaging') });
+
+  const coordinator = new AgentCoordinator({
+    registry: agents,
+    runtime,
+    workspaces,
+    messageBus: messages,
+    traces,
+    artifacts,
+    bus,
+    logger: logger.child('coordinator'),
+  });
+
+  const agentState = new AgentStateStore({ collection: collections.agentState });
+  const recovery = new StateRecoveryManager({
+    store: agentState,
+    workspaces,
+    traces,
+    approvals,
+    bus,
+    logger: logger.child('recovery'),
+  });
+
+  const orchestrator = new Orchestrator({
+    runtime,
+    coordinator,
+    workspaces,
+    contextManager,
+    memory: memoryManager,
+    traces,
+    artifacts,
+    approvals,
+    projects,
+    workflows,
+    agents,
+    tools,
+    bus,
+    logger: logger.child('orchestrator'),
+    provider,
+    policies,
+  });
+  orchestrator.attachRecovery(recovery);
+  approvals.setPolicy(orchestrator.policies.approvalPolicy());
+
+  // The environment a workspace starts from. Nothing is inherited from the host
+  // unless `io.inheritEnv` names it, and credential-shaped names are refused
+  // even then (see workspace/environment.js).
+  const environment = createEnvironment({
+    base: io.baseEnv || {},
+    inherit: io.inheritEnv || [],
+    hostEnv: io.hostEnv || null,
+  });
+
+  // --- Phase 4 / harness-orchestrator layers ------------------------------------
   const harnessOptions = io.harness || {};
   const harnesses = new HarnessRegistry({
     bus,
@@ -194,46 +355,99 @@ function createPlatform({
   });
 
   const sessions = new SessionManager({ bus, logger: logger.child('session'), store });
-  const artifacts = createArtifactStore({ bus, store, logger: logger.child('artifacts') });
+  // Distinct from Phase 3's `artifacts` (ArtifactManager, workspace-owned):
+  // this one carries harness/session provenance instead. Neither replaces
+  // the other; see the module comment above.
+  const harnessArtifacts = createArtifactStore({ bus, store, logger: logger.child('harness-artifacts') });
   const locks = createFileLockManager({ logger: logger.child('locks'), bus });
 
-  const router = new AgentRouter({
+  const harnessRouter = new AgentRouter({
     agentRegistry: agents,
     harnessRegistry: harnesses,
     policy,
     bus,
-    logger: logger.child('router'),
+    logger: logger.child('harness-router'),
     costs: io.costs || {},
     metrics: io.metrics || null,
   });
 
-  const coordinator = createAgentCoordinator({
+  const harnessCoordinator = createAgentCoordinator({
     bus,
-    logger: logger.child('coordinator'),
+    logger: logger.child('harness-coordinator'),
     agentRegistry: agents,
     policy,
     locks,
-    artifacts,
+    artifacts: harnessArtifacts,
     sessions,
     harnesses: harnessManager,
     sandboxes,
   });
 
-  const orchestrator = new Orchestrator({
+  const harnessOrchestrator = new HarnessOrchestrator({
     bus,
-    logger: logger.child('orchestrator'),
+    logger: logger.child('harness-orchestrator'),
     agents,
     runtime,
-    router,
+    router: harnessRouter,
     harnesses: harnessManager,
     policy,
     sandboxes,
     sessions,
-    coordinator,
-    artifacts,
+    coordinator: harnessCoordinator,
+    artifacts: harnessArtifacts,
     memory,
     harnessRunner: harnessOptions.runner || null,
     evaluate: harnessOptions.evaluate || null,
+  });
+
+  // --- Phase 6: skills + the MCP capability layer -----------------------------
+  //
+  // Both are wired *on top of* what already exists rather than beside it: the
+  // skill layer takes this platform's policy engine, approval manager, sandbox
+  // manager, tool manager and memory, and the MCP layer puts its tools on the
+  // same ToolManager every other tool goes through. There is no second policy
+  // check, no second approval queue and no second tool surface — which is the
+  // whole reason a skill can be governed by a policy document written before
+  // skills existed. See docs/skills/architecture.md.
+  const skillIo = io.skills || {};
+  const skills = skillsEnabled
+    ? createSkillPlatform({
+      bus,
+      logger,
+      collection: collections.skills,
+      policy,
+      approvals,
+      sandboxes,
+      tools,
+      memory: memoryManager,
+      platform: currentSkillPlatform(),
+      io: {
+        fs,
+        // Where a user's own skills live. Absent one, the local source is not
+        // registered at all rather than pointed at a guessed directory.
+        skillsDir: skillIo.directory || null,
+        // No HTTP client in the core: the host injects one, and without it the
+        // remote sources report that they are not wired (they never silently
+        // return "no results").
+        http: skillIo.http || null,
+        githubAuthorize: skillIo.githubAuthorize || null,
+        skillsShAuthorize: skillIo.skillsShAuthorize || null,
+      },
+      // The agent loop that actually runs a skill's instructions. Without it a
+      // skill run reports `prepared` — assembled and permitted, not executed —
+      // instead of claiming a success that never happened.
+      runner: skillIo.runner || null,
+      skillsShOptions: skillIo.skillsSh || {},
+      githubOptions: skillIo.github || {},
+    })
+    : null;
+
+  const mcp = createMcpLayer({
+    tools,
+    bus,
+    logger: logger.child('mcp'),
+    collection: collections.mcpServers,
+    policy,
   });
 
   return {
@@ -250,37 +464,81 @@ function createPlatform({
     workflows,
     ToolDeniedError,
 
-    // Phase 4
+    // Phase 3
+    collections,
+    workspaces,
+    memoryManager,
+    contextManager,
+    projects,
+    traces,
+    artifacts,
+    approvals,
+    messages,
+    coordinator,
+    agentState,
+    recovery,
+    orchestrator,
+    environment,
+
+    // Phase 4 / harness-orchestrator
     policy,
     harnesses,
     harnessManager,
     sandboxes,
     sessions,
-    artifacts,
     locks,
-    router,
-    coordinator,
-    orchestrator,
+    harnessArtifacts,
+    harnessRouter,
+    harnessCoordinator,
+    harnessOrchestrator,
+
+    // Phase 6
+    skills,
+    mcp,
+
+    // Load persisted skills and seed the built-in catalogue. Deliberately not
+    // called by the factory: construction stays synchronous and side-effect
+    // free, and a host decides when (and whether) to pay for validation and
+    // scanning at startup.
+    async initSkills({ actor = 'system' } = {}) {
+      if (!skills) return { restored: 0, builtins: { installed: [], skipped: [], failed: [] }, skills: 0 };
+      await mcp.registry.load().catch(() => 0);
+      return skills.bootstrap({ actor, installBuiltins: installBuiltinSkills });
+    },
+
+    // Release every timer, in-flight decision and spawned process a host is
+    // holding. Called when the app quits, so a pending approval or a sandboxed
+    // process cannot keep the app alive after the window closes.
+    async dispose() {
+      approvals.dispose();
+      orchestrator.scheduler.cancelAll('platform disposed');
+      await harnessManager.dispose().catch(() => {});
+      await sandboxes.cleanup('platform disposed').catch(() => {});
+      if (skills) skills.cache.clear();
+      return true;
+    },
   };
 }
 
 // The tool gate's authorize callback, with the policy engine in front of it.
 //
 // Order matters and is the whole point:
-//   1. a policy `deny` is final — the human loop is never reached, so a human
-//      cannot accidentally approve what the policy forbids
-//   2. a policy `approval` falls through to the host's approval callback
-//   3. otherwise the host's callback still runs, because the tool-level gate
-//      (DESTRUCTIVE / requiresAuth) is unchanged by Phase 4
+//   1. a policy `deny` is final — the human loop below is never reached, so a
+//      human cannot accidentally approve what the policy forbids
+//   2. a policy `approval` (or `allow`) falls through to `hostAuthorize` —
+//      which is the host's own callback if it supplied one, or Phase 3's
+//      ApprovalManager-backed authorizer otherwise, so every gated call still
+//      becomes a listable, auditable record exactly as it did before this
+//      policy layer existed
 //
-// With no host callback wired the answer is `false`, which is exactly what the
-// ToolManager did before: nothing irreversible happens unattended.
+// With no `hostAuthorize` at all the answer is `false`: nothing irreversible
+// happens unattended, same as before Phase 4.
 function composeAuthorize({ policy, hostAuthorize }) {
   return async ({ agent, tool, input, taskId }) => {
     const action = actionForTool(tool);
     const decision = await policy.evaluate({
       action,
-      askApproval: false, // the host's human loop below is the approval route
+      askApproval: false, // the human loop below is the approval route
       context: { agentId: agent && agent.id, toolId: tool && tool.id, taskId },
     });
     if (decision.effect === 'deny') return false;

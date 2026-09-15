@@ -1,0 +1,70 @@
+/* Skills pane.
+ *
+ * Written against the paper theme's variables so it inherits every theme
+ * (paper.css defines the fallbacks used here). Colour is used for exactly one
+ * thing — how much attention a row deserves — and never as the only signal: a
+ * quarantined skill says "quarantined" in text as well as in red, because a
+ * security state that is only a colour is a security state some users cannot
+ * see.
+ */
+
+.skills-pane { padding: 16px; display: flex; flex-direction: column; gap: 18px; font-size: 13px; }
+.skills-head h2 { margin: 0 0 4px; font-size: 16px; }
+.skills-stats { margin: 0 0 8px; opacity: 0.75; }
+.skills-search { width: 100%; padding: 6px 8px; border: 1px solid var(--line, #d8d3c8); border-radius: 6px; background: var(--paper, #fff); color: inherit; }
+
+.skill-list, .mcp-list, .skills-concerns ul, .skills-sources ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.skill-row, .mcp-row, .skill-search-row { border: 1px solid var(--line, #d8d3c8); border-radius: 8px; padding: 10px 12px; background: var(--paper, #fff); }
+.skill-row-inactive { opacity: 0.6; }
+.skill-row-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.skill-name { font-weight: 600; }
+.skill-version { opacity: 0.6; font-variant-numeric: tabular-nums; }
+.skill-desc { margin: 6px 0; opacity: 0.85; }
+.skill-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; opacity: 0.7; }
+.skill-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.skill-actions button { font: inherit; font-size: 12px; padding: 3px 9px; border: 1px solid var(--line, #d8d3c8); border-radius: 5px; background: transparent; cursor: pointer; }
+.skill-actions button:hover:not(:disabled) { background: var(--hover, rgba(0,0,0,0.05)); }
+.skill-actions button:disabled { opacity: 0.5; cursor: progress; }
+
+.skill-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; opacity: 0.9; }
+.skill-badge-builtin { color: #2f6b4f; }
+.skill-badge-workspace { color: #3a5f8a; }
+.skill-badge-community { color: #7a5a1f; }
+.skill-badge-untrusted { color: #9a3412; }
+.skill-badge-risk-low { color: #2f6b4f; }
+.skill-badge-risk-medium { color: #7a5a1f; }
+.skill-badge-risk-high { color: #9a3412; }
+.skill-badge-risk-critical { color: #7f1d1d; font-weight: 600; }
+.skill-badge-state-quarantined { color: #7f1d1d; font-weight: 600; }
+.skill-badge-state-disabled, .skill-badge-state-failed { opacity: 0.6; }
+.skill-badge-available, .skill-badge-source { opacity: 0.65; }
+
+.skill-warnings { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #9a3412; }
+.skill-unverified { font-style: italic; }
+
+.skill-plan { border: 1px dashed var(--line, #d8d3c8); border-radius: 8px; padding: 10px 12px; }
+.skill-plan-summary { margin: 0 0 8px; font-weight: 500; }
+.skill-pipeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.skill-phase { display: flex; gap: 10px; }
+.skill-phase-label { min-width: 110px; opacity: 0.65; }
+.skill-plan-approvals { margin: 8px 0 0; font-size: 12px; }
+.skill-gaps { margin-top: 8px; font-size: 12px; }
+.skill-gaps h4, .skill-findings h4, .skill-history h4 { margin: 6px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
+
+.skill-detail { padding: 12px; }
+.skill-facts { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; margin: 10px 0; }
+.skill-facts dt { opacity: 0.6; }
+.skill-facts dd { margin: 0; }
+.skill-quality-why { margin: 4px 0 0; font-size: 12px; opacity: 0.75; }
+.skill-findings ul, .skill-history ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.skill-finding-critical { color: #7f1d1d; }
+.skill-finding-warn { color: #9a3412; }
+.skill-finding-info { opacity: 0.7; }
+
+.skills-concerns { border-left: 3px solid #9a3412; padding-left: 10px; }
+.skills-concerns h3, .skills-sources h3, .skills-installed h3, .skills-mcp h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
+
+@media (max-width: 520px) {
+  .skill-facts { grid-template-columns: 1fr; }
+  .skill-phase { flex-direction: column; gap: 2px; }
+}

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { AgentRouter, classifyTask, requiredTagsFor, ROUTING_STRATEGIES } = require('../src/core/orchestrator');
+const { AgentRouter, classifyTask, requiredTagsFor, ROUTING_STRATEGIES } = require('../src/core/harness-orchestrator');
 const { AgentRegistry } = require('../src/core/agents/registry');
 const { builtinAgents } = require('../src/core/agents/presets/builtin');
 const { HarnessRegistry, registerBuiltinHarnesses } = require('../src/core/harness');

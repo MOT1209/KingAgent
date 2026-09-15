@@ -42,7 +42,7 @@ test('integration: the full pipeline runs a request end to end with correlated e
     const events = [];
     platform.bus.on('*', (ev) => events.push(ev));
 
-    const result = await platform.orchestrator.run('Analyze this project and report what it does', {
+    const result = await platform.harnessOrchestrator.run('Analyze this project and report what it does', {
       workspace: { root: t.root, cwd: t.root },
       workspaceId: 'demo-workspace',
       strategy: 'capability',
@@ -67,7 +67,7 @@ test('integration: the full pipeline runs a request end to end with correlated e
     assert.equal(artifact.agentId, 'coder');
     assert.equal(artifact.harnessId, 'kingagent-runtime');
     assert.equal(artifact.sessionId, result.sessionId);
-    const stored = platform.artifacts.get(artifact.id);
+    const stored = platform.harnessArtifacts.get(artifact.id);
     assert.ok(stored.content.length > 0);
 
     // The session is the container: task, agent, artifact and sandbox attached.
@@ -113,10 +113,10 @@ test('integration: a workspace is mandatory, and the boundary holds inside it', 
   try {
     const platform = buildPlatform(t);
     await assert.rejects(
-      () => platform.orchestrator.run('do something', {}),
+      () => platform.harnessOrchestrator.run('do something', {}),
       /authorized workspace is required/,
     );
-    await assert.rejects(() => platform.orchestrator.run('', { workspace: t.root }), /a request is required/);
+    await assert.rejects(() => platform.harnessOrchestrator.run('', { workspace: t.root }), /a request is required/);
   } finally {
     t.dispose();
   }
@@ -133,7 +133,7 @@ test('integration: policy can refuse the whole run before anything is created', 
       rules: [{ id: 'r', action: 'agent.run', effect: 'deny', reason: 'runs are disabled for this workspace' }],
     }, { source: 'system' });
 
-    const result = await platform.orchestrator.run('Analyze this project', { workspace: t.root, workspaceId: 'locked' });
+    const result = await platform.harnessOrchestrator.run('Analyze this project', { workspace: t.root, workspaceId: 'locked' });
     assert.equal(result.ok, false);
     assert.match(result.denied.reason, /runs are disabled/);
     assert.equal(result.taskId, null);
@@ -172,7 +172,7 @@ test('integration: an external harness runs through the same brackets and yields
       },
     });
 
-    const result = await platform.orchestrator.run('Fix the bug in index.js', {
+    const result = await platform.harnessOrchestrator.run('Fix the bug in index.js', {
       workspace: t.root,
       harnessId: 'codex',
       strategy: 'manual',
@@ -188,7 +188,7 @@ test('integration: an external harness runs through the same brackets and yields
 
     const types = result.artifacts.map((a) => a.type).sort();
     assert.deepEqual(types, ['diff', 'test-result']);
-    assert.equal(platform.artifacts.list({ taskId: result.taskId }).length, 2);
+    assert.equal(platform.harnessArtifacts.list({ taskId: result.taskId }).length, 2);
     assert.equal(platform.sandboxes.list().length, 0);
   } finally {
     t.dispose();
@@ -199,7 +199,7 @@ test('integration: an external harness with no runner explains itself instead of
   const t = await makeWorkspace();
   try {
     const platform = buildPlatform(t);
-    const result = await platform.orchestrator.run('Fix the bug', {
+    const result = await platform.harnessOrchestrator.run('Fix the bug', {
       workspace: t.root,
       harnessId: 'codex',
       strategy: 'manual',
@@ -217,7 +217,7 @@ test('integration (IPC): the control center answers the questions the UI asks', 
   const t = await makeWorkspace();
   try {
     const platform = buildPlatform(t);
-    const result = await platform.orchestrator.run('Fix the bug in index.js and run the tests', {
+    const result = await platform.harnessOrchestrator.run('Fix the bug in index.js and run the tests', {
       workspace: t.root,
       workspaceId: 'demo',
     });
@@ -294,11 +294,11 @@ test('integration (multi-agent): a lead delegates, collects artifacts, then revi
   const t = await makeWorkspace();
   try {
     const platform = buildPlatform(t);
-    const result = await platform.orchestrator.run('Analyze this project and prepare a technical report', {
+    const result = await platform.harnessOrchestrator.run('Analyze this project and prepare a technical report', {
       workspace: t.root,
       workspaceId: 'demo',
     });
-    const { coordinator, sessions, policy, artifacts } = platform;
+    const { harnessCoordinator: coordinator, sessions, policy, harnessArtifacts: artifacts } = platform;
 
     // The lead delegates research and analysis, in parallel, each with its own scope.
     const research = await coordinator.delegate({
@@ -417,13 +417,13 @@ test('integration (coding agent): implement → review → request fix → re-re
   const t = await makeWorkspace();
   try {
     const platform = buildPlatform(t);
-    const result = await platform.orchestrator.run('Fix the bug in index.js, run the tests and review the implementation', {
+    const result = await platform.harnessOrchestrator.run('Fix the bug in index.js, run the tests and review the implementation', {
       workspace: t.root,
       workspaceId: 'demo',
     });
     assert.equal(result.ok, true, JSON.stringify(result.evaluation));
 
-    const { coordinator, artifacts } = platform;
+    const { harnessCoordinator: coordinator, harnessArtifacts: artifacts } = platform;
 
     // First pass: the coder produces a change, the reviewer refuses it.
     const coder = await coordinator.delegate({
@@ -539,7 +539,7 @@ test('integration: cancellation stops task, delegations, harness runs and sandbo
       },
     });
 
-    const running = platform.orchestrator.run('Fix the bug', {
+    const running = platform.harnessOrchestrator.run('Fix the bug', {
       workspace: t.root,
       workspaceId: 'demo',
       harnessId: 'codex',
@@ -549,7 +549,7 @@ test('integration: cancellation stops task, delegations, harness runs and sandbo
     });
     // Let the sandbox and the harness come up.
     await new Promise((r) => setTimeout(r, 20));
-    const cancelled = await platform.orchestrator.cancel({ sessionId: null, taskId: 'task-cancel', reason: 'user cancelled' });
+    const cancelled = await platform.harnessOrchestrator.cancel({ sessionId: null, taskId: 'task-cancel', reason: 'user cancelled' });
     await running;
 
     assert.ok(stopped.includes('harness-started'));

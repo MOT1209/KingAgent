@@ -1,21 +1,18 @@
-// The artifact store's public surface.
+// Barrel for the artifact subsystem.
 
-const {
-  ARTIFACT_TYPES,
-  DEFAULT_MAX_CONTENT,
-  DEFAULT_MAX_ARTIFACTS,
-  validateArtifact,
-  normalizeArtifact,
-  createArtifactStore,
-  summarizeArtifact,
-} = require('./artifacts');
+const { ArtifactManager, ArtifactAccessError } = require('./manager');
+const { ArtifactStore } = require('./store');
+const artifact = require('./artifact');
 
 module.exports = {
-  ARTIFACT_TYPES,
-  DEFAULT_MAX_CONTENT,
-  DEFAULT_MAX_ARTIFACTS,
-  validateArtifact,
-  normalizeArtifact,
-  createArtifactStore,
-  summarizeArtifact,
+  ArtifactManager,
+  ArtifactAccessError,
+  ArtifactStore,
+  ARTIFACT_TYPES: artifact.ARTIFACT_TYPES,
+  ALL_ARTIFACT_TYPES: artifact.ALL_TYPES,
+  MAX_INLINE_BYTES: artifact.MAX_INLINE_BYTES,
+  validateArtifact: artifact.validateArtifact,
+  artifactRef: artifact.artifactRef,
+  canReadArtifact: artifact.canRead,
+  canWriteArtifact: artifact.canWrite,
 };

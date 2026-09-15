@@ -1,115 +1,106 @@
-# The orchestrator
+# Orchestrator
 
-The orchestrator is the control plane. It turns a request into a routed, gated,
-sandboxed, observed run — and it does not execute anything itself.
+The `Orchestrator` (`src/core/orchestrator/orchestrator.js`) is the one new
+entry point above the `AgentRuntime`. What it does **not** do is the
+important part: it does not plan, execute, evaluate or recover a step — the
+Phase 2 `AgentRuntime` still owns all of that and is *called*, not replaced.
+The Orchestrator owns the layer above it:
 
 ```
-User
- │
- ▼
-Orchestrator                src/core/orchestrator/orchestrator.js
- │
- ├─ Router          which Agent, on which Harness, for this task
- ├─ Policy          may this run happen at all
- ├─ Sandbox         the authorized workspace and its limits
- ├─ Executor        AgentRuntime (built-in) or a host harness runner
- ├─ Artifacts       what the run produced, with provenance
- └─ Evaluation      did it work, and what does the session end as
+route      → router.js: single agent, several agents, a workflow, a tool, or ask a human
+prepare    → workspace + project detection + a budgeted context packet + a trace
+execute    → AgentRuntime / AgentCoordinator / WorkflowEngine, through the scheduler
+conclude   → artifacts (a diff, if files changed), a memory candidate, a state snapshot
 ```
 
-## Why it does not execute
+## Routing (`orchestrator/router.js`)
 
-Everything that plans, runs tools, evaluates steps and recovers is still the
-Phase 2 `AgentRuntime`. When routing picks `kingagent-runtime`, the orchestrator
-hands the task to that runtime and awaits its terminal state — the same planner,
-executor, evaluator and recovery manager as before. Nothing is reimplemented.
+Deterministic by default — regex signals over the request text map to
+capabilities (`analyze` → `repository_analysis`, `fix`/`implement` →
+`code`+`write`, `test` → `run_tests`, …) and to one of five modes:
 
-When routing picks an external harness, the orchestrator starts the harness run
-inside the sandbox and calls the host's `harnessRunner` to drive the
-conversation. Core owns the brackets; the host owns the conversation. A harness
-with no runner wired fails with `ORCHESTRATOR_NO_HARNESS_RUNNER` rather than
-pretending to have run.
+| Mode | When |
+| --- | --- |
+| `tool` | the request is literally one call (`read package.json`) |
+| `approval` | the request names something irreversible or outward-facing (`delete`, `push`, `install`, …) |
+| `multi-agent` | the capabilities span more than one enabled agent's coverage, and policy allows it |
+| `single-agent` | everything else |
+| `workflow` | a workflow id was named explicitly |
 
-## The pipeline
+An explicit `mode` hint always wins over inference. A provider, when present,
+can refine the decision, but never bypasses the policy check — `Router#route`
+still calls `policies.allows()` before it will return `multi-agent`.
 
-`orchestrator.run(request, options)` performs the steps in this order, and the
-order is the guarantee:
+## Policies (`orchestrator/policies.js`)
 
-1. **Workspace check.** No authorized workspace, no run
-   (`ORCHESTRATOR_NO_WORKSPACE`). This is the one precondition that is never
-   relaxed.
-2. **Route.** `AgentRouter.route()` returns a decision with the agent, the
-   harness, the score and the reasons for every candidate it considered.
-3. **Policy.** `agent.run` is evaluated. A `deny` ends the run here — before a
-   sandbox, a process or a task exists. A decision that requires approval is
-   routed through the policy approver; with no approver wired it is denied.
-4. **Sandbox.** Created from the authorized workspace only, with the effective
-   limits (a caller's request is clamped, never widened). The sandbox id is
-   attached to the session.
-5. **Execute.** `_runInternal()` (runtime) or `_runHarness()` (host runner).
-6. **Artifacts.** Diffs, test results, reports and anything the runner returned
-   are stored with `taskId`, `workspaceId`, `agentId`, `harnessId`, `sessionId`
-   and `traceId`.
-7. **Evaluate.** A host `evaluate` callback wins; otherwise the backend's own
-   verdict is used: the runtime's terminal state, or the runner's `ok`.
-8. **Settle.** Session completed or failed, sandbox stopped. The sandbox is
-   stopped on the failure paths too.
+Every limit exists because its absence is a known failure mode: no
+concurrency cap is a fork bomb, no depth cap is infinite delegation, no task
+timeout is a task that never ends, no approval policy is an agent that
+deletes things unsupervised.
 
-## What it returns
+```
+maxConcurrentTasks, maxDelegationDepth, maxDelegationsPerTask,
+taskTimeoutMs, delegationTimeoutMs, allowMultiAgent,
+approval: { require, allow, requireAll }, workspace: { allowNetwork, allowDestructive },
+memory: { write, maxRetrieved }, context: { maxChars }
+```
+
+`policies.approvalPolicy()` resolves `require: null` to the platform's full
+dangerous-action list (`approval/request.js`), so "use the defaults" is
+expressed once rather than special-cased at every call site.
+
+## Delegation planning (`orchestrator/delegation.js`)
+
+Turns a `multi-agent` routing decision into ordered, bounded delegation specs
+— a pure planner, no execution, no agent selected yet (that is the
+coordinator's job). Four phases, each gated on whether the routed
+capabilities touch it, each depending on the one before:
+
+```
+analysis (read-only) → implementation → verification (tests) → review (git, report)
+```
+
+`narrow()` intersects each phase's declared policy with the parent's —
+the same two-sided, never-widen rule the workspace itself uses one level
+earlier — and `auditDelegations()` is a last check before anything executes:
+if a planned spec would grant a permission the parent does not hold, the
+orchestrator refuses the whole plan loudly rather than silently dropping the
+excess.
+
+## Scheduler (`orchestrator/scheduler.js`)
+
+Bounded concurrency (`maxConcurrentTasks`), a priority queue, and
+cancellation that works whether a job is queued or already running. Nothing
+here retries (Phase 2 recovery owns that) or tracks dependencies (the
+workflow engine owns that) — it is deliberately small.
+
+## The one call a host makes
 
 ```js
-{
-  ok,                 // the evaluation's verdict
-  sessionId, taskId,
-  decision,           // the routing decision, with reasons
-  evaluation,         // { passed, summary, source }
-  artifacts,          // summaries, each with its provenance
-  harness,
-  taskState,
-  result,             // whatever the backend reported
-  trace,              // the orchestration trace for this run
-}
+const run = await orchestrator.handle({ request, agentId, workspace, sessionId });
+// run.id, run.decision — available immediately
+const outcome = await run.result; // settles when the run finishes
 ```
 
-Failures never throw at the top level for expected conditions: a denial, a
-missing runner and a failed task all come back as `ok: false` with the reason.
-The two exceptions are a missing workspace and an empty request, which are
-caller bugs.
+`handle()` routes, creates the workspace and its trace, then submits the
+execution to the scheduler and returns right away — a UI polls
+`orchestrator.get(run.id)` or awaits `run.result`; the event stream carries
+the same information live. `orchestrator.cancel(id)` cancels the scheduler
+job, the runtime task, and any outstanding delegations together.
 
-## Trace
+## Conclusion
 
-Each run has one trace, keyed by the session — keying by task would split it,
-since routing and policy happen before a task exists. Every step lands in a
-bounded ring (500 entries) and is mirrored onto the event bus as
-`orchestrator.step`:
+At the end of every run: `workspace.files.diff()` becomes a `diff` artifact
+if anything changed; the outcome becomes a memory **candidate** (scored, not
+automatically stored — see [memory.md](./memory.md)); and a state snapshot is
+captured (`COMPLETION` or `FAILURE` reason) so the run is recoverable even if
+nothing goes wrong before the next restart.
 
-```
-route → policy → sandbox → runtime.started → runtime.settled
-      → artifacts → evaluate → sandbox.stopped
-```
+## Testing
 
-The trace holds step names, ids, counts and verdicts only. It never carries
-model output, prompts or file contents.
-
-## Pause, resume, cancel
-
-- `pause`/`resume` go to the runtime task when there is one, otherwise to the
-  session.
-- `cancel` stops the runtime task, cancels every delegation below it, and — via
-  the coordinator — stops the task's harness runs and sandboxes. It reports what
-  was actually stopped, which is what recovery and the UI display.
-
-## The control center view
-
-`orchestrator.controlCenter({ sessionId, taskId })` returns the §36 view: agent,
-harness, task state, current step, sandbox snapshots, artifacts, sub-agents,
-recent policy decisions and the trace. Over IPC it is `agent:controlCenter`.
-
-## Related
-
-- [harness.md](harness.md) — what a backend is and how it is described
-- [routing.md](routing.md) — how the decision is made
-- [policies.md](policies.md) — what is allowed
-- [sandbox.md](sandbox.md) — where it runs
-- [sessions.md](sessions.md) — the container
-- [multi-agent.md](multi-agent.md) — more than one agent
+`tests/core-orchestrator.test.mjs` runs the full integration scenario end to
+end against the real platform: a request becomes a workspace, a project
+detection, a budgeted context packet, a real `AgentRuntime` run, tracked file
+changes, a persisted trace with visible tool usage — and the multi-agent
+scenario: delegation, permission narrowing, trace correlation, and
+cancellation propagating from a parent to its children.

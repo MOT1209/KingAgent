@@ -1,556 +1,504 @@
-// The Orchestrator: the control plane.
+// The Orchestrator: one entry point above the Agent Runtime.
 //
-// §49's pipeline, wired end to end:
+// What it does *not* do is the important part. It does not plan, execute,
+// evaluate or recover — the Phase 2 AgentRuntime owns all of that and is called,
+// not replaced. The Orchestrator owns the layer above: deciding what shape a
+// request takes, building the world it runs inside, and making sure the run
+// leaves a record.
 //
-//   User → Orchestrator → Router → Agent → Harness → Policy → Sandbox →
-//   Workspace → Context + Memory → Planning → Tools → Execution → Observation →
-//   Evaluation → Recovery/Replan → Artifacts → Trace → Result
+//   route      → router.js: single agent, several, a workflow, a tool, or ask
+//   prepare    → workspace + project detection + context packet + trace
+//   execute    → runtime / coordinator / workflow engine, through the scheduler
+//   conclude   → artifacts, memory candidates, snapshot, trace completion
 //
-// Two deliberate constraints that keep this from becoming a second runtime:
-//
-//   1. **It does not execute.** When the route picks the built-in backend it
-//      hands the task to the existing AgentRuntime — the same Phase 2 object
-//      with its planner, executor, evaluator and recovery manager — and waits
-//      for the result. Nothing about plan/execute/evaluate is reimplemented
-//      here. When the route picks an external harness, the host's
-//      `harnessRunner` drives the conversation; the orchestrator owns the
-//      bookkeeping around it, not the conversation.
-//   2. **Every step is bracketed by governance.** Routing emits a decision,
-//      policy is consulted before the sandbox exists, the sandbox is created
-//      from the authorized workspace only, and the session is the container all
-//      of it is attached to. There is no path that runs work outside those
-//      brackets, which is what makes "the agent cannot grant itself
-//      permissions" checkable rather than aspirational.
+// Every one of those is a subsystem this module composes. That is deliberate:
+// an orchestrator that grows its own planner is how "coordination" becomes a
+// second runtime nobody can reconcile with the first.
 
-const { randomUUID } = require('node:crypto');
 const { TYPES } = require('../events/event-bus');
-const { isPlainObject } = require('../schema/validate');
-
-const TRACE_LIMIT = 500;
-const POLL_INTERVAL_MS = 25;
-
-class OrchestratorError extends Error {
-  constructor(message, { code = 'ORCHESTRATOR_ERROR', decision = null } = {}) {
-    super(message);
-    this.name = 'OrchestratorError';
-    this.code = code;
-    this.decision = decision;
-  }
-}
+const { identityRefs, createIdentity } = require('../workspace/identity');
+const { TRACE_EVENTS } = require('../trace/events');
+const { EXECUTION_MODES, createPolicies } = require('./policies');
+const { Router } = require('./router');
+const { Scheduler, PRIORITY } = require('./scheduler');
+const { planDelegations, readyDelegations, auditDelegations } = require('./delegation');
+const { SNAPSHOT_REASONS } = require('../state/snapshot');
+const { ARTIFACT_TYPES } = require('../artifacts/artifact');
 
 class Orchestrator {
   constructor({
-    bus,
-    logger = null,
-    agents = null,
-    runtime,
-    router,
-    harnesses = null,
-    policy = null,
-    sandboxes = null,
-    sessions = null,
-    coordinator = null,
-    artifacts = null,
-    memory = null,
-    harnessRunner = null,
-    evaluate = null,
-    config = {},
+    runtime, coordinator, workspaces, contextManager, memory = null, traces = null,
+    artifacts = null, approvals = null, projects = null, workflows = null,
+    agents = null, tools = null, bus = null, logger = null, provider = null,
+    policies = {}, scheduler = null,
   } = {}) {
-    if (!bus) throw new Error('Orchestrator requires an EventBus');
-    if (!runtime) throw new Error('Orchestrator requires the AgentRuntime');
-    if (!router) throw new Error('Orchestrator requires an AgentRouter');
+    if (!runtime) throw new Error('Orchestrator requires an AgentRuntime');
+    if (!workspaces) throw new Error('Orchestrator requires a WorkspaceManager');
+    if (!contextManager) throw new Error('Orchestrator requires a ContextManager');
+
+    this._runtime = runtime;
+    this._coordinator = coordinator;
+    this._workspaces = workspaces;
+    this._context = contextManager;
+    this._memory = memory;
+    this._traces = traces;
+    this._artifacts = artifacts;
+    this._approvals = approvals;
+    this._projects = projects;
+    this._workflows = workflows;
+    this._agents = agents;
+    this._tools = tools;
     this._bus = bus;
     this._logger = logger;
-    this._agents = agents;
-    this._runtime = runtime;
-    this._router = router;
-    this._harnesses = harnesses;
-    this._policy = policy;
-    this._sandboxes = sandboxes;
-    this._sessions = sessions;
-    this._coordinator = coordinator;
-    this._artifacts = artifacts;
-    this._memory = memory;
-    this._harnessRunner = harnessRunner;
-    this._evaluate = evaluate;
-    this._config = { taskTimeoutMs: 10 * 60 * 1000, ...config };
-    this._traces = new Map(); // taskId -> ring of trace entries
-    this._runs = new Map();   // taskId -> run record
+
+    this._policies = createPolicies(policies);
+    this._router = new Router({ policies: this._policies, agents, workflows, provider, logger });
+    this._scheduler = scheduler || new Scheduler({ maxConcurrent: this._policies.maxConcurrentTasks, logger });
+    this._runs = new Map(); // runId -> run record
   }
 
-  // --- the main entry point -------------------------------------------------
+  get policies() { return this._policies; }
+  get scheduler() { return this._scheduler; }
+  get router() { return this._router; }
 
-  async run(request, {
-    taskId = null,
-    sessionId = null,
+  // Decide without executing. Exposed so a UI can show "this would run as…"
+  // before anything starts, and so routing is testable without side effects.
+  route(spec) {
+    return this._router.route(spec);
+  }
+
+  // The one call a host makes. Returns as soon as the run is queued, with the
+  // record; `record.result` settles when it finishes, so a caller can either
+  // poll (the IPC path) or await (a test).
+  async handle({
+    request,
     agentId = null,
-    harnessId = null,
-    workspace = null,
-    workspaceId = null,
+    workflowId = null,
     mode = 'auto',
-    strategy = 'capability',
-    limits = {},
-    timeoutMs = null,
-    model = null,
+    workspace: workspaceSpec = null,
+    sessionId = null,
+    projectId = null,
+    priority = PRIORITY.NORMAL,
+    signal = null,
+    options = {},
   } = {}) {
-    if (typeof request !== 'string' || request.trim() === '') {
-      throw new OrchestratorError('a request is required', { code: 'ORCHESTRATOR_EMPTY_REQUEST' });
+    if (!request || typeof request !== 'string') throw new Error('orchestrator.handle requires a request string');
+
+    const decision = this._router.route({ request, agentId, workflowId, mode, capabilities: options.capabilities });
+    const agent = this._pickAgent(decision, agentId);
+    const root = normalizeRoot(workspaceSpec);
+
+    const identity = createIdentity({
+      sessionId: sessionId || undefined,
+      agentId: agent ? agent.id : null,
+      projectId: projectId || null,
+    });
+
+    const workspace = this._workspaces.create({
+      identity,
+      root,
+      cwd: workspaceSpec && workspaceSpec.cwd ? workspaceSpec.cwd : root,
+      policy: this._policies.workspacePolicy({
+        ...(agent && agent.workspacePolicy ? agent.workspacePolicy : {}),
+        ...(options.policy || {}),
+      }),
+      skills: agent ? agent.skills || [] : [],
+      metadata: { requestedMode: mode, routedMode: decision.mode },
+    });
+
+    const trace = this._traces
+      ? this._traces.createTrace({ identity: workspace.identity, label: request.slice(0, 80) })
+      : null;
+    if (trace) {
+      this._traces.appendEvent(trace.traceId, TRACE_EVENTS.TASK_CREATED, {
+        request: request.slice(0, 240), mode: decision.mode, agentId: agent ? agent.id : null,
+      });
     }
-    const workspaceRoot = workspaceRootOf(workspace);
-    if (!workspaceRoot) {
-      throw new OrchestratorError('an authorized workspace is required; the orchestrator never runs outside one', { code: 'ORCHESTRATOR_NO_WORKSPACE' });
+    if (this._bus) {
+      this._bus.emit(TYPES.ORCHESTRATION_ROUTED, identityRefs(workspace.identity), {
+        mode: decision.mode, reason: decision.reason, capabilities: decision.capabilities,
+        agentId: agent ? agent.id : null,
+      });
     }
 
-    const session = this._openSession({ sessionId, workspaceRoot, workspaceId, agentId });
-    const traceOf = (entry) => this._trace(session.id, taskId, entry);
-
-    // 1. Route.
-    const decision = await this._router.route({
+    const record = {
+      id: workspace.workspaceId,
       request,
-      taskId,
-      sessionId: session.id,
-      workspaceId: workspaceId || workspaceRoot,
-      strategy,
-      agentId,
-      harnessId,
-      model,
-    });
-    traceOf({ step: 'route', agentId: decision.agentId, harnessId: decision.harnessId, strategy: decision.strategy, score: decision.score });
-    // Record the chosen backend on the session as soon as it is chosen, so the
-    // control center can name it even if the run never gets as far as starting.
-    if (this._sessions && decision.harnessId) this._sessions.attachHarness(session.id, decision.harnessId);
-
-    if (!decision.agentId || !decision.harnessId) {
-      this._sessions && this._sessions.fail(session.id, 'no compatible agent and harness');
-      return {
-        ok: false,
-        sessionId: session.id,
-        taskId: null,
-        decision,
-        reasons: decision.reasons,
-        artifacts: [],
-      };
-    }
-
-    // 2. Policy, before any execution resource exists.
-    if (this._policy) {
-      const verdict = await this._policy.evaluate({
-        action: 'agent.run',
-        context: {
-          agentId: decision.agentId,
-          harnessId: decision.harnessId,
-          sessionId: session.id,
-          workspaceId: workspaceId || workspaceRoot,
-          taskId,
-        },
-      });
-      traceOf({ step: 'policy', effect: verdict.effect, policyId: verdict.policyId, reason: verdict.reason });
-      if (!verdict.allowed) {
-        if (this._sessions) this._sessions.fail(session.id, `policy denied: ${verdict.reason}`);
-        return { ok: false, sessionId: session.id, taskId: null, decision, artifacts: [], denied: verdict };
-      }
-      // A policy may attach limit-shaped constraints, which are folded into the
-      // sandbox request. They cannot widen anything: the sandbox clamps against
-      // its own ceiling regardless of where the numbers came from.
-      if (verdict.constraints) limits = { ...(isPlainObject(limits) ? limits : {}), ...pickLimitConstraints(verdict.constraints) };
-    }
-
-    // 3. Sandbox. Nothing runs before this, and it is created from the
-    // authorized workspace only.
-    let sandbox = null;
-    if (this._sandboxes) {
-      sandbox = await this._sandboxes.create({
-        taskId: taskId || undefined,
-        workspaceId: workspaceId || workspaceRoot,
-        agentId: decision.agentId,
-        harnessId: decision.harnessId,
-        sessionId: session.id,
-        traceId: session.traceId,
-        workspaceRoot,
-        limits,
-      });
-      if (this._sessions) this._sessions.attachSandbox(session.id, sandbox.id);
-      traceOf({ step: 'sandbox', sandboxId: sandbox.id, backend: sandbox.backendId, limits: sandbox.limits });
-    }
-
-    // 4. Execute — on the built-in backend or through an external harness.
-    let outcome;
-    try {
-      outcome = decision.harnessId === 'kingagent-runtime'
-        ? await this._runInternal({ request, decision, workspaceRoot, mode, timeoutMs, session, traceOf })
-        : await this._runHarness({ request, decision, workspaceRoot, session, taskId, sandbox, timeoutMs, traceOf });
-    } catch (err) {
-      if (sandbox && this._sandboxes) await this._sandboxes.stop(sandbox.id, 'run failed').catch(() => {});
-      if (this._sessions) this._sessions.fail(session.id, err.message);
-      traceOf({ step: 'failed', error: err.message });
-      this._finish(session.id, null);
-      return { ok: false, sessionId: session.id, taskId: taskId || null, decision, artifacts: [], error: err.message };
-    }
-
-    // 5. Artifacts.
-    const artifacts = this._collectArtifacts(outcome, {
-      taskId: outcome.taskId || taskId,
-      workspaceId: workspaceId || workspaceRoot,
-      agentId: decision.agentId,
-      harnessId: decision.harnessId,
-      sessionId: session.id,
-      traceId: session.traceId,
-    });
-    traceOf({ step: 'artifacts', count: artifacts.length });
-
-    // 6. Evaluation.
-    const evaluation = await this._judge(outcome, { request, decision, artifacts });
-    traceOf({ step: 'evaluate', passed: evaluation.passed, summary: evaluation.summary });
-
-    // 7. Recovery / replan is owned by the runtime for internal runs (it has a
-    // RecoveryManager) and reported here for external ones. The orchestrator
-    // never silently retries an external harness: a retry there can cost real
-    // money and needs the same reasoning a plan does.
-    if (!evaluation.passed && decision.harnessId === 'kingagent-runtime' && outcome.state === 'failed') {
-      traceOf({ step: 'recovery', note: 'runtime recovery already applied; not replanning at the orchestrator level' });
-    }
-
-    // 8. Session outcome + cleanup.
-    if (evaluation.passed) {
-      this._sessions && this._sessions.complete(session.id, evaluation.summary);
-    } else {
-      this._sessions && this._sessions.fail(session.id, evaluation.summary);
-    }
-    if (sandbox && this._sandboxes) {
-      await this._sandboxes.stop(sandbox.id, 'run complete').catch(() => {});
-      traceOf({ step: 'sandbox.stopped', sandboxId: sandbox.id });
-    }
-    this._finish(session.id, outcome.taskId || taskId);
-
-    return {
-      ok: evaluation.passed,
-      sessionId: session.id,
-      taskId: outcome.taskId || taskId || null,
       decision,
-      evaluation,
-      artifacts,
-      harness: outcome.harness || decision.harnessId,
-      taskState: outcome.state || null,
-      result: outcome.result || null,
-      trace: this.trace(session.id, outcome.taskId || taskId),
+      identity: { ...workspace.identity },
+      agentId: agent ? agent.id : null,
+      status: 'queued',
+      startedAt: Date.now(),
+      completedAt: null,
+      packetId: null,
+      taskId: null,
+      error: null,
+      outcome: null,
+    };
+    this._runs.set(record.id, record);
+
+    const job = this._scheduler.submit({
+      taskId: workspace.taskId,
+      label: request.slice(0, 60),
+      priority,
+      signal,
+      run: ({ signal: jobSignal }) => this._execute({ record, workspace, agent, decision, request, trace, options, signal: jobSignal }),
+    });
+    record.jobId = job.id;
+    record.result = job.result;
+    return record;
+  }
+
+  get(runId) {
+    const run = this._runs.get(runId);
+    return run ? publicRun(run) : null;
+  }
+
+  list({ status = null, limit = 50 } = {}) {
+    return [...this._runs.values()]
+      .filter((r) => !status || r.status === status)
+      .sort((a, b) => b.startedAt - a.startedAt)
+      .slice(0, limit)
+      .map(publicRun);
+  }
+
+  cancel(runId, reason = 'user requested') {
+    const run = this._runs.get(runId);
+    if (!run) return false;
+    this._scheduler.cancel(run.jobId, reason);
+    if (run.taskId) this._runtime.cancel(run.taskId, reason);
+    if (this._coordinator) this._coordinator.cancelDelegations({});
+    const ws = this._workspaces.get(runId);
+    if (ws) this._workspaces.close(runId);
+    run.status = 'cancelled';
+    run.completedAt = Date.now();
+    return true;
+  }
+
+  // --- execution -----------------------------------------------------------
+
+  async _execute({ record, workspace, agent, decision, request, trace, options, signal }) {
+    record.status = 'running';
+    try {
+      // 1. the project this runs against
+      const project = await this._detectProject(workspace);
+      if (project) {
+        workspace.metadata.projectId = project.projectId;
+        workspace.identity = Object.freeze({ ...workspace.identity, projectId: project.projectId });
+      }
+
+      // 2. the context the agent gets — searched memory, selected files,
+      //    budgeted. Never the repository.
+      const packet = await this._context.build({
+        request,
+        agent,
+        workspace,
+        project,
+        files: options.files || [],
+        constraints: options.constraints || [],
+        memoryLimit: this._policies.memory.maxRetrieved,
+      });
+      record.packetId = packet.id;
+      if (trace) {
+        this._traces.appendEvent(trace.traceId, TRACE_EVENTS.CONTEXT_CREATED, {
+          packetId: packet.id, digest: packet.digest,
+          items: packet.items.length, usedTokens: packet.budget.usedTokens,
+        });
+      }
+
+      // 3. run it in whatever shape routing chose
+      let outcome;
+      switch (decision.mode) {
+        case EXECUTION_MODES.WORKFLOW:
+          outcome = await this._runWorkflow({ decision, options, workspace, trace });
+          break;
+        case EXECUTION_MODES.MULTI_AGENT:
+          outcome = await this._runMultiAgent({ request, decision, workspace, trace, signal });
+          break;
+        case EXECUTION_MODES.APPROVAL:
+          outcome = await this._runWithApproval({ request, decision, agent, workspace, trace, signal, record });
+          break;
+        case EXECUTION_MODES.TOOL:
+        case EXECUTION_MODES.SINGLE_AGENT:
+        default:
+          outcome = await this._runSingleAgent({ request, agent, workspace, trace, signal, record });
+          break;
+      }
+
+      // 4. what the run leaves behind
+      await this._conclude({ record, workspace, outcome, trace, agent });
+      record.status = outcome.ok ? 'completed' : 'failed';
+      record.outcome = outcome;
+      record.error = outcome.ok ? null : outcome.error;
+      record.completedAt = Date.now();
+
+      if (trace) await this._traces.completeTrace(trace.traceId, { ok: outcome.ok, mode: decision.mode });
+      if (this._bus) {
+        this._bus.emit(outcome.ok ? TYPES.ORCHESTRATION_COMPLETED : TYPES.ORCHESTRATION_FAILED,
+          identityRefs(workspace.identity),
+          { mode: decision.mode, ok: outcome.ok, error: outcome.error || null });
+      }
+      return outcome;
+    } catch (err) {
+      record.status = 'failed';
+      record.error = err.message;
+      record.completedAt = Date.now();
+      if (trace) await this._traces.failTrace(trace.traceId, err);
+      if (this._bus) this._bus.emit(TYPES.ORCHESTRATION_FAILED, identityRefs(workspace.identity), { error: err.message });
+      if (this._logger) this._logger.error('orchestration failed', { error: err.message });
+      return { ok: false, error: err.message };
+    } finally {
+      this._workspaces.close(workspace.workspaceId);
+    }
+  }
+
+  async _runSingleAgent({ request, agent, workspace, trace, signal, record }) {
+    const started = await this._runtime.runAgentTask({
+      request,
+      agentId: agent ? agent.id : undefined,
+      workspace: { root: workspace.root, cwd: workspace.cwd },
+      options: { workspaceId: workspace.workspaceId },
+    }, { mode: 'auto' });
+    record.taskId = started.id;
+    return this._awaitTask(started.id, { workspace, trace, signal, timeoutMs: this._policies.taskTimeoutMs });
+  }
+
+  // Approval-gated: the human decides before an agent touches anything.
+  async _runWithApproval({ request, decision, agent, workspace, trace, signal, record }) {
+    if (!this._approvals) {
+      return { ok: false, error: 'this request requires approval but no ApprovalManager is wired' };
+    }
+    const { request: approvalRequest, decision: verdict } = this._approvals.requestApproval({
+      action: 'command.destructive',
+      summary: request.slice(0, 200),
+      reason: decision.reason,
+      identity: workspace.identity,
+    });
+    if (trace) {
+      this._traces.appendEvent(trace.traceId, TRACE_EVENTS.APPROVAL_REQUESTED, {
+        requestId: approvalRequest.id, action: approvalRequest.action, risk: approvalRequest.risk,
+      });
+    }
+    const resolved = await verdict;
+    if (trace) {
+      this._traces.appendEvent(trace.traceId, TRACE_EVENTS.APPROVAL_RESOLVED, {
+        requestId: resolved.id, status: resolved.status, decidedBy: resolved.decidedBy,
+      });
+    }
+    if (resolved.status !== 'approved') {
+      return { ok: false, error: `not approved (${resolved.status})`, approval: resolved.status };
+    }
+    return this._runSingleAgent({ request, agent, workspace, trace, signal, record });
+  }
+
+  async _runMultiAgent({ request, decision, workspace, trace, signal }) {
+    if (!this._coordinator) return { ok: false, error: 'multi-agent routing needs an AgentCoordinator' };
+
+    const specs = planDelegations({
+      request,
+      decision,
+      parentPolicy: workspace.policy,
+      maxDelegations: this._policies.maxDelegationsPerTask,
+      timeoutMs: this._policies.delegationTimeoutMs,
+    });
+    if (specs.length === 0) return { ok: false, error: 'multi-agent routing produced no delegations' };
+
+    // Refuse loudly rather than silently dropping an over-reaching spec: a
+    // dropped permission looks like a bug in the delegate, not in the plan.
+    const problems = auditDelegations(specs, workspace.policy);
+    if (problems.length) return { ok: false, error: `delegation plan rejected: ${problems.join('; ')}` };
+
+    const results = [];
+    const completed = [];
+    let guard = 0;
+    while (completed.length < specs.length && guard++ < specs.length + 2) {
+      const ready = readyDelegations(specs, completed);
+      if (ready.length === 0) break;
+      const batch = await Promise.all(ready.map((spec) => this._coordinator.delegate({
+        from: workspace,
+        capabilities: spec.capabilities,
+        request: spec.request,
+        policy: spec.policy,
+        timeoutMs: spec.timeoutMs,
+        resultSchema: spec.resultSchema,
+        signal,
+        depth: 0,
+      })));
+      results.push(...batch);
+      completed.push(...ready.map((s) => s.id));
+      // A failed phase stops the chain: running "test" after "implement" failed
+      // produces a confusing result rather than a useful one.
+      if (batch.some((b) => !b.ok)) break;
+    }
+
+    const aggregate = this._coordinator.aggregate(results);
+    if (trace) {
+      this._traces.appendEvent(trace.traceId, TRACE_EVENTS.EVALUATION, {
+        summary: `${aggregate.completed}/${specs.length} delegations completed`,
+        ok: aggregate.ok, partial: aggregate.partial,
+      });
+    }
+    return {
+      ok: aggregate.ok,
+      partial: aggregate.partial,
+      error: aggregate.ok ? null : aggregate.errors.map((e) => `${e.agentId}: ${e.error}`).join('; '),
+      delegations: aggregate.results,
+      artifacts: aggregate.artifacts,
     };
   }
 
-  // --- execution backends ---------------------------------------------------
-
-  // The built-in path: hand the task to the existing AgentRuntime and await its
-  // terminal state. No planning, execution or evaluation logic is duplicated.
-  async _runInternal({ request, decision, workspaceRoot, mode, timeoutMs, session, traceOf }) {
-    const task = await this._runtime.runAgentTask({
-      request,
-      agentId: decision.agentId,
-      workspace: { root: workspaceRoot, cwd: workspaceRoot },
-      mode,
-    }, { mode: mode || 'auto' });
-
-    if (this._sessions) this._sessions.attachTask(session.id, task.id);
-    if (this._sessions) this._sessions.attachAgent(session.id, decision.agentId);
-    traceOf({ step: 'runtime.started', taskId: task.id, state: task.state });
-
-    const finalTask = await this._awaitTask(task.id, timeoutMs || this._config.taskTimeoutMs);
-    traceOf({ step: 'runtime.settled', taskId: task.id, state: finalTask ? finalTask.state : 'unknown' });
-    return { taskId: task.id, state: finalTask ? finalTask.state : 'unknown', task: finalTask, harness: 'kingagent-runtime' };
-  }
-
-  // The external path: start the harness run inside the sandbox and let the
-  // host's runner drive it. Without a runner this is an explicit failure, not a
-  // silent pretend-success.
-  async _runHarness({ request, decision, workspaceRoot, session, taskId, sandbox, timeoutMs, traceOf }) {
-    if (typeof this._harnessRunner !== 'function') {
-      throw new OrchestratorError(
-        `harness "${decision.harnessId}" has no runner wired on this host`,
-        { code: 'ORCHESTRATOR_NO_HARNESS_RUNNER', decision },
-      );
-    }
-    const start = await this._harnesses.start({
-      harnessId: decision.harnessId,
-      ctx: {
-        taskId: taskId || `task-${randomUUID().slice(0, 8)}`,
-        sessionId: session.id,
-        workspaceId: workspaceRoot,
-        agentId: decision.agentId,
-        sandboxId: sandbox ? sandbox.id : null,
-        cwd: workspaceRoot,
-        traceId: session.traceId,
-        request,
-      },
-    });
-    traceOf({ step: 'harness.started', harnessId: decision.harnessId, runId: start.runId });
-
-    try {
-      const result = await this._harnessRunner({
-        harness: this._harnesses.registry.get(decision.harnessId),
-        runId: start.runId,
-        request,
-        agentId: decision.agentId,
-        sessionId: session.id,
-        taskId: start.taskId,
-        sandbox,
-        workspaceRoot,
-        timeoutMs: timeoutMs || this._config.taskTimeoutMs,
+  async _runWorkflow({ decision: _decision, options, workspace: _workspace, trace }) {
+    if (!this._workflows) return { ok: false, error: 'workflow routing needs a WorkflowEngine' };
+    const definition = options.workflow || null;
+    if (!definition) return { ok: false, error: 'workflow routing requires a workflow definition in options.workflow' };
+    const instance = await this._workflows.run(definition, { inputs: options.inputs || {} });
+    if (trace) {
+      this._traces.appendEvent(trace.traceId, TRACE_EVENTS.EVALUATION, {
+        summary: `workflow ${instance.workflowId} ${instance.status}`, status: instance.status,
       });
-      if (this._sessions && start.taskId) this._sessions.attachTask(session.id, start.taskId);
-      return {
-        taskId: start.taskId,
-        runId: start.runId,
-        state: result && result.ok === false ? 'failed' : 'completed',
-        result: result ? result.result || result : null,
-        artifacts: (result && result.artifacts) || [],
-        testResults: result && result.testResults,
-        diff: result && result.diff,
-        error: result && result.error,
-        harness: decision.harnessId,
-      };
-    } finally {
-      await this._harnesses.stop(start.runId, 'run finished').catch(() => {});
-      traceOf({ step: 'harness.stopped', runId: start.runId });
     }
+    return { ok: instance.status === 'completed', error: instance.error || null, workflow: instance };
   }
 
-  // Poll the runtime until the task settles. Pause is respected: a paused task
-  // keeps this loop waiting rather than failing the run.
-  async _awaitTask(taskId, timeoutMs) {
+  // Waits for the runtime to reach a terminal state, mirroring step transitions
+  // into the trace as it goes. The runtime stays the source of truth; this only
+  // observes it.
+  async _awaitTask(taskId, { workspace, trace, signal, timeoutMs }) {
     const deadline = Date.now() + timeoutMs;
+    let lastStepStatus = new Map();
     for (;;) {
       const task = this._runtime.get(taskId);
-      if (!task) return null;
-      if (['completed', 'failed', 'cancelled'].includes(task.state)) return task;
+      if (!task) return { ok: false, error: 'the task disappeared from the runtime', taskId };
+
+      if (trace) this._mirrorSteps(trace, task, lastStepStatus, workspace);
+
+      if (['completed', 'failed', 'cancelled'].includes(task.state)) {
+        const ok = task.state === 'completed';
+        return {
+          ok,
+          taskId,
+          state: task.state,
+          error: ok ? null : (task.outcome && task.outcome.error) || `task ended in ${task.state}`,
+          summary: task.outcome ? task.outcome.summary : null,
+          steps: (task.steps || []).map((s) => ({ id: s.id, title: s.title, status: s.status, toolId: s.tool ? s.tool.id : null })),
+        };
+      }
+      if (signal && signal.aborted) {
+        this._runtime.cancel(taskId, 'orchestration cancelled');
+        return { ok: false, error: 'cancelled', taskId };
+      }
       if (Date.now() > deadline) {
-        await this._runtime.cancel(taskId, 'orchestrator timeout').catch(() => {});
-        return this._runtime.get(taskId);
+        this._runtime.cancel(taskId, 'orchestration timed out');
+        return { ok: false, error: `task timed out after ${timeoutMs}ms`, taskId };
       }
-      await sleep(POLL_INTERVAL_MS);
+      await sleep(40);
     }
   }
 
-  // --- artifacts + evaluation ------------------------------------------------
+  _mirrorSteps(trace, task, lastStepStatus, workspace) {
+    for (const step of task.steps || []) {
+      if (lastStepStatus.get(step.id) === step.status) continue;
+      lastStepStatus.set(step.id, step.status);
+      const type = step.status === 'completed' ? TRACE_EVENTS.STEP_COMPLETED
+        : step.status === 'failed' ? TRACE_EVENTS.STEP_FAILED
+          : step.status === 'executing' ? TRACE_EVENTS.STEP_STARTED
+            : null;
+      if (!type) continue;
+      this._traces.appendEvent(trace.traceId, type, {
+        stepId: step.id, title: step.title, toolId: step.tool ? step.tool.id : null,
+        summary: `${step.title} — ${step.status}`,
+        error: step.output && step.output.error ? step.output.error : null,
+      }, { identity: identityRefs(workspace.identity) });
+    }
+  }
 
-  _collectArtifacts(outcome, refs) {
-    if (!this._artifacts) return [];
-    const saved = [];
-    const candidates = [];
-    if (Array.isArray(outcome.artifacts)) candidates.push(...outcome.artifacts);
-    if (outcome.diff) candidates.push({ type: 'diff', name: 'task diff', content: typeof outcome.diff === 'string' ? outcome.diff : JSON.stringify(outcome.diff, null, 2) });
-    if (outcome.testResults) {
-      candidates.push({
-        type: 'test-result',
-        name: 'test results',
-        content: typeof outcome.testResults === 'string' ? outcome.testResults : JSON.stringify(outcome.testResults, null, 2),
-        summary: outcome.testResults.summary || '',
+  // --- conclusion ----------------------------------------------------------
+
+  // Artifacts for what changed, a memory candidate for what is worth keeping,
+  // and a snapshot. Memory is proposed and scored, never written wholesale —
+  // that is the difference between remembering and hoarding.
+  async _conclude({ record, workspace, outcome, trace, agent }) {
+    const diff = workspace.files.diff();
+    if (this._artifacts && diff.length > 0) {
+      const artifact = await this._artifacts.recordDiff(diff, { workspace, name: `changes-${workspace.taskId}` });
+      if (trace) this._traces.appendEvent(trace.traceId, TRACE_EVENTS.ARTIFACT_CREATED, { id: artifact.id, type: ARTIFACT_TYPES.DIFF, name: artifact.name });
+    }
+
+    if (this._memory && agent && (agent.memoryPolicy ? agent.memoryPolicy.write : true) && this._policies.memory.write) {
+      const candidate = this._memory.candidate({
+        type: outcome.ok ? 'result' : 'observation',
+        content: outcome.ok
+          ? `Completed: ${record.request}. ${outcome.summary ? JSON.stringify(outcome.summary).slice(0, 400) : ''}`.trim()
+          : `Failed: ${record.request}. ${outcome.error || ''}`.trim(),
+        source: 'orchestrator',
+        failed: !outcome.ok,
+        tags: ['task-outcome'],
+      }, { policy: workspace.memoryPolicy(), scope: 'session' });
+
+      const stored = await this._memory.commitCandidate(candidate, {
+        policy: workspace.memoryPolicy(),
+        refs: identityRefs(workspace.identity),
+      });
+      if (stored) {
+        workspace.attachMemory(stored.id);
+        if (trace) this._traces.appendEvent(trace.traceId, TRACE_EVENTS.MEMORY_WRITTEN, { id: stored.id, importance: stored.importance });
+      }
+    }
+
+    if (this._recovery) {
+      await this._recovery.capture({
+        workspace,
+        task: record.taskId ? this._runtime.get(record.taskId) : null,
+        reason: outcome.ok ? SNAPSHOT_REASONS.COMPLETION : SNAPSHOT_REASONS.FAILURE,
       });
     }
-    // The built-in runtime's final report step is an artifact in all but name.
-    const task = outcome.task;
-    if (task && task.outcome && task.outcome.summary) {
-      candidates.push({
-        type: 'report',
-        name: 'task report',
-        content: typeof task.outcome.summary === 'string' ? task.outcome.summary : JSON.stringify(task.outcome.summary, null, 2),
-      });
-    }
-
-    for (const candidate of candidates) {
-      try {
-        const summary = this._artifacts.add({
-          type: candidate.type || 'report',
-          name: candidate.name || 'artifact',
-          summary: candidate.summary || '',
-          content: typeof candidate.content === 'string' ? candidate.content : JSON.stringify(candidate.content, null, 2),
-          ref: candidate.ref || null,
-          ...refs,
-          taskId: refs.taskId || null,
-        });
-        saved.push(summary);
-        if (this._sessions && refs.sessionId) this._sessions.attachArtifact(refs.sessionId, summary.id);
-      } catch (err) {
-        if (this._logger) this._logger.warn('artifact could not be stored', { error: err.message, type: candidate.type });
-      }
-    }
-    return saved;
   }
 
-  async _judge(outcome, context) {
-    if (typeof this._evaluate === 'function') {
-      const verdict = await this._evaluate(outcome, context);
-      if (isPlainObject(verdict) && typeof verdict.passed === 'boolean') return verdict;
-    }
-    // Default: the backend's own verdict, made explicit. For an internal run
-    // that is the runtime's terminal state; for an external one it is the
-    // runner's `ok`.
-    if (outcome.harness === 'kingagent-runtime') {
-      const passed = outcome.state === 'completed';
-      return {
-        passed,
-        summary: passed
-          ? `task ${outcome.taskId} completed`
-          : `task ${outcome.taskId} ended in state "${outcome.state}"`,
-        source: 'runtime',
-      };
-    }
-    const passed = outcome.state !== 'failed';
-    return {
-      passed,
-      summary: passed ? `${outcome.harness} run completed` : `${outcome.harness} run failed: ${outcome.error || 'unknown error'}`,
-      source: 'harness',
-    };
+  // Lets the platform wire the recovery manager after construction (it needs the
+  // orchestrator's workspaces, so the two would otherwise be circular).
+  attachRecovery(recovery) {
+    this._recovery = recovery;
+    return this;
   }
 
-  // --- sessions, tracing, control --------------------------------------------
-
-  _openSession({ sessionId, workspaceRoot, workspaceId, agentId }) {
-    if (!this._sessions) {
-      // A host without sessions still gets a stable id so the trace works.
-      return { id: sessionId || `session-${randomUUID().slice(0, 8)}`, traceId: null };
-    }
-    if (sessionId) {
-      const existing = this._sessions.get(sessionId);
-      if (existing) {
-        if (existing.state === 'paused') this._sessions.resume(sessionId);
-        else if (existing.state === 'ready') this._sessions.start(sessionId);
-        if (agentId) this._sessions.attachAgent(sessionId, agentId);
-        return this._sessions.get(sessionId);
-      }
-    }
-    const created = this._sessions.create({
-      id: sessionId || undefined,
-      workspaceId: workspaceId || workspaceRoot,
-      workspaceRoot,
-      agentIds: agentId ? [agentId] : [],
-    });
-    this._sessions.start(created.id);
-    return this._sessions.get(created.id);
-  }
-
-  // One trace per run, keyed by the session. Keying by taskId would split the
-  // trace the moment a runtime task is created — the routing and policy steps
-  // happen before a task exists, and they belong to the same run.
-  _trace(sessionId, taskId, entry) {
-    const key = sessionId;
-    if (!key) return;
-    if (!this._traces.has(key)) this._traces.set(key, []);
-    const ring = this._traces.get(key);
-    ring.push({ ...entry, at: Date.now(), taskId: taskId || null, sessionId });
-    if (ring.length > TRACE_LIMIT) ring.splice(0, ring.length - TRACE_LIMIT);
-    if (entry.step) {
-      this._bus.emit(TYPES.ORCHESTRATOR_STEP, { taskId: taskId || null, sessionId }, { step: entry.step, detail: summarizeEntry(entry) });
+  async _detectProject(workspace) {
+    if (!this._projects || !workspace.root) return null;
+    try {
+      return await this._projects.detect(workspace.root);
+    } catch (err) {
+      if (this._logger) this._logger.warn('project detection failed', { error: err.message });
+      return null;
     }
   }
 
-  trace(sessionId, _taskId = null) {
-    const ring = this._traces.get(sessionId);
-    return ring ? ring.map((e) => ({ ...e })) : [];
-  }
-
-  _finish(sessionId, taskId) {
-    this._runs.set(sessionId, { sessionId, taskId, at: Date.now() });
-  }
-
-  // Pause/resume/cancel delegate to whichever backend is running the work.
-  async pause({ sessionId, taskId = null }) {
-    if (taskId && this._runtime.get(taskId)) return this._runtime.pause(taskId);
-    if (this._sessions && sessionId) return this._sessions.pause(sessionId);
-    return null;
-  }
-
-  async resume({ sessionId, taskId = null }) {
-    if (taskId && this._runtime.get(taskId)) return this._runtime.resume(taskId);
-    if (this._sessions && sessionId) return this._sessions.resume(sessionId);
-    return null;
-  }
-
-  // Cancellation reaches every layer, and reports what it actually stopped.
-  //
-  // The ownership of the *resource* teardown is deliberately single: when a
-  // coordinator is wired it owns stopping the task's harness runs and sandboxes
-  // (via coordinator.cancelTask), so the orchestrator records what was running
-  // before cancelling rather than stopping everything twice.
-  async cancel({ sessionId, taskId = null, reason = 'cancelled' }) {
-    const runningRuns = this._harnesses && taskId ? this._harnesses.runsForTask(taskId) : [];
-    const runningSandboxes = this._sandboxes && taskId ? this._sandboxes.forTask(taskId).map((s) => s.id) : [];
-
-    if (taskId && this._runtime.get(taskId)) this._runtime.cancel(taskId, reason);
-
-    const delegations = this._coordinator && taskId
-      ? await this._coordinator.cancelTask(taskId, reason)
-      : [];
-    if (!this._coordinator) {
-      if (this._harnesses && taskId) await this._harnesses.stopTask(taskId, reason);
-      if (this._sandboxes && taskId) await this._sandboxes.stopTask(taskId, reason);
+  _pickAgent(decision, requestedId) {
+    if (!this._agents) return null;
+    if (this._coordinator) {
+      return this._coordinator.selectAgent({ capabilities: decision.capabilities, preferred: requestedId || decision.agentId });
     }
-
-    if (this._sessions && sessionId) this._sessions.stop(sessionId, reason);
-    return {
-      task: taskId && this._runtime.get(taskId) ? taskId : null,
-      delegations,
-      harnessRuns: runningRuns,
-      sandboxes: runningSandboxes,
-    };
-  }
-
-  // §36's control center, assembled from what each subsystem actually knows.
-  controlCenter({ sessionId = null, taskId = null } = {}) {
-    const session = this._sessions && sessionId ? this._sessions.controlView(sessionId) : null;
-    const task = taskId ? this._runtime.get(taskId) : null;
-    const view = {
-      session,
-      task: task ? {
-        id: task.id,
-        state: task.state,
-        phase: task.phase,
-        request: task.request.slice(0, 200),
-        agentId: task.agentId,
-        steps: (task.steps || []).map((s) => ({ id: s.id, title: s.title, status: s.status })),
-        currentStep: (task.steps || []).find((s) => s.status === 'executing')?.title || null,
-      } : null,
-      harness: session && session.harnessIds.length ? session.harnessIds[session.harnessIds.length - 1] : null,
-      sandboxes: session
-        ? (this._sandboxes ? session.sandboxIds.map((id) => this._sandboxes.snapshot(id)).filter(Boolean) : [])
-        : [],
-      artifacts: this._artifacts && taskId ? this._artifacts.list({ taskId }) : [],
-      subAgents: this._coordinator && taskId ? this._coordinator.controlView(taskId).subAgents : [],
-      policy: this._policy ? this._policy.audit({ limit: 10 }) : [],
-      trace: this.trace(sessionId, taskId),
-    };
-    return view;
+    const wanted = requestedId || decision.agentId;
+    return (wanted && this._agents.get(wanted)) || this._agents.list({ enabled: true })[0] || null;
   }
 }
 
-module.exports = { Orchestrator, OrchestratorError };
-
-function workspaceRootOf(workspace) {
-  if (!workspace) return null;
-  if (typeof workspace === 'string') return workspace;
-  return workspace.root || workspace.cwd || null;
+function normalizeRoot(spec) {
+  if (!spec) return null;
+  if (typeof spec === 'string') return spec;
+  return spec.root || spec.cwd || null;
 }
 
-// Policy constraints are advisory data; only the limit-shaped ones are applied,
-// and only to make the sandbox stricter (limits.clampLimits re-clamps anyway).
-function pickLimitConstraints(constraints) {
-  const out = {};
-  for (const key of ['cpuTimeMs', 'memoryMb', 'maxProcesses', 'timeoutMs', 'filesystemMode', 'networkMode', 'environmentPolicy']) {
-    if (constraints[key] !== undefined) out[key] = constraints[key];
-  }
-  return out;
-}
-
-// Only scalars ride along with the step event: a leaked object here would put a
-// plan or a sandbox snapshot on the wire on every step.
-function summarizeEntry(entry) {
-  const out = {};
-  for (const [k, v] of Object.entries(entry)) {
-    if (k === 'step') continue;
-    if (v === null || v === undefined) continue;
-    if (['string', 'number', 'boolean'].includes(typeof v)) out[k] = v;
-    else if (Array.isArray(v)) out[k] = `${v.length} item(s)`;
-  }
-  return out;
+function publicRun(run) {
+  return {
+    id: run.id, request: run.request, status: run.status, mode: run.decision.mode,
+    reason: run.decision.reason, agentId: run.agentId, taskId: run.taskId,
+    packetId: run.packetId, identity: run.identity, error: run.error,
+    startedAt: run.startedAt, completedAt: run.completedAt,
+    outcome: run.outcome ? { ok: run.outcome.ok, error: run.outcome.error || null } : null,
+  };
 }
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+module.exports = { Orchestrator, EXECUTION_MODES, PRIORITY };

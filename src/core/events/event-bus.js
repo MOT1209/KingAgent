@@ -9,7 +9,7 @@ let seq = 0;
 function makeEvent(type, refs = {}, payload) {
   const id = `evt-${Date.now().toString(36)}-${(++seq).toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const ev = {
-    id, // the correlation key every Phase 4 observer joins on
+    id, // the correlation key every Phase 3/4 observer joins on
     type,
     timestamp: Date.now(),
     taskId: refs.taskId || null,
@@ -17,17 +17,26 @@ function makeEvent(type, refs = {}, payload) {
     toolId: refs.toolId || null,
     workflowId: refs.workflowId || null,
     nodeId: refs.nodeId || null,
-    // Phase 4 correlation refs. A harness/policy/sandbox/session event is only
-    // useful if it can be joined back to the work it happened for, so every
-    // coordinator of those subsystems threads these through. `parentEventId`
-    // chains a delegated child's events onto the request that caused them.
+    // Phase 3 correlation keys. A multi-agent run produces interleaved events
+    // from several workspaces; without these the stream is unreadable and a
+    // trace cannot be rebuilt. They default to null so every Phase 1/2 emitter
+    // keeps working unchanged.
     workspaceId: refs.workspaceId || null,
+    projectId: refs.projectId || null,
     sessionId: refs.sessionId || null,
+    traceId: refs.traceId || null,
+    parentEventId: refs.parentEventId || null,
+    seq: seq,
+    // Phase 4 correlation refs. A harness/policy/sandbox event is only useful
+    // if it can be joined back to the work it happened for.
     harnessId: refs.harnessId || null,
     policyId: refs.policyId || null,
     sandboxId: refs.sandboxId || null,
     delegationId: refs.delegationId || null,
-    parentEventId: refs.parentEventId || null,
+    // Phase 6 correlation refs: which skill (and which MCP server) an event
+    // belongs to, so a run that composed five skills can be read back per skill.
+    skillId: refs.skillId || null,
+    mcpServerId: refs.mcpServerId || null,
     payload: payload === undefined ? null : payload,
   };
   return Object.freeze(ev);
@@ -109,31 +118,70 @@ const TYPES = Object.freeze({
   APPROVAL_GRANTED: 'approval.granted',
   APPROVAL_DENIED: 'approval.denied',
 
-  // --- Phase 4: harness layer -------------------------------------------------
+  // --- Phase 3 -------------------------------------------------------------
+  // Context
+  CONTEXT_CREATED: 'context.created',
+  CONTEXT_UPDATED: 'context.updated',
+  // Memory
+  MEMORY_READ: 'memory.read',
+  MEMORY_WRITE: 'memory.write',
+  MEMORY_SEARCH: 'memory.search',
+  MEMORY_UPDATED: 'memory.updated',
+  // Workspace
+  WORKSPACE_CREATED: 'workspace.created',
+  WORKSPACE_UPDATED: 'workspace.updated',
+  WORKSPACE_FILE_ADDED: 'workspace.file.added',
+  WORKSPACE_FILE_REMOVED: 'workspace.file.removed',
+  WORKSPACE_FILE_MODIFIED: 'workspace.file.modified',
+  // Trace
+  TRACE_STARTED: 'trace.started',
+  TRACE_COMPLETED: 'trace.completed',
+  // Agent loop
+  AGENT_OBSERVATION: 'agent.observation',
+  AGENT_ACTION: 'agent.action',
+  AGENT_VALIDATION: 'agent.validation',
+  AGENT_RECOVERY: 'agent.recovery',
+  // Artifacts
+  ARTIFACT_CREATED: 'artifact.created',
+  ARTIFACT_UPDATED: 'artifact.updated',
+  ARTIFACT_DELETED: 'artifact.deleted',
+  // State
+  STATE_SNAPSHOT_CREATED: 'state.snapshot.created',
+  STATE_SNAPSHOT_RESTORED: 'state.snapshot.restored',
+  // Multi-agent
+  AGENT_MESSAGE: 'agent.message',
+  AGENT_DELEGATED: 'agent.delegated',
+  AGENT_HANDOFF: 'agent.handoff',
+  // Approvals (Phase 3 lifecycle; approval.required/granted/denied above stay
+  // for the Phase 2 tool-authorization path the renderer already listens to)
+  APPROVAL_REQUESTED: 'approval.requested',
+  APPROVAL_APPROVED: 'approval.approved',
+  APPROVAL_REJECTED: 'approval.rejected',
+  APPROVAL_EXPIRED: 'approval.expired',
+  // Orchestration
+  ORCHESTRATION_ROUTED: 'orchestration.routed',
+  ORCHESTRATION_COMPLETED: 'orchestration.completed',
+  ORCHESTRATION_FAILED: 'orchestration.failed',
+  // Project
+  PROJECT_DETECTED: 'project.detected',
+  PROJECT_INDEXED: 'project.indexed',
+
+  // --- Phase 4 (harness-orchestrator: src/core/harness-orchestrator/, an
+  // independent control-plane layer that coexists with the Phase 3 one
+  // above rather than replacing it — see docs/harness-orchestrator.md) -----
   HARNESS_SELECTED: 'harness.selected',
   HARNESS_STARTED: 'harness.started',
   HARNESS_STOPPED: 'harness.stopped',
   HARNESS_FAILED: 'harness.failed',
-
-  // --- Phase 4: policy engine -------------------------------------------------
   POLICY_EVALUATED: 'policy.evaluated',
   POLICY_DENIED: 'policy.denied',
   POLICY_APPROVAL_REQUIRED: 'policy.approval_required',
-
-  // --- Phase 4: sandbox manager ------------------------------------------------
   SANDBOX_CREATED: 'sandbox.created',
   SANDBOX_STARTED: 'sandbox.started',
   SANDBOX_STOPPED: 'sandbox.stopped',
   SANDBOX_FAILED: 'sandbox.failed',
   SANDBOX_PROCESS_REGISTERED: 'sandbox.process.registered',
-
-  // --- Phase 4: routing + multi-agent -------------------------------------------
   AGENT_ROUTED: 'agent.routed',
-  AGENT_DELEGATED: 'agent.delegated',
-  AGENT_HANDOFF: 'agent.handoff',
-  AGENT_MESSAGE: 'agent.message',
-
-  // --- Phase 4: sessions ---------------------------------------------------------
   SESSION_CREATED: 'session.created',
   SESSION_STARTED: 'session.started',
   SESSION_PAUSED: 'session.paused',
@@ -141,12 +189,36 @@ const TYPES = Object.freeze({
   SESSION_COMPLETED: 'session.completed',
   SESSION_FAILED: 'session.failed',
   SESSION_STOPPED: 'session.stopped',
-
-  // --- Phase 4: artifacts ---------------------------------------------------------
-  ARTIFACT_CREATED: 'artifact.created',
-
-  // --- Phase 4: orchestration -------------------------------------------------------
   ORCHESTRATOR_STEP: 'orchestrator.step',
+  // --- Phase 6 (skills + MCP capability layer: src/core/skills/, src/core/mcp/) ---
+  // The skill lifecycle is a security surface, so every state change a person
+  // could be asked to explain has an event: what was discovered, what was
+  // refused, what ran, and what was stopped.
+  SKILL_DISCOVERED: 'skill.discovered',
+  SKILL_VALIDATED: 'skill.validated',
+  SKILL_REJECTED: 'skill.rejected',
+  SKILL_INSTALLED: 'skill.installed',
+  SKILL_UPDATED: 'skill.updated',
+  SKILL_REMOVED: 'skill.removed',
+  SKILL_ENABLED: 'skill.enabled',
+  SKILL_DISABLED: 'skill.disabled',
+  SKILL_QUARANTINED: 'skill.quarantined',
+  SKILL_LOADED: 'skill.loaded',
+  SKILL_SELECTED: 'skill.selected',
+  SKILL_STARTED: 'skill.started',
+  SKILL_COMPLETED: 'skill.completed',
+  SKILL_FAILED: 'skill.failed',
+  SKILL_EVALUATED: 'skill.evaluated',
+  SKILL_SCANNED: 'skill.scanned',
+  MCP_SERVER_REGISTERED: 'mcp.server.registered',
+  MCP_SERVER_REMOVED: 'mcp.server.removed',
+  MCP_TOOL_CLASSIFIED: 'mcp.tool.classified',
+  MCP_TOOL_INVOKED: 'mcp.tool.invoked',
+  MCP_TOOL_DENIED: 'mcp.tool.denied',
+
+  // AGENT_DELEGATED, AGENT_HANDOFF, AGENT_MESSAGE and ARTIFACT_CREATED were
+  // also defined here under Phase 4 with the identical key and value the
+  // Phase 3 block above already declares; not repeated.
 });
 
 module.exports = { EventBus, makeEvent, TYPES };
