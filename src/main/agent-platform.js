@@ -23,6 +23,8 @@ const { serializeTrace, toActivityStream } = require('../core/trace/serializer')
 // wire for every tool call in every pane. The policy UI reads the audit ring
 // over `agent:policyAudit` instead, and only the decisions a person needs to
 // see live (denials, approval gates) stream.
+const { UI_EVENTS: RESEARCH_UI_EVENTS } = require('../core/research/traceEvents');
+
 const FORWARD_TYPES = new Set([
   TYPES.TASK_CREATED, TYPES.TASK_QUEUED, TYPES.TASK_STARTED, TYPES.TASK_ANALYZING,
   TYPES.TASK_PLANNING, TYPES.PLAN_CREATED, TYPES.STEP_STARTED, TYPES.STEP_COMPLETED,
@@ -65,10 +67,17 @@ const FORWARD_TYPES = new Set([
   TYPES.SKILL_COMPLETED, TYPES.SKILL_FAILED, TYPES.SKILL_EVALUATED,
   TYPES.MCP_SERVER_REGISTERED, TYPES.MCP_SERVER_REMOVED,
   TYPES.MCP_TOOL_CLASSIFIED, TYPES.MCP_TOOL_DENIED,
+
+  // Phase 7. Only the summarized set: `research.source.retrieved` fires per
+  // query per source type and `research.citation.created` per citation, so both
+  // stay off the wire and reach the UI as counts in `research.progress` and in
+  // `research:status` — the same judgement already made about `policy.evaluated`.
+  ...RESEARCH_UI_EVENTS,
 ]);
 
 function createMainPlatform({
   storeDir, cwd, askAuthorization, runShellOverride, root = null, policyApprover, harnessRunner,
+  researchIo = null, researchConfig: research = null,
 }) {
   const runShell = runShellOverride || createRunShell({ defaultCwd: typeof cwd === 'function' ? cwd() : cwd });
   // `askAuthorization` is optional now. When the host does not supply one, the
@@ -90,8 +99,14 @@ function createMainPlatform({
       // no runner. Neither changes the pre-Phase-4 behaviour of the tool gate.
       ...(policyApprover ? { policy: { approver: policyApprover } } : {}),
       ...(harnessRunner ? { harness: { runner: harnessRunner } } : {}),
+      // Phase 7. Without `researchIo.searchProviders` the networked source
+      // types report themselves unconfigured — the subsystem still builds and
+      // still answers file questions, which is the correct behaviour for an
+      // install that has not been given a search backend.
+      ...(researchIo ? { research: researchIo } : {}),
     },
     storeDir,
+    ...(research ? { policies: { research } } : {}),
   });
 }
 
@@ -513,6 +528,165 @@ function registerPhase4Handlers({ handle, platform }) {
 
   handle('agent:cancelTask', async ({ taskId, sessionId }) =>
     orchestrator ? orchestrator.cancel({ sessionId: sessionId || null, taskId, reason: 'user cancelled' }) : { task: null, delegations: [], harnessRuns: [], sandboxes: [] });
+
+  registerResearchHandlers({ handle, platform });
+}
+
+// --- research (Phase 7) ------------------------------------------------------
+//
+// Every handler here answers from the engine's own serializable views, so no
+// class instance, no page content and no evidence text beyond the recorded
+// quotes crosses the boundary. `research:start` is the one channel that spends
+// anything; everything else is a read of a task the renderer already started.
+//
+// The renderer's payload may only *narrow*. Limits are clamped against the
+// configured ceilings on this side, and domain lists are intersected with the
+// configured policy rather than replacing it — a renderer cannot allow a domain
+// the install blocks.
+function registerResearchHandlers({ handle, platform }) {
+  const research = platform.research;
+
+  // Without a research subsystem every channel answers honestly rather than
+  // throwing: the UI shows "research is not available here", not a stack trace.
+  const unavailable = (extra = {}) => ({ available: false, reason: 'research is not enabled in this install', ...extra });
+
+  handle('research:capabilities', () => (research ? { available: true, ...research.capabilities() } : unavailable({ sources: [], providers: [], skills: [] })));
+
+  handle('research:start', async ({
+    question, mode, files, filesOnly, allowWeb, sourcePreferences,
+    allowedDomains, excludedDomains, limits, workspaceId, sessionId,
+  }) => {
+    if (!research || !research.enabled) return unavailable();
+    const cfg = research.config;
+
+    const task = research.engine.create({
+      question,
+      mode: mode || cfg.defaultMode,
+      files: files || [],
+      filesOnly: filesOnly === true,
+      allowWeb: allowWeb !== false,
+      sourcePreferences: sourcePreferences || [],
+      // Intersect, never replace: an allowlist the install configured is a
+      // ceiling. A renderer that names domains can only ask for fewer.
+      allowedDomains: intersectDomains(cfg.allowedDomains, allowedDomains),
+      // Blocks are additive in the other direction, for the same reason.
+      excludedDomains: [...new Set([...(cfg.blockedDomains || []), ...(excludedDomains || [])])],
+      requireCitations: cfg.requireCitations,
+      requireVerification: cfg.requireVerification,
+      workspaceId: workspaceId || null,
+      sessionId: sessionId || null,
+      ...clampLimits(limits, cfg),
+    });
+
+    // Started, not awaited: research is long-running and the renderer follows
+    // it over `research:event` and `research:status`. The rejection is caught
+    // here so an engine failure cannot become an unhandled rejection in the
+    // main process — the task's own status already records what happened.
+    research.engine.run(task).catch(() => {});
+
+    return { available: true, id: task.id, status: task.status, question: task.question, mode: task.mode };
+  });
+
+  handle('research:status', ({ id }) => {
+    if (!research) return unavailable();
+    const task = research.engine.get(id);
+    if (!task) return { available: true, found: false, id };
+    const result = research.engine.result(id);
+    return {
+      available: true, found: true,
+      task: result.task,
+      // The progress a person actually wants (§41): what stage, how many of
+      // each thing, and what is still running.
+      progress: {
+        stage: task.status,
+        stageReason: task.statusReason,
+        queries: { total: task.queries.length, completed: task.queries.filter((q) => q.status === 'completed').length, running: task.queries.filter((q) => q.status === 'running').length },
+        sources: task.sources.length,
+        evidence: task.evidence.length,
+        claims: task.claims.length,
+        citations: task.citations.length,
+        conflicts: task.conflicts.length,
+        failures: task.failures.length,
+      },
+      quality: result.quality,
+      partial: result.partial,
+    };
+  });
+
+  handle('research:cancel', ({ id, reason }) => {
+    if (!research) return unavailable();
+    return { available: true, cancelled: research.engine.cancel(id, reason || 'cancelled from the interface') };
+  });
+
+  handle('research:get', ({ id }) => {
+    if (!research) return unavailable();
+    const result = research.engine.result(id);
+    return result ? { available: true, found: true, ...result } : { available: true, found: false, id };
+  });
+
+  handle('research:list', () => (research ? { available: true, tasks: research.engine.list() } : unavailable({ tasks: [] })));
+
+  handle('research:sources', ({ id }) => {
+    if (!research) return unavailable({ sources: [] });
+    const result = research.engine.result(id);
+    if (!result) return { available: true, found: false, sources: [] };
+    return { available: true, found: true, sources: result.sources, bibliography: result.bibliography };
+  });
+
+  handle('research:evidence', ({ id, claimId }) => {
+    if (!research) return unavailable({ evidence: [] });
+    const result = research.engine.result(id);
+    if (!result) return { available: true, found: false, evidence: [] };
+    const evidence = claimId ? result.evidence.filter((e) => e.claimId === claimId) : result.evidence;
+    return { available: true, found: true, evidence, claims: result.claims, conflicts: result.conflicts };
+  });
+
+  handle('research:report', ({ id, format }) => {
+    if (!research) return unavailable();
+    const result = research.engine.result(id);
+    if (!result) return { available: true, found: false, id };
+    if (format === 'json') {
+      return {
+        available: true, found: true, format: 'json',
+        report: {
+          question: result.task.question, claims: result.claims, citations: result.citations,
+          conflicts: result.conflicts, quality: result.quality, review: result.review,
+          bibliography: result.bibliography, partial: result.partial,
+        },
+      };
+    }
+    return {
+      available: true, found: true, format: 'markdown',
+      report: result.answer ? (result.answer.prose || result.answer.markdown) : '',
+      quality: result.quality,
+      partial: result.partial,
+    };
+  });
+}
+
+// A renderer may lower a ceiling, never raise one.
+function clampLimits(limits, cfg) {
+  if (!limits) return {};
+  const out = {};
+  const cap = (key, configured) => {
+    if (!Number.isInteger(limits[key])) return;
+    const ceiling = Number.isInteger(configured) ? configured : limits[key];
+    out[key] = Math.min(limits[key], ceiling);
+  };
+  cap('maxQueries', cfg.maxQueries);
+  cap('maxSources', cfg.maxSources);
+  cap('maxConcurrency', cfg.maxConcurrency);
+  cap('timeoutMs', cfg.timeoutMs);
+  return out;
+}
+
+// An empty configured allowlist means "no allowlist", so a renderer-supplied
+// one is honoured as a narrowing. A configured allowlist is a ceiling the
+// renderer can only intersect with.
+function intersectDomains(configured, requested) {
+  if (!Array.isArray(configured) || configured.length === 0) return requested || [];
+  if (!Array.isArray(requested) || requested.length === 0) return configured;
+  return requested.filter((d) => configured.includes(d));
 }
 
 
@@ -765,11 +939,25 @@ function installAgentPlatform({ app, ipcMain }) {
     note: decision.reason,
   });
 
+  // Research settings come from the same settings.json everything else uses and
+  // are re-validated on the way in (settings.researchConfig) — the file is
+  // user-editable, so a hand-edited `allowNetworkedSources: "yes"` must not
+  // become a policy `allow`.
+  const { readSettings, researchConfig } = require('./settings');
+  const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+  const research = researchConfig(readSettings({ file: settingsFile }));
+
   const platform = createMainPlatform({
     storeDir,
     cwd: () => path.join(app.getPath('home')),
     askAuthorization,
     policyApprover,
+    researchConfig: research,
+    // A host that ships a search backend registers it here. None is bundled:
+    // core imports no HTTP client and the app has no search API key of its own,
+    // so out of the box research answers from files and from MCP servers the
+    // user has already connected.
+    researchIo: { mcp: null, searchProviders: {} },
   });
   platform._pendingAuth = pendingAuth;
 
@@ -787,7 +975,10 @@ function installAgentPlatform({ app, ipcMain }) {
     forward(ev) {
       for (const win of BrowserWindow.getAllWindows()) {
         if (win.webContents && !win.webContents.isDestroyed()) {
-          const channel = ev.type.startsWith('wf-') || ev.workflowId ? PUSH_CHANNELS[1] : ev.type.startsWith('approval.') ? PUSH_CHANNELS[2] : PUSH_CHANNELS[0];
+          const channel = ev.type.startsWith('research.') ? PUSH_CHANNELS[3]
+            : ev.type.startsWith('wf-') || ev.workflowId ? PUSH_CHANNELS[1]
+              : ev.type.startsWith('approval.') ? PUSH_CHANNELS[2]
+                : PUSH_CHANNELS[0];
           win.webContents.send(channel, ev);
         }
       }
@@ -800,6 +991,9 @@ function installAgentPlatform({ app, ipcMain }) {
 module.exports = {
   createMainPlatform,
   createIpcHandlers: registerIpcHandlers,
+  registerResearchHandlers,
+  clampLimits,
+  intersectDomains,
   installAgentPlatform,
   registerWorkflow: (def) => workflowRegistry.register(def),
   listWorkflows: () => [...workflowRegistry.values()].map((w) => w._meta),

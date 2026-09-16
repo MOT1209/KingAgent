@@ -5,7 +5,7 @@
 // subsystem, so a compromised renderer cannot smuggle a larger object graph
 // into agent create/change code.
 
-const { isString, isBoolean, validId } = require('../schema/validate');
+const { isString, isBoolean, isPlainObject, validId } = require('../schema/validate');
 
 // A renderer-supplied id is an untrusted string used as a store key and a map
 // lookup, so it is shape-checked before it reaches a subsystem. Phase 3 ids are
@@ -45,6 +45,30 @@ function isRelPath(v) {
   return v.split('/').every((seg) => seg && seg !== '.' && seg !== '..');
 }
 
+// A research question is longer than a memory query and shorter than a
+// document. 4000 characters is generous for a question and still bounded.
+function isQuestion(v) {
+  return typeof v === 'string' && v.trim().length > 0 && v.length <= 4000;
+}
+
+// A bounded list of short strings: file paths, domains, source types. Every
+// research channel that takes a list takes one of these, so a compromised
+// renderer cannot push an unbounded array through.
+function isShortList(max = 200, maxLen = 1024) {
+  return (v) => Array.isArray(v) && v.length <= max
+    && v.every((x) => typeof x === 'string' && x.length > 0 && x.length <= maxLen);
+}
+
+// Numeric caps a renderer may tighten but never loosen — the main side clamps
+// them against the configured ceilings before they reach the engine.
+function isLimits(v) {
+  if (!isPlainObject(v)) return false;
+  const allowed = ['maxQueries', 'maxSources', 'maxConcurrency', 'timeoutMs'];
+  return Object.entries(v).every(([k, n]) => allowed.includes(k) && Number.isInteger(n) && n > 0 && n <= 1_000_000);
+}
+
+const RESEARCH_MODES = ['quick', 'standard', 'deep'];
+const isResearchMode = (v) => typeof v === 'string' && RESEARCH_MODES.includes(v);
 const CHANNELS = Object.freeze({
   'agent:listAgents': {},
   'agent:get': { id: { required: true, check: validId } },
@@ -200,9 +224,38 @@ const CHANNELS = Object.freeze({
   'mcp:testPlan': { id: { required: true, check: validId } },
   'mcp:remove': { id: { required: true, check: validId } },
   'mcp:quarantine': { id: { required: true, check: validId }, reason: { required: true, check: isShortText } },
+
+  // --- Phase 7: research (src/core/research/) -------------------------------
+  //
+  // `research:start` is the only channel here that spends anything, and every
+  // field on it *narrows*: a renderer can restrict research to files, block
+  // domains or lower a limit, and there is deliberately no field that can widen
+  // a domain allowlist past the configured policy, raise a ceiling, or name a
+  // provider. Those come from settings and policy, never from a payload.
+  'research:start': {
+    question: { required: true, check: isQuestion },
+    mode: { check: isResearchMode },
+    files: { check: isShortList(200, 4096) },
+    filesOnly: { check: isBoolean },
+    allowWeb: { check: isBoolean },
+    sourcePreferences: { check: isShortList(16, 32) },
+    allowedDomains: { check: isShortList(500, 253) },
+    excludedDomains: { check: isShortList(500, 253) },
+    limits: { check: isLimits },
+    workspaceId: { check: isOpaqueId },
+    sessionId: { check: isOpaqueId },
+  },
+  'research:status': { id: { required: true, check: isOpaqueId } },
+  'research:cancel': { id: { required: true, check: isOpaqueId }, reason: { check: isShortText } },
+  'research:get': { id: { required: true, check: isOpaqueId } },
+  'research:list': {},
+  'research:sources': { id: { required: true, check: isOpaqueId } },
+  'research:evidence': { id: { required: true, check: isOpaqueId }, claimId: { check: isOpaqueId } },
+  'research:report': { id: { required: true, check: isOpaqueId }, format: { check: isString } },
+  'research:capabilities': {},
 });
 
-const PUSH_CHANNELS = Object.freeze(['agent:event', 'workflow:event', 'approval:event']);
+const PUSH_CHANNELS = Object.freeze(['agent:event', 'workflow:event', 'approval:event', 'research:event']);
 
 function validatePayload(channel, payload) {
   const schema = CHANNELS[channel];
@@ -230,4 +283,11 @@ function allowedChannel(channel) {
   return channel in CHANNELS;
 }
 
+<<<<<<< HEAD
 module.exports = { CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel, isOpaqueId, isShortText, isSkillTerm, isRepository, isRelPath };
+=======
+module.exports = {
+  CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel,
+  isOpaqueId, isShortText, isQuestion, isShortList, isLimits, isResearchMode, RESEARCH_MODES,
+};
+>>>>>>> claude/tender-clarke-796mci

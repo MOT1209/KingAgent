@@ -77,9 +77,13 @@ test('wiring: the preload\'s agentPlatform surface is a subset of guarded channe
     'agent:sandboxes', 'agent:sandbox', 'agent:policies', 'agent:policyAudit',
     'agent:explainPolicy', 'agent:sessions', 'agent:session', 'agent:artifacts',
     'agent:artifact', 'agent:delegations', 'agent:route', 'agent:cancelTask',
+    // Phase 7 research
+    'research:start', 'research:status', 'research:cancel', 'research:get',
+    'research:list', 'research:sources', 'research:evidence', 'research:report',
+    'research:capabilities',
   ];
   for (const c of preloadChannels) assert.ok(c in CHANNELS, `unlisted preload channel ${c}`);
-  assert.deepEqual(PUSH_CHANNELS, ['agent:event', 'workflow:event', 'approval:event']);
+  assert.deepEqual(PUSH_CHANNELS, ['agent:event', 'workflow:event', 'approval:event', 'research:event']);
 });
 
 test('wiring: handlers validate payloads before touching the subsystem', async () => {

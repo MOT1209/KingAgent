@@ -158,6 +158,32 @@ gate credentials, network access and deletes behind approval, and deny
 privilege grants outright. Because the merge is most-restrictive-wins, a host
 policy can only ever tighten them.
 
+## Research actions (Phase 7)
+
+`src/core/research/policies/researchPolicy.js` adds a `research.*` action
+family to this engine. It contributes names and a baseline document; it
+contains no evaluation logic and there is no second engine.
+
+| Action | Baseline |
+| --- | --- |
+| `research.start`, `research.plan` | allow — planning does not leave the machine |
+| `research.source.file`, `research.source.local` | allow — files already in the workspace |
+| `research.memory.write` | allow — scoped by the memory policy underneath |
+| `research.search`, `research.fetch`, `research.source.{web,news,academic,github,documentation,discussion}` | approval (`allow` when `research.allowNetworkedSources` is set) |
+| `research.source.mcp` | approval, always — an MCP server is third-party code |
+| `research.browser` | approval, always — browser automation acts as the user |
+
+Two consequences fall out of the rules above rather than being special cases:
+
+- A networked source is evaluated **twice** — on its own action and on the
+  existing `network.request` — and the stricter answer wins. Setting
+  `allowNetworkedSources` does not bypass the network gate.
+- With no approver wired, an approval gate is a denial, so a fresh install does
+  no outbound research unattended.
+
+`evaluateSource(policyManager, { type })` is the two-gate call; with no policy
+manager at all it fails closed for anything networked.
+
 ## The tool bridge
 
 Phase 4 sits in front of the existing tool gate rather than replacing it:

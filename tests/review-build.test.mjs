@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 
 const read = file => fs.readFileSync(new URL('../' + file, import.meta.url), 'utf8');
 const production = yaml.load(read('electron-builder.yml'));

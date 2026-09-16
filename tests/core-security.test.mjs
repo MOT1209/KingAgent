@@ -39,8 +39,11 @@ test('ipc-guard: authorizeResponse requires a boolean decision', () => {
   assert.throws(() => validatePayload('agent:authorizeResponse', { approved: true }), /missing required field "requestId"/);
 });
 
-test('ipc-guard: push channels are a fixed triple the preload subscribes to', () => {
-  assert.deepEqual(PUSH_CHANNELS, ['agent:event', 'workflow:event', 'approval:event']);
+test('ipc-guard: push channels are a fixed set the preload subscribes to', () => {
+  // Phase 7 added `research:event`. The list is asserted exactly rather than
+  // loosely so a new outbound channel cannot appear without someone deciding
+  // the preload should subscribe to it.
+  assert.deepEqual(PUSH_CHANNELS, ['agent:event', 'workflow:event', 'approval:event', 'research:event']);
 });
 
 test('provider: registry registers, resolves defaults and reports itself', () => {

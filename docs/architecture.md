@@ -200,6 +200,41 @@ Full detail in [docs/skills/architecture.md](skills/architecture.md);
 [authoring](skills/creating-skills.md) and
 [skills.sh](skills/skills-sh.md) each have their own document.
 
+## Phase 7: research
+
+Research is a subsystem of the runtime, not a utility beside it: a question
+becomes a planned, budgeted, governed investigation that produces verified
+claims with citations pointing at text somebody can check.
+
+| Subsystem | Path | Responsibility |
+| --- | --- | --- |
+| research | `research/` | the whole layer (`platform.research`) |
+| planning | `research/planner/` | classify, choose a strategy, decompose into non-redundant queries |
+| routing | `research/router/` | does this need research at all; which source types; how much budget each gets |
+| sources | `research/sources/` | web, news, academic, discussion, github, documentation, file, MCP — behind one injected provider registry |
+| retrieval | `research/retrieval/` | bounded-concurrency parallel retrieval, normalization, clustering dedup, reranking, freshness-aware cache |
+| evidence | `research/evidence/` | verbatim spans, claims, independence, conflicts, cross-verification |
+| citations | `research/citations/` | build, format and validate — a citation requires evidence that exists |
+| quality | `research/quality/` | source, evidence and completeness scoring, capped by its weakest pillar |
+| agents | `research/agents/` | a normal read-only KingAgent agent, plus reviewer and synthesizer roles |
+| security | `research/security/` | the untrusted-content boundary: SSRF, injection, credentials, exfiltration |
+| policies | `research/policies/` | research actions for the **existing** policy engine |
+
+It constructs none of what it uses. The policy engine gates each source, the
+`MemoryManager` decides what may be remembered, the `ExecutionTraceStore`
+records the run, the `ArtifactManager` holds the report, the `ToolManager`
+publishes the capabilities and the `AgentRegistry` gets the agent — no second
+manager of anything, asserted by `tests/research-integration.test.mjs`.
+
+Core imports no HTTP client, exactly as it imports no model SDK: every
+networked source resolves through a host-supplied provider
+(`io.research.searchProviders`), and with none configured those source types
+report themselves unavailable *with a reason* rather than returning an empty
+result set that reads as "nothing exists about this topic".
+
+See `docs/research.md` for the pipeline, the four invariants that make the
+output trustworthy, the threat model and the developer API.
+
 ## Mode of transport
 
 - Main is CJS (`"type": "commonjs"`, entry `src/main/main.js`); the renderer is

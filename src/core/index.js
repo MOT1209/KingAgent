@@ -45,6 +45,18 @@
 //   io.sandbox.spawn/kill/killTree   the process owner (node-pty / child_process)
 //   io.sandbox.backend      an explicit backend, bypassing selection
 //   io.costs / io.metrics   routing inputs for cost_aware / performance_aware
+//
+// `io` additions for Phase 7 (all optional; research degrades rather than
+// failing when they are absent):
+//
+//   io.research.searchProviders  { id: { sourceTypes, search, fetch? } } — the
+//                                only place anything reaches the network. Core
+//                                imports no HTTP client, exactly as it imports
+//                                no model SDK.
+//   io.research.mcp              an MCP client ({ listTools, callTool }); without
+//                                one the MCP source reports itself unavailable
+//   io.research.extractText      ({ path, ext }) -> { text } for PDF/DOCX/images
+//   policies.research            §50's settings (see research/index.js)
 
 const { EventBus } = require('./events/event-bus');
 const { createLogger } = require('./logging/logger');
@@ -95,6 +107,9 @@ const {
 // --- Phase 6 subsystems -------------------------------------------------------
 const { createSkillPlatform, currentPlatform: currentSkillPlatform } = require('./skills');
 const { createMcpLayer } = require('./mcp');
+
+// --- Phase 7: research -------------------------------------------------------
+const { createResearchSubsystem } = require('./research');
 
 function createPlatform({
   io = {}, // { fs, root, cwd, runShell, authorize, hostEnv, inheritEnv, policy, harness, sandbox, costs, metrics }
@@ -400,6 +415,7 @@ function createPlatform({
     evaluate: harnessOptions.evaluate || null,
   });
 
+<<<<<<< HEAD
   // --- Phase 6: skills + the MCP capability layer -----------------------------
   //
   // Both are wired *on top of* what already exists rather than beside it: the
@@ -448,6 +464,32 @@ function createPlatform({
     logger: logger.child('mcp'),
     collection: collections.mcpServers,
     policy,
+  });
+
+  // --- Phase 7: the research subsystem ----------------------------------------
+  //
+  // Constructed last because it consumes almost everything above it and owns
+  // none of it: the policy engine gates each source, the MemoryManager decides
+  // what may be remembered, the trace store records the run, the ArtifactManager
+  // holds the report, the ToolManager publishes the capabilities and the
+  // AgentRegistry gets a normal read-only agent. No second manager of any kind.
+  const research = createResearchSubsystem({
+    policy,
+    memory: memoryManager,
+    traces,
+    artifacts,
+    toolManager: tools,
+    agentRegistry: agents,
+    bus,
+    logger,
+    collections,
+    provider,
+    io: {
+      fs,
+      root: io.root || null,
+      ...(io.research || {}),
+    },
+    config: policies.research || {},
   });
 
   return {
@@ -506,12 +548,19 @@ function createPlatform({
       return skills.bootstrap({ actor, installBuiltins: installBuiltinSkills });
     },
 
+    // Phase 7
+    research,
+
     // Release every timer, in-flight decision and spawned process a host is
     // holding. Called when the app quits, so a pending approval or a sandboxed
     // process cannot keep the app alive after the window closes.
     async dispose() {
       approvals.dispose();
       orchestrator.scheduler.cancelAll('platform disposed');
+      // Research first: a live research task holds provider requests, and
+      // cancelling it is what releases them. Disposing the harnesses out from
+      // under it would leave those requests orphaned.
+      await research.dispose().catch(() => {});
       await harnessManager.dispose().catch(() => {});
       await sandboxes.cleanup('platform disposed').catch(() => {});
       if (skills) skills.cache.clear();

@@ -2,7 +2,9 @@
 //
 // Phase 3 adds seven things worth persisting — memory, tasks, traces,
 // workspaces, agent state, projects, artifacts — plus workflow instances since
-// Phase 5 (§12: a restart must not lose workflow history) — and the rule from Phase 2
+// Phase 5 (§12: a restart must not lose workflow history) and the research
+// retrieval cache since Phase 7 (§29: a research answer should not re-pay for
+// the same search after a restart) — and the rule from Phase 2
 // still holds: business logic must not know whether the bytes land in a JSON
 // file, SQLite or a remote service. So none of those subsystems takes a store
 // directly. They take a *collection*: a namespaced put/get/delete/list built on
@@ -26,6 +28,8 @@ const NAMESPACES = Object.freeze({
   // be installed side by side while a dependency range is resolved.
   SKILL: 'skill',
   MCP_SERVER: 'mcpserver',
+  // Phase 7. Research cache for retrieval and evidence deduplication.
+  RESEARCH_CACHE: 'researchcache',
 });
 
 function assertStore(store) {
@@ -104,6 +108,7 @@ function createCollections(store) {
     workflows: createCollection(store, NAMESPACES.WORKFLOW),
     skills: createCollection(store, NAMESPACES.SKILL),
     mcpServers: createCollection(store, NAMESPACES.MCP_SERVER),
+    researchCache: createCollection(store, NAMESPACES.RESEARCH_CACHE),
   };
 }
 

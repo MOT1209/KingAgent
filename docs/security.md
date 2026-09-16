@@ -57,6 +57,36 @@ chain-of-thought or secrets.
   at every depth and survives circular references (`core-foundations.test.mjs`).
 - Provider adapters hold keys in `src/main/`, never in the core or the UI.
 
+## Untrusted external content (Phase 7)
+
+Research ingests text from pages nobody here wrote, files the user pointed at
+and MCP servers someone else configured. `src/core/research/security/researchSecurity.js`
+is the boundary; nothing else in the research layer is allowed to decide these
+questions. Tested in `research-security.test.mjs`.
+
+- **SSRF.** Only `http`/`https`; no credentialed URLs; loopback, private, CGNAT,
+  link-local and cloud-metadata addresses refused, plus bare intranet hostnames.
+  IPv4-mapped IPv6 is handled in **both** spellings — WHATWG `URL` rewrites
+  `[::ffff:127.0.0.1]` to `[::ffff:7f00:1]`, and matching only the readable one
+  let a loopback fetch straight through.
+- **Credentials and exfiltration** are hard failures: API-key and private-key
+  shapes, and long data-carrying URLs, are redacted and the content refused.
+  Outbound query text is screened too — a query decomposed from file contents is
+  the realistic way a secret reaches a search box.
+- **Prompt injection is defanged, not discarded.** Instruction-shaped spans are
+  wrapped in a visible marker and the source's authority is docked. Dropping the
+  page would let any site remove itself from research by adding "ignore previous
+  instructions" to its footer — a denial-of-service, not a defence — and would
+  make research *about* prompt injection impossible.
+- **Nothing is concatenated into a prompt.** `wrapUntrusted` fences retrieved
+  text with a per-call unguessable marker and a header declaring it data.
+- Evidence extraction **refuses** any source without a security verdict, so
+  content cannot reach a model by going around the boundary.
+
+Research telemetry is subject to the same no-deliberation rule as everything
+else: the event types carry operational facts only, and `trace/events.js`
+rejects the forbidden key shapes (`research-integration.test.mjs` asserts it).
+
 ## Coping without a provider
 
 `nullProvider` throws `ModelError`; every subsystem has a deterministic
