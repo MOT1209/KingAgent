@@ -1,0 +1,568 @@
+<title>KingAgent Phase 7 Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;600;700&display=swap">
+<style>
+  :root {
+    /* KingAgent's own Paper theme, extended with audit semantics. */
+    --paper: #fffdf6;
+    --paper-2: #fdf7e6;
+    --paper-3: #f8f1df;
+    --desk: #ece3cf;
+    --ink: #2f2b26;
+    --ink-2: #4a443b;
+    --muted: #8d8065;
+    --faint: #b0a488;
+    --line: #cdbfa2;
+    --rule: #2f4858;
+    --crit: #8f2f24;
+    --high: #9a5b1e;
+    --med: #6b6f2a;
+    --fixed: #4a6b52;
+    --crit-wash: #f7e7e3;
+    --high-wash: #f9eee0;
+    --med-wash: #f2f2df;
+    --fixed-wash: #e6efe7;
+    --shadow: 0 1px 0 rgba(47, 43, 38, .06);
+    color-scheme: light;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --paper: #211f1b;
+      --paper-2: #262320;
+      --paper-3: #2c2925;
+      --desk: #17150f;
+      --ink: #ece5d4;
+      --ink-2: #c9c0ab;
+      --muted: #9b9079;
+      --faint: #6f6757;
+      --line: #423d33;
+      --rule: #8fb4c6;
+      --crit: #e0857a;
+      --high: #dda56a;
+      --med: #b9bd72;
+      --fixed: #8fbf9c;
+      --crit-wash: #35211e;
+      --high-wash: #332720;
+      --med-wash: #2d2e1e;
+      --fixed-wash: #1f2b23;
+      --shadow: none;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #211f1b;
+    --paper-2: #262320;
+    --paper-3: #2c2925;
+    --desk: #17150f;
+    --ink: #ece5d4;
+    --ink-2: #c9c0ab;
+    --muted: #9b9079;
+    --faint: #6f6757;
+    --line: #423d33;
+    --rule: #8fb4c6;
+    --crit: #e0857a;
+    --high: #dda56a;
+    --med: #b9bd72;
+    --fixed: #8fbf9c;
+    --crit-wash: #35211e;
+    --high-wash: #332720;
+    --med-wash: #2d2e1e;
+    --fixed-wash: #1f2b23;
+    --shadow: none;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--desk);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 78ch;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 72px;
+  }
+  .sheet {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: 34px 30px;
+  }
+  @media (max-width: 620px) { .sheet { padding: 22px 18px; } }
+
+  h1, h2, h3 { font-family: "IBM Plex Serif", Georgia, serif; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(27px, 5.6vw, 38px); font-weight: 700; line-height: 1.16; letter-spacing: -.01em; }
+  h2 { font-size: 21px; font-weight: 600; margin-block: 44px 14px; }
+  h3 { font-size: 16px; font-weight: 600; margin-block: 26px 8px; }
+  p { margin: 0 0 12px; max-width: 68ch; }
+  a { color: var(--rule); }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .88em; }
+  code { background: var(--paper-3); border: 1px solid var(--line); border-radius: 2px; padding: .06em .32em; }
+  strong { font-weight: 600; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 10px;
+  }
+  .lede { font-size: 17px; color: var(--ink-2); max-width: 64ch; margin-block: 14px 0; }
+  .rule { height: 2px; background: var(--rule); width: 46px; margin: 18px 0 0; border: 0; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 6px 22px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted);
+    margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line);
+  }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-block: 26px; }
+  .tile { background: var(--paper-2); padding: 14px 16px; }
+  .tile .n { font-family: "IBM Plex Serif", serif; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; display: block; }
+  .tile .k { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; margin-top: 3px; display: block; }
+  .tile.good .n { color: var(--fixed); }
+  .tile.warn .n { color: var(--high); }
+
+  .note { background: var(--paper-3); border-left: 3px solid var(--high); padding: 13px 16px; margin-block: 20px; }
+  .note p:last-child { margin-bottom: 0; }
+  .note .h { font-weight: 600; display: block; margin-bottom: 4px; }
+
+  /* Findings are entries in a ledger, numbered because the commits cite them. */
+  .finding { border: 1px solid var(--line); border-left-width: 4px; border-radius: 2px; background: var(--paper-2); margin-block: 14px; padding: 16px 18px; }
+  .finding.crit { border-left-color: var(--crit); }
+  .finding.high { border-left-color: var(--high); }
+  .finding.med  { border-left-color: var(--med); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; margin-bottom: 8px; }
+  .f-id { font-family: "IBM Plex Mono", monospace; font-weight: 500; color: var(--muted); font-size: 13px; }
+  .f-title { font-family: "IBM Plex Serif", serif; font-weight: 600; font-size: 16.5px; flex: 1 1 14ch; }
+  .chip { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; padding: 2px 7px; border-radius: 2px; border: 1px solid currentColor; white-space: nowrap; }
+  .chip.crit { color: var(--crit); background: var(--crit-wash); }
+  .chip.high { color: var(--high); background: var(--high-wash); }
+  .chip.med  { color: var(--med);  background: var(--med-wash); }
+  .chip.fixed { color: var(--fixed); background: var(--fixed-wash); }
+  .f-body p { margin: 0 0 10px; }
+  .f-body p:last-child { margin-bottom: 0; }
+  .proof { background: var(--paper-3); border: 1px solid var(--line); border-radius: 2px; padding: 10px 12px; margin: 10px 0; overflow-x: auto; }
+  .proof pre { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 12.2px; line-height: 1.55; white-space: pre; }
+  .proof .cap { display: block; font-size: 11px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
+
+  .tablewrap { overflow-x: auto; margin-block: 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 460px; }
+  th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  ul { margin: 0 0 12px; padding-left: 20px; }
+  li { margin-bottom: 6px; max-width: 66ch; }
+
+  .verdict { display: grid; grid-template-columns: 1fr auto; gap: 4px 18px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .verdict:last-child { border-bottom: 0; }
+  .verdict .why { grid-column: 1 / -1; font-size: 13px; color: var(--muted); max-width: 62ch; }
+  .grade { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .grade.s { color: var(--fixed); }
+  .grade.a { color: var(--med); }
+  .grade.b { color: var(--high); }
+
+  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+<div class="sheet">
+
+  <p class="eyebrow">Post-implementation audit · KingAgent</p>
+  <h1>Phase 7 shipped with seven defects. All seven are closed.</h1>
+  <hr class="rule">
+  <p class="lede">
+    A full-surface audit of the Research Intelligence layer and the platform it
+    attaches to. Every finding below was reproduced before it was fixed, and
+    every fix carries a test that would have caught the original.
+  </p>
+  <div class="meta">
+    <span>Branch <code>claude/tender-clarke-796mci</code></span>
+    <span>Scope: 59 modules · 10,027 lines</span>
+    <span>5 commits · +1,062 / −150</span>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><span class="n">7</span><span class="k">defects found</span></div>
+    <div class="tile good"><span class="n">7</span><span class="k">fixed &amp; tested</span></div>
+    <div class="tile good"><span class="n">1,813</span><span class="k">tests passing</span></div>
+    <div class="tile good"><span class="n">0</span><span class="k">failing</span></div>
+    <div class="tile"><span class="n">94.2%</span><span class="k">research coverage</span></div>
+    <div class="tile warn"><span class="n">2</span><span class="k">advisories left open</span></div>
+  </div>
+
+  <div class="note">
+    <span class="h">How this audit was actually run</span>
+    <p>
+      Ten specialised audit agents were launched in parallel. All ten died on the
+      session rate limit within minutes, having produced nothing usable — the
+      cost problem that was flagged before launching them. The audit was then
+      performed directly. This is recorded because a report that implied ten
+      teams reviewed this code would be false.
+    </p>
+  </div>
+
+  <h2>What the defects have in common</h2>
+  <p>
+    Six of the seven produced a <strong>confident wrong answer, a silent loss, or
+    a bypass</strong> — not a crash, not an error message. That is the failure
+    class a research engine has to be defended against, because nothing in the
+    output looks wrong. The seventh was an outright crash, and was the easiest to
+    find precisely because it announced itself.
+  </p>
+
+  <h2>Findings</h2>
+
+  <div class="finding crit">
+    <div class="f-head">
+      <span class="f-id">F4</span>
+      <span class="f-title">Large corpora crashed the process</span>
+      <span class="chip crit">crash</span><span class="chip fixed">fixed</span>
+    </div>
+    <div class="f-body">
+      <p>
+        Conflict detection appended its results with <code>push(...array)</code>,
+        which passes every element as a separate argument. Six hundred
+        disagreeing evidence items exceeded the argument limit and overflowed the
+        call stack, taking down the run.
+      </p>
+      <div class="proof">
+        <span class="cap">Before</span>
+        <pre>evidence=50    conflicts=1072   43ms
+evidence=200   conflicts=17143  633ms
+evidence=600   RangeError: Maximum call stack size exceeded</pre>
+      </div>
+      <p><strong>Fix:</strong> appended with a loop. <strong>Test:</strong> 2,000 disagreeing items must not throw.</p>
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-head">
+      <span class="f-id">F5</span>
+      <span class="f-title">Disagreements grew quadratically</span>
+      <span class="chip high">high</span><span class="chip fixed">fixed</span>
+    </div>
+    <div class="f-body">
+      <p>
+        Value conflicts are found pairwise, so 200 pieces of evidence produced
+        17,143 "conflicts". That is not a report anyone can read, and it is the
+        shape that led to the crash above.
+      </p>
+      <div class="proof">
+        <span class="cap">After</span>
+        <pre>evidence=50     conflicts=13  39ms
+evidence=200    conflicts=13  47ms
+evidence=600    conflicts=13  46ms
+evidence=2000   conflicts=13  48ms</pre>
+      </div>
+      <p>
+        <strong>Fix:</strong> detection is capped per claim and the pair scan is
+        bounded to the strongest evidence. A truncated set is declared as a
+        summary conflict — <em>“N further disagreements are not listed
+        individually; the sources do not agree”</em> — rather than silently cut.
+        A two-source disagreement is still reported in full, with both figures.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-head">
+      <span class="f-id">F3</span>
+      <span class="f-title">One oversized artifact destroyed all five</span>
+      <span class="chip high">data loss</span><span class="chip fixed">fixed</span>
+    </div>
+    <div class="f-body">
+      <p>
+        A deep run's <code>evidence.json</code> reached ~533&nbsp;KB and
+        <code>sources.json</code> ~294&nbsp;KB against the ArtifactManager's
+        256&nbsp;KB inline ceiling. They were written sequentially under one
+        shared <code>catch</code>, so the first oversized write aborted the rest.
+        A run could write one artifact and report zero — losing the data
+        <em>and</em> misreporting what it had.
+      </p>
+      <div class="proof">
+        <span class="cap">Reproduction</span>
+        <pre>untrimmed:  1,189,793 bytes   → rejected, run reports 0 artifacts
+trimmed:      148,698 bytes   → accepted, 50 of 400 kept
+                               + {"kept":50,"total":400,"reason":"trimmed"}</pre>
+      </div>
+      <p>
+        <strong>Fix:</strong> each artifact is written independently, payloads
+        are trimmed to fit, and a trimmed payload carries a
+        <code>truncated</code> note. A record that does not say it is truncated
+        is worse than a missing one.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-head">
+      <span class="f-id">F1</span>
+      <span class="f-title">DNS-based SSRF bypass</span>
+      <span class="chip high">security</span><span class="chip fixed">fixed</span>
+    </div>
+    <div class="f-body">
+      <p>
+        The URL screen inspects the host as written, so it catches
+        <code>127.0.0.1</code> in every encoding — decimal, hex, octal,
+        IPv4-mapped IPv6. It did not catch a <em>public name that resolves to a
+        private address</em>.
+      </p>
+      <div class="proof">
+        <span class="cap">Allowed before the fix</span>
+        <pre>http://localtest.me/                  → 127.0.0.1
+http://169.254.169.254.nip.io/        → cloud metadata endpoint</pre>
+      </div>
+      <p>
+        <strong>Fix:</strong> the known wildcard-DNS services are blocked by name
+        — but that is a blocklist, and blocklists are never complete. The real
+        defence is the new <code>screenResolvedAddress(ip)</code>, which the code
+        that actually opens the socket calls with what DNS returned.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-head">
+      <span class="f-id">F2</span>
+      <span class="f-title">Redirects were never screened</span>
+      <span class="chip high">security</span><span class="chip fixed">fixed</span>
+    </div>
+    <div class="f-body">
+      <p>
+        Only the initial URL was checked. A page on an allowed domain could
+        redirect to the metadata endpoint and defeat the screen entirely — the
+        textbook bypass, and the code's own comment already mentioned "a redirect
+        target" while nothing handled one.
+      </p>
+      <p>
+        <strong>Fix:</strong> <code>screenRedirect(from, to)</code> screens every
+        hop against the same rules, bounded by <code>MAX_REDIRECTS</code>.
+      </p>
+      <div class="note" style="margin-block:12px; border-left-color: var(--high);">
+        <p style="font-size:13.5px">
+          <strong>This one is a contract, not an enforcement.</strong> The core
+          performs no network I/O by design, so F1 and F2 can only be honoured by
+          the provider that does the fetching. The guards are exported and the
+          obligation is now stated in <code>searchProvider.js</code>, where a
+          provider author reads it — but a provider that ignores it is still
+          vulnerable. Verify this when you wire a real search backend.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding med">
+    <div class="f-head">
+      <span class="f-id">F6</span>
+      <span class="f-title">An href sink trusting upstream validation</span>
+      <span class="chip med">defence in depth</span><span class="chip fixed">fixed</span>
+    </div>
+    <div class="f-body">
+      <p>
+        The research panel assigned a source URL straight to <code>a.href</code>
+        on the strength of upstream screening alone. No exploit path was found —
+        the screen does reject <code>javascript:</code> — but a sink that trusts
+        its input is one refactor away from being the hole.
+      </p>
+      <p>
+        <strong>Fix:</strong> the scheme is validated at the sink, and a
+        non-linkable URL is shown as text rather than hidden, so a reader can
+        still see what the research cited.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding med">
+    <div class="f-head">
+      <span class="f-id">F7</span>
+      <span class="f-title">Fourteen dead exports, two of them live logic written twice</span>
+      <span class="chip med">maintainability</span><span class="chip fixed">fixed</span>
+    </div>
+    <div class="f-body">
+      <p>
+        The specification asks for no dead code, and the layer had fourteen
+        exports referenced only by their own export line. They were not all the
+        same thing:
+      </p>
+      <ul>
+        <li>
+          <strong>Two were duplication.</strong> <code>isAssertable</code> is the
+          claim schema's answer to "may this be stated plainly?", and both the
+          synthesizer and the quality evaluator re-derived it from status
+          comparisons — how two layers drift into disagreeing about what an
+          answer may assert.
+        </li>
+        <li>
+          <strong>Three were an advertised feature that did not work.</strong>
+          Asking the renderer for footnote citations produced <code>[1]</code>
+          markers in the prose with <code>[^1]:</code> definitions underneath: a
+          document whose footnotes point at nothing.
+        </li>
+        <li>
+          <strong>One was a real gap.</strong> A file citation printed a bare
+          filename and lost the line range — the part a reader needs to check it.
+        </li>
+        <li>
+          <strong>Eight were speculation</strong> and are deleted rather than
+          kept as surface nobody exercises.
+        </li>
+      </ul>
+      <p>
+        A test now fails the build if a research export goes unreferenced again.
+        Writing it surfaced an eighth defect: <code>ARTIFACT_INLINE_BUDGET</code>
+        was never re-exported from the barrel, so any consumer comparing against
+        it was comparing against <code>undefined</code>.
+      </p>
+    </div>
+  </div>
+
+  <h2>Coverage by domain</h2>
+  <p>
+    Ten domains were examined. Reporting the clean ones matters as much as the
+    findings — an audit that only lists problems gives no sense of what was
+    actually looked at.
+  </p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Domain</th><th>Result</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>Security — SSRF</td><td><span class="chip high">2 found</span></td><td>F1, F2. Decimal, hex, octal, short-form and IPv4-mapped encodings were all already correctly refused.</td></tr>
+      <tr><td>Security — injection</td><td><span class="chip fixed">clean</span></td><td>21 tests. Defanging, credential redaction, exfiltration stripping and untrusted framing all hold.</td></tr>
+      <tr><td>Security — XSS</td><td><span class="chip med">1 found</span></td><td>F6. The missing <code>'</code> in <code>escapeHtml</code> was checked and is <em>not</em> reachable: no single-quoted attribute interpolation exists.</td></tr>
+      <tr><td>Correctness</td><td><span class="chip crit">2 found</span></td><td>F4, F5.</td></tr>
+      <tr><td>Reliability</td><td><span class="chip high">1 found</span></td><td>F3.</td></tr>
+      <tr><td>Architecture</td><td><span class="chip med">1 found</span></td><td>F7. No require cycles anywhere in <code>src/core</code>.</td></tr>
+      <tr><td>Performance</td><td><span class="chip fixed">clean after F5</span></td><td>Flat at ~47&nbsp;ms from 50 to 2,000 items. Task retention and deadlines were already bounded.</td></tr>
+      <tr><td>Cross-platform</td><td><span class="chip fixed">clean</span></td><td>No <code>process.platform</code> branching, no hardcoded OS paths, no subprocesses in the research layer. Windows-shaped paths tested.</td></tr>
+      <tr><td>Electron posture</td><td><span class="chip fixed">clean</span></td><td>A preliminary concern was <strong>wrong</strong>: Electron 43 sandboxes by default and nothing sets <code>sandbox: false</code>. <code>contextIsolation</code> on, <code>nodeIntegration</code> off, everywhere.</td></tr>
+      <tr><td>Dependencies</td><td><span class="chip high">1 taken, 2 open</span></td><td>See below.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Dependencies</h2>
+  <p>
+    Three high-severity advisories. One was taken; two are open, deliberately.
+  </p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Advisory</th><th>Reachable here?</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>js-yaml</code> 4.0.0–4.3.1<br><span class="mono" style="color:var(--muted)">GHSA-2883-xcg3-v3hh</span></td>
+        <td>No — dev-only, and the two scripts parse our own build output, not attacker input.</td>
+        <td><span class="chip fixed">taken</span> Bumped to 5.4.2. The major version dropped the ESM default export; four files updated, and the <code>notarize-dmg</code> test caught the break immediately.</td>
+      </tr>
+      <tr>
+        <td><code>sharp</code> / libvips<br><span class="mono" style="color:var(--muted)">CVE-2026-33327 et al.</span></td>
+        <td>No — pulled in by <code>@huggingface/transformers</code>, which this app uses <em>only</em> for Whisper audio. The image pipeline that reaches sharp is never touched.</td>
+        <td rowspan="2"><span class="chip high">open</span> The fix is a 3.x→4.x major bump. <code>package.json</code> already documents why that pin is deliberate, and <code>stt-local.js</code> documents version-specific onnxruntime behaviour in 3.8.1. Needs the offline speech path re-validated on a real machine.</td>
+      </tr>
+      <tr>
+        <td><code>@huggingface/transformers</code> 3.8.1</td>
+        <td>Runtime dependency, but only the audio path.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Tests</h2>
+  <p>
+    173 tests now cover the research layer across eight files. The suite as a
+    whole runs in under seven seconds.
+  </p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>File</th><th class="num">Tests</th><th>Covers</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">research-unit</td><td class="num">51</td><td>Classifier, planner, strategy, routers, dedup, rerank, cache, extractor, store, claims, conflicts, citations, quality, task model</td></tr>
+      <tr><td class="mono">research-audit</td><td class="num">23</td><td>The §56 audits as assertions — architecture, security posture, performance bounds, accuracy invariants, MCP, skills, cross-platform</td></tr>
+      <tr><td class="mono">research-security</td><td class="num">21</td><td>SSRF, domains, injection, credentials, exfiltration, framing, unsafe files, the boundary end to end</td></tr>
+      <tr><td class="mono">research-integration</td><td class="num">18</td><td>No duplicate architecture, platform wiring, agents, tools, skills, policy, trace, artifacts, memory, recovery</td></tr>
+      <tr><td class="mono">research-review-memory</td><td class="num">18</td><td>The stages whose job is to refuse: reviewer checks, verifier selection, every memory refusal path</td></tr>
+      <tr><td class="mono">research-e2e</td><td class="num">15</td><td>The eight required scenarios, cancellation, budget, and the no-model path</td></tr>
+      <tr><td class="mono">research-hardening</td><td class="num">14</td><td>One regression per finding above</td></tr>
+      <tr><td class="mono">research-ui</td><td class="num">13</td><td>Progress reducer and the panel's boundaries</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>
+    Coverage of the research layer rose from 93.1% to <strong>94.2% of
+    statements</strong> and 76.4% to <strong>77.4% of branches</strong>. The
+    weakest files were the deep-mode stages — the reviewer at 66.8%, the verifier
+    role at 62.5%, memory at 51.4% branches. Those are exactly the stages that
+    exist to say <em>no</em>, and a reviewer that never fails a check is
+    indistinguishable from not being there, so they were covered first.
+  </p>
+
+  <h2>Risks that remain</h2>
+
+  <h3>The web path has never run against a real provider</h3>
+  <p>
+    This is the largest gap and it has not moved. The core imports no HTTP
+    client by design, the app ships no search key, and this environment's proxy
+    blocks the open web — the attempt was made and returned 403. Every web test
+    runs against a fake provider. Retries, redirects, rate limits, malformed
+    JSON, gzip, character encodings and slow responses are <strong>untested
+    against real-world behaviour</strong>. Wiring a real backend is the next
+    piece of work, and F1/F2 must be verified at that point.
+  </p>
+
+  <h3>Two dependency advisories are open</h3>
+  <p>
+    Neither is reachable through this app's code paths, but both are present in
+    the shipped tree. The transformers upgrade is a real piece of work, not a
+    version bump.
+  </p>
+
+  <h3>The app was never launched</h3>
+  <p>
+    Nothing here ran Electron. Cross-platform correctness was established by
+    static audit and by feeding Windows-shaped paths to the pure functions — a
+    real check, but not a run. The research panel's rendering has never been seen
+    on screen.
+  </p>
+
+  <h3>Classification is lexical</h3>
+  <p>
+    The classifier and query decomposition work on structured English. Another
+    language or an unusual phrasing will be categorised less accurately. The
+    <code>refine</code> hook exists for a model-backed improvement but is not
+    wired by default.
+  </p>
+
+  <h2>Verdict</h2>
+  <div class="verdict"><span>Architecture</span><span class="grade s">strong</span><span class="why">No second manager of anything, asserted by test. No require cycles. Dead code removed and kept out by a test.</span></div>
+  <div class="verdict"><span>Security</span><span class="grade a">good</span><span class="why">Three real gaps found and closed; the injection and credential boundaries held under adversarial probing. Held back from strong because F1 and F2 are a contract the host must honour, not something core can enforce.</span></div>
+  <div class="verdict"><span>Correctness</span><span class="grade a">good</span><span class="why">The crash and the quadratic blow-up are fixed and pinned. The evidence, claim and citation invariants held throughout.</span></div>
+  <div class="verdict"><span>Reliability</span><span class="grade a">good</span><span class="why">Retry, fallback, cancellation, budgets, honest partial results, and artifacts that no longer take each other down.</span></div>
+  <div class="verdict"><span>Testing</span><span class="grade s">strong</span><span class="why">1,813 passing, 173 on this layer, 94.2% statements — and the audits are themselves tests, so these properties cannot regress quietly.</span></div>
+  <div class="verdict"><span>Performance</span><span class="grade a">good</span><span class="why">Measured flat to 2,000 items. Never measured under real network latency.</span></div>
+  <div class="verdict"><span>UX</span><span class="grade b">adequate</span><span class="why">Functional and honest — a bad run reads as a bad run — but never seen rendered.</span></div>
+  <div class="verdict"><span>Extensibility</span><span class="grade s">strong</span><span class="why">Providers, adapters and every platform dependency injected; the subsystem builds and describes itself with nothing wired.</span></div>
+
+  <h2>Reproduce any of this</h2>
+  <div class="proof">
+    <pre>npm test                  # 1,819 tests, 1,813 pass, 6 skipped
+npx eslint .              # clean
+npm audit                 # 2 high, both unreachable — see above
+
+node --test tests/research-hardening.test.mjs      # one test per finding
+node --test tests/research-security.test.mjs       # the threat model
+npx c8 --reporter=text --include='src/core/research/**' \
+  node --test tests/research-*.test.mjs            # coverage</pre>
+  </div>
+
+  <footer>
+    Five commits on <code>claude/tender-clarke-796mci</code>, each naming the
+    defect it closes and the reproduction that found it. Nothing in this report
+    is claimed that the suite does not demonstrate.
+  </footer>
+
+</div>
+</div>
