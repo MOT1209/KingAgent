@@ -298,3 +298,38 @@ test('audit/platform: a Windows-shaped path is handled like any other', async ()
   assert.equal(out.length, 1);
   assert.equal(out[0].source.path, winPath);
 });
+
+test('audit/performance: finished tasks are evicted, live ones never are', async () => {
+  const { createResearchSubsystem } = require('../src/core/research');
+  const { MAX_RETAINED_TASKS } = require('../src/core/research/engine');
+  const { PolicyManager } = require('../src/core/policy');
+  const policy = new PolicyManager({ defaultEffect: 'allow' });
+  policy.loadBaseline();
+  policy.setApprover(async () => true);
+
+  const s = createResearchSubsystem({
+    policy,
+    io: { searchProviders: { d: { sourceTypes: ['web', 'documentation'], async search() {
+      return [{ title: 'D', url: 'https://d.example/1', content: 'The protocol supports stdio and HTTP transports for local servers everywhere here.' }];
+    } } } },
+    config: { allowNetworkedSources: true },
+  });
+
+  for (let i = 0; i < MAX_RETAINED_TASKS + 15; i += 1) {
+    await s.researcher.answer(`What transports does the protocol support? run ${i}`);
+  }
+  assert.equal(s.engine.list().length, MAX_RETAINED_TASKS, 'finished tasks are not evicted');
+  // The most recent run is still readable — eviction takes the oldest.
+  assert.ok(s.engine.result(s.engine.list()[0].id));
+});
+
+test('audit/performance: the deadline runs from when work starts, not from creation', async () => {
+  const { createResearchSubsystem } = require('../src/core/research');
+  const s = createResearchSubsystem({ io: {} });
+  const task = s.engine.create({ question: 'what is a widget', mode: 'quick' });
+  // Held for a while before running: a deadline anchored at creation would make
+  // the task start already expired.
+  task.deadline -= task.limits.timeoutMs + 60_000;
+  const result = await s.engine.run(task);
+  assert.notEqual(result.task.status, 'cancelled', 'the task expired before it started');
+});

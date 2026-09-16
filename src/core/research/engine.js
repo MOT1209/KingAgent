@@ -18,7 +18,7 @@ const { newId } = require('../workspace/identity');
 
 const {
   createResearchTask, validateResearchTask, transition, spend, recordFailure,
-  researchTaskView, RESEARCH_STATUS, RESEARCH_MODES, expired, isPartial,
+  researchTaskView, RESEARCH_STATUS, RESEARCH_MODES, expired, isPartial, isTerminal,
 } = require('./schemas/researchTask');
 const { sourceView } = require('./schemas/source');
 const { queryView } = require('./schemas/researchQuery');
@@ -55,6 +55,13 @@ const {
 // until the reviewer is happy" is an unbounded spend and the reviewer is not
 // the one paying (§30).
 const MAX_ROUNDS = 3;
+
+// How many finished tasks stay inspectable. `research:get` and the UI read a
+// completed task after the run, so they cannot be dropped the moment they
+// finish — but keeping every one of them for the life of the process is a leak
+// in a long session, and §46 names it. Oldest finished task goes first; a task
+// that is still running is never evicted.
+const MAX_RETAINED_TASKS = 25;
 
 class ResearchEngine extends EventEmitter {
   constructor({
@@ -127,7 +134,22 @@ class ResearchEngine extends EventEmitter {
       emit: (e) => this._emit(ctx, e),
     });
     this._live.set(task.id, ctx);
+    this._evict();
     return task;
+  }
+
+  // Drop the oldest *finished* tasks past the retention limit. A live task is
+  // never evicted, however old: cancelling it is the only way it goes away, and
+  // silently dropping one would orphan its provider requests.
+  _evict() {
+    if (this._live.size <= MAX_RETAINED_TASKS) return;
+    const finished = [...this._live.values()]
+      .filter((c) => isTerminal(c.task.status))
+      .sort((a, b) => (a.task.completedAt || 0) - (b.task.completedAt || 0));
+    for (const ctx of finished) {
+      if (this._live.size <= MAX_RETAINED_TASKS) break;
+      this.dispose(ctx.task.id);
+    }
   }
 
   // Should this request be researched at all, and how (§2)? Exposed so an agent
@@ -175,6 +197,11 @@ class ResearchEngine extends EventEmitter {
     const task = input && input.id && this._live.has(input.id) ? input : this.create(input);
     const ctx = this._live.get(task.id);
     if (signal) signal.addEventListener('abort', () => this.cancel(task.id, 'caller aborted'), { once: true });
+
+    // The deadline runs from when the work starts, not from when the task was
+    // described. A task created and held for a minute would otherwise begin
+    // already expired, and the timeout is meant to bound the *research*.
+    task.deadline = Date.now() + task.limits.timeoutMs;
 
     ctx.trace = this._startTrace(ctx);
     this._emit(ctx, {
@@ -558,7 +585,9 @@ class ResearchEngine extends EventEmitter {
     if (ctx.trace && this._traces && typeof this._traces.completeTrace === 'function') {
       this._traces.completeTrace(ctx.trace.traceId, { status: task.status });
     }
-    return this.result(task.id);
+    const out = this.result(task.id);
+    this._evict();
+    return out;
   }
 
   async _fail(ctx, err, { workspace: _workspace = null } = {}) {
@@ -750,4 +779,4 @@ function refsFor(task) {
   };
 }
 
-module.exports = { ResearchEngine, MAX_ROUNDS, ROUTE, RESEARCH_MODES, createResearchTask, spend };
+module.exports = { ResearchEngine, MAX_ROUNDS, MAX_RETAINED_TASKS, ROUTE, RESEARCH_MODES, createResearchTask, spend };
