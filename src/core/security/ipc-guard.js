@@ -283,11 +283,8 @@ function allowedChannel(channel) {
   return channel in CHANNELS;
 }
 
-<<<<<<< HEAD
-module.exports = { CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel, isOpaqueId, isShortText, isSkillTerm, isRepository, isRelPath };
-=======
 module.exports = {
   CHANNELS, PUSH_CHANNELS, validatePayload, allowedChannel,
-  isOpaqueId, isShortText, isQuestion, isShortList, isLimits, isResearchMode, RESEARCH_MODES,
+  isOpaqueId, isShortText, isSkillTerm, isRepository, isRelPath,
+  isQuestion, isShortList, isLimits, isResearchMode, RESEARCH_MODES,
 };
->>>>>>> claude/tender-clarke-796mci

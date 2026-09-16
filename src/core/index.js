@@ -415,7 +415,6 @@ function createPlatform({
     evaluate: harnessOptions.evaluate || null,
   });
 
-<<<<<<< HEAD
   // --- Phase 6: skills + the MCP capability layer -----------------------------
   //
   // Both are wired *on top of* what already exists rather than beside it: the
