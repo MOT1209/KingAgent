@@ -34,6 +34,19 @@ function sameSubject(a, b, threshold = 0.45) {
   return coverage(ta, tb) >= threshold || coverage(tb, ta) >= threshold;
 }
 
+// A ceiling on how many distinct disagreements one claim can report.
+//
+// Value conflicts are found pairwise, so a claim supported by n pieces of
+// evidence that all state different numbers yields O(n^2) of them: 200 pieces
+// produced 17,143 conflicts in one measurement, and 600 overflowed the call
+// stack. Neither number is a report anyone can read — past a handful of
+// disagreements the finding is "these sources do not agree", not a list — so
+// detection stops at the ceiling and records that it did.
+const MAX_CONFLICTS_PER_CLAIM = 12;
+// Pairwise comparison is bounded too, so a large corpus costs linear time in
+// the cap rather than quadratic time in the corpus.
+const MAX_PAIRWISE_EVIDENCE = 60;
+
 function detect({ store, claims, sources = null }) {
   const sourcesById = sources || store.sourcesById();
   const clusterOf = store.clusterMap();
@@ -47,7 +60,24 @@ function detect({ store, claims, sources = null }) {
       ...stanceConflicts({ claim, evidence, sourcesById, clusterOf }),
       ...valueConflicts({ claim, evidence, sourcesById, clusterOf }),
     ];
-    conflicts.push(...collapse(found, clusterOf));
+    const collapsed = collapse(found, clusterOf);
+    const kept = collapsed.slice(0, MAX_CONFLICTS_PER_CLAIM);
+    // Appended with a loop rather than `push(...array)`: spreading a large
+    // array into a call passes every element as an argument and overflows the
+    // stack, which is how this crashed at 600 evidence items.
+    for (const c of kept) conflicts.push(c);
+    if (collapsed.length > kept.length) {
+      conflicts.push(normalizeConflict({
+        claimId: claim.id,
+        claimText: claim.text,
+        positions: [],
+        sourceIds: [...new Set(collapsed.slice(kept.length).flatMap((c) => c.sourceIds))].slice(0, 50),
+        severity: CONFLICT_SEVERITY.MATERIAL,
+        resolution: CONFLICT_RESOLUTION.REPORT_UNCERTAINTY,
+        resolutionReason: `${collapsed.length - kept.length} further disagreement(s) about this claim are not listed individually; the sources do not agree on it`,
+        confidence: 0.2,
+      }));
+    }
   }
   return conflicts;
 }
@@ -124,7 +154,12 @@ function valueConflicts({ claim, evidence, sourcesById, clusterOf }) {
   const out = [];
   const withValues = evidence
     .map((e) => ({ e, values: valuesIn(e.text) }))
-    .filter((r) => r.values.length > 0);
+    .filter((r) => r.values.length > 0)
+    // Strongest evidence first, then capped: the pair scan is O(n^2), and the
+    // disagreements worth reporting are the ones between the evidence that
+    // carries the most weight.
+    .sort((a, b) => (b.e.strength || 0) - (a.e.strength || 0))
+    .slice(0, MAX_PAIRWISE_EVIDENCE);
 
   // One conflict per pair of evidence, however many values disagree inside it:
   // a page listing three numbers that all differ from another page's three is
@@ -192,6 +227,8 @@ function trim(text) {
 function resolve(conflict, { store, sourcesById = null } = {}) {
   const byId = sourcesById || store.sourcesById();
   const [left, right] = conflict.positions;
+  // A summary conflict ("N further disagreements") has no two positions to
+  // weigh, and it is already `report_uncertainty` — which is the right answer.
   if (!left || !right) return conflict;
 
   // Resolving a conflict has to have consequences for the losing side, or the
@@ -248,4 +285,5 @@ function resolveAll(conflicts, { store }) {
 module.exports = {
   detect, resolve, resolveAll, valuesIn, valuesDisagree, sameSubject,
   VALUE_PATTERNS, STALENESS_MS, CONFLICT_SEVERITY, CONFLICT_RESOLUTION,
+  MAX_CONFLICTS_PER_CLAIM, MAX_PAIRWISE_EVIDENCE,
 };

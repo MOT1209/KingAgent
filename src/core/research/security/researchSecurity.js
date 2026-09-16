@@ -32,6 +32,20 @@ const BLOCKED_HOSTS = Object.freeze([
   'metadata.google.internal', 'metadata.goog', 'instance-data',
 ]);
 
+// Public names that resolve to private addresses.
+//
+// The screen below inspects the *literal* host, so a hostname is only as safe
+// as what DNS says it is — and `localtest.me` resolves to 127.0.0.1 while
+// `169.254.169.254.nip.io` resolves to the cloud metadata endpoint. Both
+// passed. Blocking the known wildcard-resolver services closes the easy case,
+// but it is a blocklist and blocklists are never complete: the real defence is
+// `assertResolvedAddressAllowed`, which a host's fetcher calls with the address
+// DNS actually returned. This list is the cheap layer in front of it.
+const REBINDING_SUFFIXES = Object.freeze([
+  'nip.io', 'sslip.io', 'xip.io', 'localtest.me', 'lvh.me', 'vcap.me',
+  'localho.st', '1u.ms', 'traefik.me', 'readthedocs.io.localhost',
+]);
+
 const BLOCKED_IPV4 = Object.freeze([
   [10, 8],        // 10.0.0.0/8
   [127, 8],       // loopback
@@ -143,6 +157,9 @@ function screenUrl(rawUrl, { allowedDomains = [], excludedDomains = [], allowPri
   if (!allowPrivateHosts) {
     if (BLOCKED_HOSTS.includes(host)) return deny(`host ${host} is not reachable from research`, rawUrl, domain);
     if (isBlockedIpv4(host) || isBlockedIpv6(host)) return deny(`host ${host} is a private or loopback address`, rawUrl, domain);
+    if (REBINDING_SUFFIXES.some((suffix) => domainMatches(domain, suffix))) {
+      return deny(`host ${host} belongs to a wildcard DNS service that resolves to arbitrary addresses`, rawUrl, domain);
+    }
     // A bare hostname with no dot is an intranet name; resolving it is the
     // SSRF path that does not look like an IP.
     if (!host.includes('.') && !host.includes(':')) return deny(`host ${host} is not a public name`, rawUrl, domain);
@@ -172,6 +189,41 @@ function assertUrlAllowed(rawUrl, opts) {
   }
   return verdict;
 }
+
+// The check a fetcher must apply to the address DNS returned, and to every
+// redirect hop.
+//
+// `screenUrl` can only see the string. Two things defeat a string check: a
+// hostname that resolves to a private address, and a redirect from an allowed
+// host to a forbidden one. Neither is visible before the request is made, so
+// they cannot be answered here — they are answered by the code that performs
+// the request, and this is the function it calls.
+//
+// `address` is the resolved IP (from `dns.lookup` before connecting, or the
+// socket's `remoteAddress` after). Returns the same verdict shape as screenUrl.
+function screenResolvedAddress(address, { allowPrivateHosts = false } = {}) {
+  if (!isString(address) || !address.trim()) return deny('no resolved address', null, null);
+  if (allowPrivateHosts) return { ok: true, reason: '', url: null, domain: null };
+  const host = address.replace(/^\[|\]$/g, '').toLowerCase();
+  if (isBlockedIpv4(host) || isBlockedIpv6(host) || host === '::1' || host === '::') {
+    return deny(`resolved address ${address} is private, loopback or link-local`, null, null);
+  }
+  return { ok: true, reason: '', url: null, domain: null };
+}
+
+// One hop of a redirect chain. The destination is screened exactly as the
+// original URL was, against the same allow and block lists — a page on an
+// allowed domain redirecting to the metadata endpoint is the classic bypass,
+// and it is only caught if every hop is screened.
+function screenRedirect(fromUrl, toUrl, opts = {}) {
+  const verdict = screenUrl(toUrl, opts);
+  if (verdict.ok) return verdict;
+  return deny(`refused to follow a redirect from ${String(fromUrl).slice(0, 200)}: ${verdict.reason}`, toUrl, verdict.domain);
+}
+
+// The maximum redirect chain a research fetch may follow. Bounded so a
+// redirect loop cannot hold a provider slot open until the task deadline.
+const MAX_REDIRECTS = 5;
 
 // --- 2. is what came back safe to use? --------------------------------------
 
@@ -301,7 +353,9 @@ function screenFilePath(p) {
 }
 
 module.exports = {
-  ALLOWED_SCHEMES, BLOCKED_HOSTS, INJECTION_PATTERNS, CREDENTIAL_PATTERNS, UNSAFE_FILE_EXT,
-  screenUrl, assertUrlAllowed, screenContent, screenOutbound, screenFilePath,
+  ALLOWED_SCHEMES, BLOCKED_HOSTS, REBINDING_SUFFIXES, INJECTION_PATTERNS, CREDENTIAL_PATTERNS,
+  UNSAFE_FILE_EXT, MAX_REDIRECTS,
+  screenUrl, assertUrlAllowed, screenResolvedAddress, screenRedirect,
+  screenContent, screenOutbound, screenFilePath,
   wrapUntrusted, domainMatches, isBlockedIpv4, isBlockedIpv6, entropy, defang,
 };

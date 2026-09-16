@@ -21,7 +21,7 @@ const { createDocumentationSource } = require('./sources/documentationSource');
 const { createFileSource } = require('./sources/fileSource');
 const { createMcpSource } = require('./sources/mcpSource');
 const { createRetrievalCache } = require('./retrieval/retrievalCache');
-const { ResearchEngine } = require('./engine');
+const { ResearchEngine, ARTIFACT_INLINE_BUDGET, MAX_RETAINED_TASKS } = require('./engine');
 const { ResearchMemory } = require('./memory/researchMemory');
 const { Researcher } = require('./agents/researcher');
 const { Verifier } = require('./agents/verifier');
@@ -196,6 +196,8 @@ module.exports = {
   DEFAULT_CONFIG,
   // Re-exported so a host can reach the pieces without deep paths.
   ResearchEngine,
+  ARTIFACT_INLINE_BUDGET,
+  MAX_RETAINED_TASKS,
   ResearchMemory,
   Researcher,
   Verifier,

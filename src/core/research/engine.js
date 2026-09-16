@@ -63,6 +63,20 @@ const MAX_ROUNDS = 3;
 // that is still running is never evicted.
 const MAX_RETAINED_TASKS = 25;
 
+// Headroom under the ArtifactManager's 256KB inline ceiling. Not the ceiling
+// itself: the trimmed payload gains a `truncated` note, and a record that is
+// rejected for being one byte over helps nobody.
+const ARTIFACT_INLINE_BUDGET = 220 * 1024;
+
+function contentBytes(value) {
+  try { return Buffer.byteLength(JSON.stringify(value)); } catch { return Infinity; }
+}
+
+function clampText(text, max) {
+  const s = String(text || '');
+  return s.length <= max ? s : `${s.slice(0, max - 80)}\n\n[report truncated to fit the artifact size limit]`;
+}
+
 class ResearchEngine extends EventEmitter {
   constructor({
     sourceManager,
@@ -557,8 +571,10 @@ class ResearchEngine extends EventEmitter {
 
     // Artifacts through the platform's own manager (§34).
     if (this._artifacts && workspace) {
+      // Individual failures are recorded inside _writeArtifacts; this catch is
+      // only for a store that is broken outright.
       task.artifacts = await this._writeArtifacts(ctx, workspace).catch((err) => {
-        recordFailure(task, { stage: 'artifact', reason: err.message });
+        recordFailure(task, { stage: 'artifact', reason: `artifact store unavailable: ${err.message}` });
         return [];
       });
     }
@@ -635,30 +651,65 @@ class ResearchEngine extends EventEmitter {
     });
   }
 
+  // The ArtifactManager refuses inline content over 256KB. A deep run's
+  // evidence.json reached ~533KB in measurement and sources.json ~294KB, and
+  // because these were written sequentially with one shared catch, the first
+  // oversized one aborted the rest: a run could produce five artifacts, write
+  // one, and report zero. So each artifact is now written independently, and
+  // each payload is trimmed to fit with the trimming recorded in the artifact
+  // itself — a truncated record that does not say it is truncated is worse
+  // than a missing one.
   async _writeArtifacts(ctx, workspace) {
     const { task } = ctx;
     const out = [];
+
     const make = async (name, type, content) => {
-      const artifact = await this._artifacts.create({ name, type, content, producedBy: task.agentId || 'research' }, { workspace });
-      out.push({ id: artifact.id, name: artifact.name, type: artifact.type });
+      try {
+        const artifact = await this._artifacts.create(
+          { name, type, content, producedBy: task.agentId || 'research' },
+          { workspace },
+        );
+        out.push({ id: artifact.id, name: artifact.name, type: artifact.type });
+      } catch (err) {
+        // One artifact failing is one artifact lost, never all of them.
+        recordFailure(task, { stage: 'artifact', reason: `${name}: ${err.message}` });
+      }
+    };
+
+    // Trim a list until its serialized form fits, newest/most-relevant kept.
+    const fit = (key, rows, extra = {}) => {
+      let kept = rows;
+      let payload = { ...extra, [key]: kept };
+      while (kept.length > 1 && contentBytes(payload) > ARTIFACT_INLINE_BUDGET) {
+        kept = kept.slice(0, Math.floor(kept.length / 2));
+        payload = { ...extra, [key]: kept };
+      }
+      if (kept.length < rows.length) {
+        payload.truncated = {
+          kept: kept.length,
+          total: rows.length,
+          reason: `trimmed to fit the ${Math.round(ARTIFACT_INLINE_BUDGET / 1024)}KB inline artifact limit`,
+        };
+      }
+      return payload;
     };
 
     // The report is the readable one; the rest are the machine-readable record
     // a later run or an audit needs.
-    if (task.answer) await make('research-report.md', 'report', task.answer.prose || task.answer.markdown);
-    await make('sources.json', 'dataset', { sources: task.sources.map(sourceView) });
-    await make('evidence.json', 'dataset', { evidence: task.evidence.map(evidenceView) });
-    await make('citations.json', 'dataset', {
-      citations: task.citations.map(citationView),
+    if (task.answer) {
+      await make('research-report.md', 'report', clampText(task.answer.prose || task.answer.markdown, ARTIFACT_INLINE_BUDGET));
+    }
+    await make('sources.json', 'dataset', fit('sources', task.sources.map(sourceView)));
+    await make('evidence.json', 'dataset', fit('evidence', task.evidence.map(evidenceView)));
+    await make('citations.json', 'dataset', fit('citations', task.citations.map(citationView), {
       bibliography: ctx.citations.bibliography(),
-    });
-    await make('research-report.json', 'report', {
+    }));
+    await make('research-report.json', 'report', fit('claims', task.claims.map(claimView), {
       question: task.question,
-      claims: task.claims.map(claimView),
-      conflicts: task.conflicts,
+      conflicts: task.conflicts.slice(0, 50),
       quality: task.quality,
       review: task.review || null,
-    });
+    }));
     return out;
   }
 
@@ -779,4 +830,4 @@ function refsFor(task) {
   };
 }
 
-module.exports = { ResearchEngine, MAX_ROUNDS, MAX_RETAINED_TASKS, ROUTE, RESEARCH_MODES, createResearchTask, spend };
+module.exports = { ResearchEngine, MAX_ROUNDS, MAX_RETAINED_TASKS, ARTIFACT_INLINE_BUDGET, ROUTE, RESEARCH_MODES, createResearchTask, spend };

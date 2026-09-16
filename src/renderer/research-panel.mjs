@@ -46,6 +46,22 @@ const STYLE = `
 .research-panel button { font: inherit; cursor: pointer; }
 `;
 
+// Only http(s) reaches an href.
+//
+// Source URLs are screened before they ever become a source, so this is
+// defence in depth rather than the only check — but it is the sink, and a
+// `javascript:` or `data:` URL arriving here would execute in the app's own
+// renderer. A sink that trusts its input is one refactor away from being the
+// hole.
+function isLinkable(url) {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -83,11 +99,15 @@ function renderSources(sources) {
   for (const [i, s] of sources.entries()) {
     const li = el('li');
     li.append(el('span', 'r-ord', `${i + 1}. `));
-    if (s.url) {
+    if (s.url && isLinkable(s.url)) {
       const a = el('a', null, s.title || s.url);
       a.href = s.url;
       a.rel = 'noreferrer noopener';
       li.append(a);
+    } else if (s.url) {
+      // A URL the sink will not link is still shown, as text. Hiding it would
+      // leave the reader unable to see what the research actually cited.
+      li.append(el('span', null, `${s.title || s.url} (${s.url})`));
     } else {
       li.append(el('span', null, s.title || '(untitled)'));
     }
@@ -244,4 +264,4 @@ function mountResearch(host, { api = window.kingagent && window.kingagent.agentP
   };
 }
 
-export { mountResearch, renderResult, renderProgress, renderSources, renderConflicts, STAGE_ORDER, STAGE_LABEL, PANEL_CLASS, STYLE };
+export { mountResearch, renderResult, renderProgress, renderSources, renderConflicts, isLinkable, STAGE_ORDER, STAGE_LABEL, PANEL_CLASS, STYLE };

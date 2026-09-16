@@ -15,6 +15,31 @@
 const { isString } = require('../../schema/validate');
 const { SourceUnavailableError, SourceTimeoutError } = require('../errors/researchErrors');
 
+// --- the provider security contract -----------------------------------------
+//
+// Core performs no network I/O, so two SSRF defences cannot live here and must
+// be honoured by the provider that does the fetching. They are stated here
+// because this is the file a provider author reads:
+//
+//   1. **Check the resolved address, not just the URL.** `screenUrl` inspects
+//      the hostname as written. A public name can resolve to a private address
+//      (`localtest.me` → 127.0.0.1, `169.254.169.254.nip.io` → the metadata
+//      endpoint). Resolve first, pass the address to
+//      `researchSecurity.screenResolvedAddress(ip)`, and connect only if it
+//      passes. The known wildcard-DNS services are blocked by name as a cheap
+//      first layer, but that is a blocklist and blocklists are never complete.
+//
+//   2. **Screen every redirect hop.** A page on an allowed domain redirecting
+//      to the metadata endpoint defeats a check applied only to the first URL.
+//      Follow redirects manually, passing each hop through
+//      `researchSecurity.screenRedirect(from, to)`, and stop at
+//      `researchSecurity.MAX_REDIRECTS`.
+//
+// A provider that cannot do either must not follow redirects at all. Reporting
+// the post-redirect address as the result's `url` also helps: SourceManager
+// screens every returned URL, so an honest final URL is caught there even if
+// the provider missed it.
+//
 // What a provider must implement. `search` is mandatory; `fetch` is optional —
 // a provider that only ranks (returning snippets) is still useful, and the
 // pipeline degrades to snippet-level evidence rather than refusing it.
