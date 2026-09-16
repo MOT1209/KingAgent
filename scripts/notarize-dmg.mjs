@@ -27,7 +27,8 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import yaml from 'js-yaml';
+// js-yaml 5 ships named ESM exports only — there is no default export.
+import * as yaml from 'js-yaml';
 
 const KEY = process.env.APPLE_API_KEY;
 const KEY_ID = process.env.APPLE_API_KEY_ID;

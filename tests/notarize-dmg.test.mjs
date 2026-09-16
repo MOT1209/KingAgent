@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import { refreshUpdateMetadata } from '../scripts/notarize-dmg.mjs';
 
 // Stapling rewrites the dmg after electron-builder has already recorded its
