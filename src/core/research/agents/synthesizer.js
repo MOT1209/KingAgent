@@ -21,8 +21,10 @@
 // against, so a model that invents a claim produces prose that fails validation
 // rather than an answer that quietly ships.
 
-const { VERIFICATION } = require('../schemas/claim');
-const { formatInline, formatBibliography, formatEntry } = require('../citations/citationFormatter');
+const { VERIFICATION, isAssertable } = require('../schemas/claim');
+const {
+  formatInline, formatFootnoteMarker, formatFootnotes, formatBibliography, formatEntry,
+} = require('../citations/citationFormatter');
 const { CITATION_STYLE } = require('../schemas/citation');
 
 const REGISTER = Object.freeze({
@@ -82,6 +84,9 @@ class Synthesizer {
         : (REGISTER_OF[claim.verificationStatus] || REGISTER.UNCERTAIN);
       const cited = byClaim.get(claim.id) || [];
       const entry = {
+        // The schema's own answer to "may this be stated plainly?", carried
+        // through so a renderer does not have to re-derive it from the status.
+        assertable: isAssertable(claim),
         claimId: claim.id,
         text: claim.text,
         register,
@@ -138,12 +143,19 @@ class Synthesizer {
   render(answer, { style = CITATION_STYLE.NUMBERED_LIST, includeBibliography = true } = {}) {
     const out = [];
     const { sections } = answer;
+    const footnoted = style === CITATION_STYLE.FOOTNOTE;
+    // Footnote style changes the marker as well as the bibliography. Rendering
+    // `[1]` in the prose and `[^1]:` underneath would produce a document whose
+    // markers point at nothing.
+    const markersFor = (entry) => (footnoted
+      ? entry.citations.map(formatFootnoteMarker).join('')
+      : entry.markers);
 
     const block = (title, entries) => {
       if (!entries.length) return;
       out.push(`## ${title}`, '');
       for (const e of entries) {
-        out.push(`- ${LEAD_IN[e.register]}${e.text} ${e.markers}`.trimEnd());
+        out.push(`- ${LEAD_IN[e.register]}${e.text} ${markersFor(e)}`.trimEnd());
         for (const k of e.conflicts) {
           out.push(`  - Conflict (${k.severity}, ${k.resolution}): ${k.positions.map((p) => p.statement).join('  —  vs  —  ')}`);
           if (k.reason) out.push(`    ${k.reason}`);
@@ -173,9 +185,9 @@ class Synthesizer {
 
     if (includeBibliography && answer.bibliography.length) {
       out.push('## Sources', '');
-      out.push(style === CITATION_STYLE.NUMBERED_LIST
-        ? formatBibliography(answer.bibliography, style)
-        : answer.bibliography.map((e) => `- ${formatEntry(e, style)}`).join('\n'));
+      if (footnoted) out.push(formatFootnotes(answer.bibliography));
+      else if (style === CITATION_STYLE.NUMBERED_LIST) out.push(formatBibliography(answer.bibliography, style));
+      else out.push(answer.bibliography.map((e) => `- ${formatEntry(e, style)}`).join('\n'));
       out.push('');
     }
 

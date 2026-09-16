@@ -6,7 +6,7 @@
 // 'strongly_supported'` on its own output has no verification, only a field.
 
 const crypto = require('node:crypto');
-const { isPlainObject, isString, nonEmptyString, fail } = require('../../schema/validate');
+const { isString } = require('../../schema/validate');
 const { STANCE } = require('./evidence');
 
 const VERIFICATION = Object.freeze({
@@ -40,12 +40,6 @@ function newClaimId() {
 
 function newConflictId() {
   return `cfl-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
-}
-
-function validateClaim(def) {
-  if (!isPlainObject(def)) return fail(['claim must be an object']);
-  if (!nonEmptyString(def.text)) return fail(['claim requires text']);
-  return { ok: true, claim: normalizeClaim(def) };
 }
 
 function normalizeClaim(def = {}) {
@@ -130,6 +124,6 @@ function claimView(claim) {
 
 module.exports = {
   VERIFICATION, CONFLICT_SEVERITY, CONFLICT_RESOLUTION, STANCE, MAX_CLAIM_CHARS,
-  newClaimId, newConflictId, validateClaim, normalizeClaim, normalizeConflict,
+  newClaimId, newConflictId, normalizeClaim, normalizeConflict,
   isAssertable, claimView,
 };

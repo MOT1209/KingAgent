@@ -226,3 +226,81 @@ test('F6 renderer: only http(s) urls reach an href', () => {
   assert.equal(isLinkable('https://docs.example.com/a'), true);
   assert.equal(isLinkable('http://docs.example.com/a'), true);
 });
+
+// --- F7: dead code ----------------------------------------------------------
+
+test('F7 dead code: every research export is used somewhere', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+  const RESEARCH = path.join(ROOT, 'src', 'core', 'research');
+
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const f = path.join(dir, e.name);
+      if (e.isDirectory()) walk(f, out);
+      else if (e.name.endsWith('.js')) out.push(f);
+    }
+    return out;
+  };
+  const files = walk(RESEARCH);
+
+  const corpusFiles = [];
+  for (const dir of ['src', 'tests']) {
+    walk2(path.join(ROOT, dir), corpusFiles);
+  }
+  function walk2(dir, out) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'vendor' || e.name === 'node_modules') continue;
+      const f = path.join(dir, e.name);
+      if (e.isDirectory()) walk2(f, out);
+      else if (/\.(js|mjs|cjs)$/.test(e.name)) out.push(f);
+    }
+  }
+  const corpus = corpusFiles.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+
+  const dead = [];
+  for (const file of files) {
+    const src = fs.readFileSync(file, 'utf8');
+    const m = /module\.exports\s*=\s*\{([\s\S]*?)\n\};/.exec(src);
+    if (!m) continue;
+    for (const raw of m[1].split(',')) {
+      const name = raw.trim().split(':')[0].trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name || '')) continue;
+      // Two mentions = the declaration and the export line: nobody uses it.
+      const uses = (corpus.match(new RegExp(`\\b${name}\\b`, 'g')) || []).length;
+      if (uses <= 2) dead.push(`${path.relative(ROOT, file)}: ${name}`);
+    }
+  }
+  assert.deepEqual(dead, [], `dead research exports:\n  ${dead.join('\n  ')}`);
+});
+
+test('F7 dead code: the footnote citation style the renderer advertises actually works', async () => {
+  const { Synthesizer } = require('../src/core/research/agents/synthesizer');
+  const { CITATION_STYLE } = require('../src/core/research/schemas/citation');
+  const answer = {
+    question: 'q',
+    sections: {
+      known: [{ claimId: 'c1', text: 'A stated fact.', register: 'known', markers: '[1]', citations: [{ ordinal: 1 }], conflicts: [] }],
+      supported: [], uncertain: [], conflicting: [],
+    },
+    notFound: [], caveats: [],
+    bibliography: [{ ordinal: 1, title: 'A source', url: 'https://x.dev/1', primary: false }],
+  };
+  const md = new Synthesizer({}).render(answer, { style: CITATION_STYLE.FOOTNOTE });
+  // The marker in the prose and the definition underneath must be the same
+  // shape, or the document's footnotes point at nothing.
+  assert.match(md, /\[\^1\]/, 'no footnote marker in the prose');
+  assert.match(md, /\[\^1\]:/, 'no footnote definition');
+  assert.doesNotMatch(md, /A stated fact\. \[1\]/, 'inline markers leaked into footnote style');
+});
+
+test('F7 dead code: a file citation shows where it points, not just a filename', async () => {
+  const { formatEntry } = require('../src/core/research/citations/citationFormatter');
+  const line = formatEntry({
+    ordinal: 2, title: 'policy.md', url: null,
+    location: { kind: 'line', path: '/docs/policy.md', line: 12, endLine: 14 },
+    publisher: 'local file', publishedAt: null, retrievedAt: null, primary: true,
+  });
+  assert.match(line, /policy\.md:12-14/, `location missing from: ${line}`);
+});

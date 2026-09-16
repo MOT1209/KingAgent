@@ -19,7 +19,6 @@
 
 const { digestOf, normalizeForDigest } = require('../schemas/evidence');
 const { VERIFICATION } = require('../schemas/claim');
-const { CitationIntegrityError } = require('../errors/researchErrors');
 
 const SEVERITY = Object.freeze({ ERROR: 'error', WARNING: 'warning' });
 
@@ -163,16 +162,6 @@ function validateAll({ claims, citations, store, conflicts = [], requireCitation
   };
 }
 
-// The throwing form, for the point where an answer is about to be returned.
-function assertValid(result) {
-  if (result.ok) return result;
-  const first = result.errors[0];
-  throw new CitationIntegrityError(
-    `${result.errors.length} citation integrity error(s); the first is: ${first.message}`,
-    { citationId: first.citationId || null, sourceId: first.sourceId || null },
-  );
-}
-
 function finding(type, severity, citation, message) {
   return { type, severity, message, citationId: citation.id, claimId: citation.claimId, sourceId: citation.sourceId };
 }
@@ -187,5 +176,4 @@ function short(text) {
 
 module.exports = {
   SEVERITY, FINDING, WEAK_EVIDENCE_THRESHOLD,
-  validateCitationRecord, validateAll, assertValid,
-};
+  validateCitationRecord, validateAll, };

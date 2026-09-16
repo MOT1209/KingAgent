@@ -5,7 +5,7 @@
 // not reconstructed from logs.
 
 const crypto = require('node:crypto');
-const { isPlainObject, isString, nonEmptyString, fail } = require('../../schema/validate');
+const { isString } = require('../../schema/validate');
 const { ALL_SOURCE_TYPES, SOURCE_TYPES } = require('./source');
 
 const QUERY_STATUS = Object.freeze({
@@ -49,20 +49,6 @@ function queryKey(text) {
     .join(' ');
 }
 
-function validateQuery(def) {
-  if (!isPlainObject(def)) return fail(['research query must be an object']);
-  if (!nonEmptyString(def.text)) return fail(['research query requires text']);
-  if (def.sourceTypes !== undefined) {
-    if (!Array.isArray(def.sourceTypes)) return fail(['query sourceTypes must be an array']);
-    const bad = def.sourceTypes.find((t) => !ALL_SOURCE_TYPES.includes(t));
-    if (bad) return fail([`unknown source type in query: ${JSON.stringify(bad)}`]);
-  }
-  if (def.intent !== undefined && !Object.values(QUERY_INTENT).includes(def.intent)) {
-    return fail([`unknown query intent: ${JSON.stringify(def.intent)}`]);
-  }
-  return { ok: true, query: normalizeQuery(def) };
-}
-
 function normalizeQuery(def = {}) {
   const text = String(def.text).trim().slice(0, MAX_QUERY_CHARS);
   return {
@@ -103,5 +89,5 @@ function queryView(query) {
 
 module.exports = {
   QUERY_STATUS, QUERY_INTENT, MAX_QUERY_CHARS,
-  newQueryId, queryKey, validateQuery, normalizeQuery, queryView,
+  newQueryId, queryKey, normalizeQuery, queryView,
 };

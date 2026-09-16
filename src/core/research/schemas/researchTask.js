@@ -249,10 +249,6 @@ function remaining(task, kind) {
   return Math.max(0, cap - (task.usage[kind] || 0));
 }
 
-function withinBudget(task, kind, amount = 1) {
-  return remaining(task, kind) >= amount;
-}
-
 function expired(task, now = Date.now()) {
   return typeof task.deadline === 'number' && now > task.deadline;
 }
@@ -316,6 +312,6 @@ function researchTaskView(task) {
 module.exports = {
   RESEARCH_STATUS, RESEARCH_MODES, MODE_DEFAULTS, TRANSITIONS, TERMINAL, SOURCE_TYPES,
   newResearchTaskId, validateResearchTask, createResearchTask,
-  canTransition, isTerminal, transition, spend, remaining, withinBudget, expired,
+  canTransition, isTerminal, transition, spend, remaining, expired,
   recordFailure, isPartial, researchTaskView, normalizeDomains,
 };

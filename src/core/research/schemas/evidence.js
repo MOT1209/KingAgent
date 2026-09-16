@@ -7,7 +7,7 @@
 // because the quote is checked back against the stored source text (§20).
 
 const crypto = require('node:crypto');
-const { isPlainObject, isString, nonEmptyString, fail } = require('../../schema/validate');
+const { isPlainObject, isString } = require('../../schema/validate');
 
 const EVIDENCE_KIND = Object.freeze({
   QUOTE: 'quote',           // verbatim span from the source
@@ -28,19 +28,6 @@ const MAX_EVIDENCE_CHARS = 1_500;
 
 function newEvidenceId() {
   return `ev-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
-}
-
-function validateEvidence(def) {
-  if (!isPlainObject(def)) return fail(['evidence must be an object']);
-  if (!nonEmptyString(def.text)) return fail(['evidence requires text']);
-  if (!nonEmptyString(def.sourceId)) return fail(['evidence requires a sourceId']);
-  if (def.stance !== undefined && !Object.values(STANCE).includes(def.stance)) {
-    return fail([`unknown evidence stance: ${JSON.stringify(def.stance)}`]);
-  }
-  if (def.kind !== undefined && !Object.values(EVIDENCE_KIND).includes(def.kind)) {
-    return fail([`unknown evidence kind: ${JSON.stringify(def.kind)}`]);
-  }
-  return { ok: true, evidence: normalizeEvidence(def) };
 }
 
 function normalizeEvidence(def = {}) {
@@ -116,6 +103,6 @@ function clamp01OrNull(v) {
 
 module.exports = {
   EVIDENCE_KIND, STANCE, MAX_EVIDENCE_CHARS,
-  newEvidenceId, validateEvidence, normalizeEvidence, normalizeLocation,
+  newEvidenceId, normalizeEvidence, normalizeLocation,
   digestOf, normalizeForDigest, evidenceView,
 };

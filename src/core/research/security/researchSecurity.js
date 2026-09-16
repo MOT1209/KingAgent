@@ -20,7 +20,6 @@
 
 const { isString } = require('../../schema/validate');
 const { canonicalize } = require('../schemas/source');
-const { ResearchDeniedError } = require('../errors/researchErrors');
 
 const ALLOWED_SCHEMES = Object.freeze(['https:', 'http:']);
 
@@ -178,16 +177,6 @@ function screenUrl(rawUrl, { allowedDomains = [], excludedDomains = [], allowPri
 
 function deny(reason, url, domain) {
   return { ok: false, reason, url: url || null, domain: domain || null };
-}
-
-// The throwing form, for the one place a refusal is an error rather than a skip:
-// a user explicitly asked to fetch this URL.
-function assertUrlAllowed(rawUrl, opts) {
-  const verdict = screenUrl(rawUrl, opts);
-  if (!verdict.ok) {
-    throw new ResearchDeniedError(`refused to fetch ${rawUrl || '(none)'}: ${verdict.reason}`, { url: rawUrl, action: 'network.request' });
-  }
-  return verdict;
 }
 
 // The check a fetcher must apply to the address DNS returned, and to every
@@ -355,7 +344,7 @@ function screenFilePath(p) {
 module.exports = {
   ALLOWED_SCHEMES, BLOCKED_HOSTS, REBINDING_SUFFIXES, INJECTION_PATTERNS, CREDENTIAL_PATTERNS,
   UNSAFE_FILE_EXT, MAX_REDIRECTS,
-  screenUrl, assertUrlAllowed, screenResolvedAddress, screenRedirect,
+  screenUrl, screenResolvedAddress, screenRedirect,
   screenContent, screenOutbound, screenFilePath,
   wrapUntrusted, domainMatches, isBlockedIpv4, isBlockedIpv6, entropy, defang,
 };

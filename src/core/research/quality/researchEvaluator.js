@@ -15,7 +15,7 @@
 const { assess: assessEvidence } = require('./evidenceQuality');
 const { evaluate: evaluateCompleteness } = require('./completenessEvaluator');
 const { validateAll } = require('../citations/citationValidator');
-const { VERIFICATION } = require('../schemas/claim');
+const { VERIFICATION, isAssertable } = require('../schemas/claim');
 const { clamp01 } = require('../schemas/source');
 
 const GRADE = Object.freeze({
@@ -48,8 +48,10 @@ function evaluate({ task, store, claims, citations, conflicts = [], strategy = n
   });
 
   const material = claims.filter((c) => c.material);
-  const assertable = material.filter((c) => c.verificationStatus === VERIFICATION.SUPPORTED
-    || c.verificationStatus === VERIFICATION.STRONGLY_SUPPORTED);
+  // `isAssertable` is the schema's own definition of "safe to state plainly".
+  // Re-implementing the status comparison here is how the evaluator and the
+  // synthesizer drift into disagreeing about what the answer may assert.
+  const assertable = material.filter(isAssertable);
   const unresolvedConflicts = conflicts.filter((c) => c.resolution === 'unresolved');
 
   const sources = store.sources();

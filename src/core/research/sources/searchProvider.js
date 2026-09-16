@@ -43,7 +43,6 @@ const { SourceUnavailableError, SourceTimeoutError } = require('../errors/resear
 // What a provider must implement. `search` is mandatory; `fetch` is optional —
 // a provider that only ranks (returning snippets) is still useful, and the
 // pipeline degrades to snippet-level evidence rather than refusing it.
-const PROVIDER_METHODS = Object.freeze(['search', 'fetch']);
 
 function validateProvider(id, adapter) {
   if (!isString(id) || !id) return { ok: false, errors: ['search provider requires an id'] };
@@ -58,22 +57,6 @@ function validateProvider(id, adapter) {
   }
   return { ok: true, errors: [] };
 }
-
-// The provider that is always present. It does not pretend to search: it says
-// plainly that nothing is configured, so a research task without a host-supplied
-// provider reports "no web provider" instead of returning an empty result set
-// that reads like "nothing exists about this topic".
-const nullSearchProvider = Object.freeze({
-  id: 'null',
-  label: 'No search provider configured',
-  sourceTypes: [],
-  async search() {
-    throw new SourceUnavailableError('null', 'no search provider is configured for this install');
-  },
-  async fetch() {
-    throw new SourceUnavailableError('null', 'no search provider is configured for this install');
-  },
-});
 
 function createSearchProviderRegistry() {
   const providers = new Map();
@@ -189,6 +172,6 @@ function normalizeProviderError(providerId, err) {
 }
 
 module.exports = {
-  PROVIDER_METHODS, nullSearchProvider, validateProvider,
+  validateProvider,
   createSearchProviderRegistry, callProvider, normalizeProviderError,
 };

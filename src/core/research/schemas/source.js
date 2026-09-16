@@ -7,7 +7,7 @@
 // crosses into core through normalizeSource (§12).
 
 const crypto = require('node:crypto');
-const { isPlainObject, isString, nonEmptyString, fail } = require('../../schema/validate');
+const { isPlainObject, isString } = require('../../schema/validate');
 
 const SOURCE_TYPES = Object.freeze({
   WEB: 'web',
@@ -66,20 +66,6 @@ function domainOf(url) {
   } catch {
     return null;
   }
-}
-
-function validateSource(def) {
-  if (!isPlainObject(def)) return fail(['source must be an object']);
-  if (!nonEmptyString(def.title) && !nonEmptyString(def.url) && !nonEmptyString(def.path)) {
-    return fail(['source requires at least a title, a url or a path']);
-  }
-  if (def.type !== undefined && !ALL_SOURCE_TYPES.includes(def.type)) {
-    return fail([`unknown source type: ${JSON.stringify(def.type)}`]);
-  }
-  if (def.url !== undefined && def.url !== null && !isString(def.url)) {
-    return fail(['source url must be a string']);
-  }
-  return { ok: true, source: normalizeSource(def) };
 }
 
 // The one door a provider payload comes through. Everything is coerced to a
@@ -201,7 +187,6 @@ module.exports = {
   MAX_SNIPPET_CHARS,
   newSourceId,
   sourceFingerprint,
-  validateSource,
   normalizeSource,
   canonicalize,
   isTrackingParam,

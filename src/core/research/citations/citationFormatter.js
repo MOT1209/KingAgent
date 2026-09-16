@@ -51,7 +51,10 @@ function formatEntry(entry, style = CITATION_STYLE.NUMBERED_LIST) {
     entry.primary ? 'primary source' : null,
     retrieved ? `retrieved ${retrieved}` : null,
   ].filter(Boolean).join(', ');
-  const head = entry.url ? `${entry.title} — ${entry.url}` : entry.title;
+  // A file citation has no url; where it points is its location, and printing
+  // the bare filename would lose the part a reader needs to check it.
+  const where = entry.url ? entry.url : locationLabel(entry.location);
+  const head = where ? `${entry.title} — ${where}` : entry.title;
   return `[${entry.ordinal}] ${head}${meta ? ` (${meta})` : ''}`;
 }
 
@@ -62,14 +65,6 @@ function formatBibliography(entries, style = CITATION_STYLE.NUMBERED_LIST) {
 // Footnote definitions to go under a footnote-style answer.
 function formatFootnotes(entries) {
   return entries.map((e) => `[^${e.ordinal}]: ${formatEntry(e, CITATION_STYLE.MARKDOWN)}`).join('\n');
-}
-
-// The quote, attributed. Used in the evidence appendix of the report, where the
-// point is that a reader can check the claim against the actual words.
-function formatQuote(citation) {
-  const where = locationLabel(citation.location);
-  const attribution = [citation.title, where].filter(Boolean).join(' — ');
-  return `> ${citation.quote.replace(/\n/g, '\n> ')}\n>\n> — ${attribution} ${formatInline(citation)}`;
 }
 
 function locationLabel(location) {
@@ -94,5 +89,4 @@ function isoDate(ms) {
 
 module.exports = {
   CITATION_STYLE, formatInline, formatFootnoteMarker, formatMarkdownLink,
-  formatEntry, formatBibliography, formatFootnotes, formatQuote, locationLabel,
-};
+  formatEntry, formatBibliography, formatFootnotes, locationLabel, };
