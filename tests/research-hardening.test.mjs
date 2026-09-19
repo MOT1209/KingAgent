@@ -232,7 +232,13 @@ test('F6 renderer: only http(s) urls reach an href', () => {
 test('F7 dead code: every research export is used somewhere', async () => {
   const fs = await import('node:fs');
   const path = await import('node:path');
-  const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+  const { fileURLToPath } = await import('node:url');
+  // `new URL(import.meta.url).pathname` leaves a leading slash in front of a
+  // Windows drive letter ("/D:/a/..."); joining that with '..' under win32's
+  // path module produced a doubled drive ("D:\D:\a\...") and ENOENT on every
+  // Windows CI run. fileURLToPath is the cross-platform-correct conversion —
+  // the same one every other test file in this suite already uses.
+  const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
   const RESEARCH = path.join(ROOT, 'src', 'core', 'research');
 
   const walk = (dir, out = []) => {
