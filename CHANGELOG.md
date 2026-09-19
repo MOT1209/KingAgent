@@ -12,6 +12,8 @@ always the newest one below.
 
 ## [Unreleased]
 
+## [0.5.6] — 2026-09-19
+
 ### Added
 
 - Opt-in per-session persistence (`term:set-persistent`, `background:list`,
