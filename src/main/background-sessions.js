@@ -1,21 +1,34 @@
 // The opt-in "detach instead of kill" registry, inspired by herdr's persistent
-// pty sessions — but deliberately smaller and safer.
+// pty sessions — but deliberately smaller, safer, and honest about a real
+// limit a first read of this file's name would not suggest.
 //
 // KingAgent's default is to kill every agent process it owns on tile close,
 // window close and app quit (see the `deliberateKills` comment in main.js):
 // "Sessions KingAgent is ending on purpose." That default stays. This module
 // only changes the outcome for a session the user explicitly marked
-// persistent: instead of being killed, its OS process is left running and a
-// small record is written to disk so a later launch can tell you it exists.
+// persistent: instead of being killed on tile/window close, its OS process is
+// left running (verified: `ps` still shows it) and a small record is written
+// to disk so it can be checked on later.
 //
-// What this does NOT do, on purpose: it does not reattach to the process's
-// terminal output. Doing that properly (a tmux/screen-style multiplexer) is
-// a real project of its own — the reason herdr is a dedicated Rust binary
-// rather than a small patch. Without it, a "reattached" pane would show a
-// live terminal that isn't actually connected to anything, which is worse
-// than being honest that it isn't supported yet. What you get instead: proof
-// the process is still alive (or that it finished), when it detached, and a
-// way to end it if you left it running by mistake.
+// What "kept running" does NOT survive, and cannot with this architecture:
+// KingAgent itself quitting. The pty's master file descriptor is owned by
+// KingAgent's own process; when that process exits, the kernel closes every
+// fd it held, including that one, and the closed master delivers SIGHUP to
+// the child — killing it, whatever persistentIds says. Measured directly: a
+// detached session's process is alive after its tile closes, and gone within
+// ~1s of the app quitting. Surviving a full quit needs the master fd to be
+// held by something that outlives KingAgent's own process — a separate
+// daemon — which is exactly why herdr is a dedicated Rust binary rather than
+// a small patch; not attempted here.
+//
+// What this does NOT do, on purpose, even within a single run of the app: it
+// does not reattach to the process's terminal output. Doing that properly (a
+// tmux/screen-style multiplexer) is the other half of that same real project.
+// Without it, a "reattached" pane would show a live terminal that isn't
+// actually connected to anything, which is worse than being honest that it
+// isn't supported yet. What you get instead: proof the process is still
+// alive (or that it finished) while KingAgent keeps running, and a way to end
+// it if you left it running by mistake.
 //
 // IO is injected (the codebase's own convention — see session-registry.js)
 // so this is testable without touching a real userData directory or a real
@@ -52,8 +65,9 @@ function writeAll(io, userDataDir, records) {
   io.write(registryFile(userDataDir), JSON.stringify(records, null, 2));
 }
 
-// Called the moment a persistent session detaches (tile close, window close,
-// or app quit finding it marked persistent). Replaces any existing record for
+// Called the moment a persistent session detaches (tile close, or window
+// close — see the file header on why app quit cannot actually keep it
+// running). Replaces any existing record for
 // the same id — a session cannot be detached twice without being re-created.
 function recordDetach(io, userDataDir, record) {
   if (!record || typeof record.id !== 'string' || !record.id) throw new Error('recordDetach requires a session id');

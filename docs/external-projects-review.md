@@ -54,19 +54,28 @@ concrete reason, or a competitive note for the backlog.
 - **herdrdev/herdr** — its core idea (a session survives closing the thing
   that started it) is real and now partially implemented as an explicit,
   per-session opt-in: `term:set-persistent` marks a session, and
-  `killSession` in `src/main/main.js` detaches it instead of killing it at
-  tile close, window close or app quit, recording it in
-  `background-sessions.json` (`src/main/background-sessions.js`). The
-  default for every other session is unchanged — KingAgent still kills what
-  it owns on close. Two things were deliberately left out of this pass, and
-  are the actual reason herdr is a dedicated Rust binary rather than a small
-  patch: (1) no full app-quit-surviving daemon — the detached process is a
-  plain orphaned OS process, not owned by anything, so there's no service
-  managing it if it needs supervision; (2) no terminal reattachment — a
-  "reconnected" pane would need a tmux/screen-style multiplexer to show live
-  output again, which is out of scope here. What you get is proof the
-  process is alive or that it finished, and a way to end it
-  (`background:kill`) or clear its record (`background:forget`). herdr's
+  `killSession` in `src/main/main.js` detaches it instead of killing it when
+  its tile or window closes, recording it in `background-sessions.json`
+  (`src/main/background-sessions.js`). Verified with a real headless launch
+  (Electron under xvfb, driven with Playwright): after the tile closes, `ps`
+  shows the shell process still running. The default for every other session
+  is unchanged — KingAgent still kills what it owns on close.
+
+  What it does **not** do, confirmed by the same test rather than assumed:
+  survive *quitting KingAgent itself*. The pty's file descriptor is owned by
+  KingAgent's own process; the kernel closes every fd a process holds when it
+  exits, and a closed pty master delivers SIGHUP to the child — killing it
+  regardless of `persistentIds`. Measured: the detached process was gone
+  within about a second of the app quitting. This is not a bug to fix in this
+  design; it is exactly why herdr is a dedicated Rust binary rather than a
+  small patch — surviving a full quit needs the master fd held by something
+  that outlives KingAgent's own process (a separate daemon), which is a
+  project of its own and not attempted here. Terminal reattachment is the
+  other piece left out on purpose: a "reconnected" pane would need a
+  tmux/screen-style multiplexer to show live output again. What you get
+  instead is proof the process is alive (only while KingAgent is still
+  running) or that it finished, and a way to end it (`background:kill`) or
+  clear its record (`background:forget`). herdr's
   multi-machine/SSH story is not attempted at all.
 
 ## Studied, not merged (competitive notes)

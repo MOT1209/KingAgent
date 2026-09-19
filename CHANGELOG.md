@@ -15,12 +15,18 @@ always the newest one below.
 ### Added
 
 - Opt-in per-session persistence (`term:set-persistent`, `background:list`,
-  `background:kill`, `background:forget` — `src/main/background-sessions.js`):
-  a session marked persistent is detached instead of killed on tile close,
-  window close or app quit. Every other session keeps the existing
-  kill-on-close behavior. Does not reattach a terminal — see
-  `docs/external-projects-review.md` for the scope this was deliberately
-  kept to.
+  `background:kill`, `background:forget` — `src/main/background-sessions.js`),
+  plus a "Keep running in background" toggle on a session tile's right-click
+  menu (`src/renderer/session-menu.mjs`): a session marked persistent is
+  detached instead of killed when its tile or window closes, while KingAgent
+  itself keeps running — verified with a real headless launch, `ps` confirms
+  the process survives. It does **not** survive quitting KingAgent: the pty's
+  file descriptor belongs to that process, and the OS closes it (SIGHUP to
+  the child) on exit regardless of this flag — measured directly, the process
+  is gone within ~1s of quitting. Every other session keeps the existing
+  kill-on-close behavior. Does not reattach a terminal either. See
+  `docs/external-projects-review.md` for the reasoning and what was
+  deliberately left out.
 - `doc:convert` and `diagram:generate` builtin tools
   (`src/core/tools/builtin/`): convert workspace `.docx`/`.csv`/`.tsv`/
   `.txt`/`.md`/`.json` to Markdown (with a from-scratch minimal ZIP reader

@@ -145,10 +145,11 @@ const winFolders = new Map();     // webContents.id -> folder that window works 
 const sessionOwners = new Map();  // session id -> webContents.id, so closing a window reaps its sessions
 const termSessions = new Map();   // id -> pty
 const sessionMeta = new Map();    // id -> { cwd, kind, command, program, args, name }, captured at spawn
-// Sessions the user explicitly opted to keep running after this tile, window
-// or the app itself closes — see background-sessions.js. Empty by default:
-// every session KingAgent spawns is still killed on close unless its id is
-// added here first via term:set-persistent.
+// Sessions the user explicitly opted to keep running after this tile or
+// window closes — see background-sessions.js, including why this cannot
+// extend to the app quitting itself. Empty by default: every session
+// KingAgent spawns is still killed on close unless its id is added here first
+// via term:set-persistent.
 const persistentIds = new Set();
 // Sessions KingAgent is ending on purpose — quit, window close, tile close. pty.kill()
 // sends SIGHUP, which surfaces as exit 129, and without this the tile cannot tell
@@ -1690,8 +1691,9 @@ ipcMain.handle('term:kill', (_e, { id, force }) => {
 });
 
 // Marking a session persistent takes effect the next time it would have been
-// killed (tile close, window close, or app quit) — it does not do anything
-// by itself. Unmarking a session that has already detached is a no-op here;
+// killed (tile close or window close — not app quit, which kills it anyway;
+// see background-sessions.js's file header) — it does not do anything by
+// itself. Unmarking a session that has already detached is a no-op here;
 // it is gone from termSessions and only exists in background-sessions.json,
 // which background:kill / background:forget manage instead.
 ipcMain.handle('term:set-persistent', (_e, { id, persistent }) => {

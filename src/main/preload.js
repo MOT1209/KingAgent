@@ -133,10 +133,13 @@ contextBridge.exposeInMainWorld('kingagent', {
   termWrite: (args) => ipcRenderer.invoke('term:write', args),
   termResize: (args) => ipcRenderer.invoke('term:resize', args),
   termKill: (args) => ipcRenderer.invoke('term:kill', args),
-  // Opt-in, per session: keep it running when it would otherwise be killed
-  // (tile close, window close, app quit). See background-sessions.js for
-  // what "keep running" does and does not mean — it does not reattach a
-  // terminal, only tells you later whether the process is still alive.
+  // Opt-in, per session: keep it running when this tile or window closes,
+  // while KingAgent itself keeps running. Does not survive quitting the app
+  // — its pty's file descriptor belongs to this process, and the OS closes
+  // it (SIGHUP to the child) when the process exits, whatever this flag
+  // says. See background-sessions.js's file header for why, and for what
+  // "keep running" does and does not mean otherwise — it does not reattach
+  // a terminal, only tells you later whether the process is still alive.
   termSetPersistent: (args) => ipcRenderer.invoke('term:set-persistent', args),
   backgroundList: () => ipcRenderer.invoke('background:list'),
   backgroundKill: (id) => ipcRenderer.invoke('background:kill', { id }),
