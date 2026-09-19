@@ -49,17 +49,33 @@ concrete reason, or a competitive note for the backlog.
   "a retry there can cost real money and needs the same reasoning a plan
   does" — so that part of OmniRoute's design was not adopted, on purpose.
 
+## Integrated, scoped down for safety
+
+- **herdrdev/herdr** — its core idea (a session survives closing the thing
+  that started it) is real and now partially implemented as an explicit,
+  per-session opt-in: `term:set-persistent` marks a session, and
+  `killSession` in `src/main/main.js` detaches it instead of killing it at
+  tile close, window close or app quit, recording it in
+  `background-sessions.json` (`src/main/background-sessions.js`). The
+  default for every other session is unchanged — KingAgent still kills what
+  it owns on close. Two things were deliberately left out of this pass, and
+  are the actual reason herdr is a dedicated Rust binary rather than a small
+  patch: (1) no full app-quit-surviving daemon — the detached process is a
+  plain orphaned OS process, not owned by anything, so there's no service
+  managing it if it needs supervision; (2) no terminal reattachment — a
+  "reconnected" pane would need a tmux/screen-style multiplexer to show live
+  output again, which is out of scope here. What you get is proof the
+  process is alive or that it finished, and a way to end it
+  (`background:kill`) or clear its record (`background:forget`). herdr's
+  multi-machine/SSH story is not attempted at all.
+
 ## Studied, not merged (competitive notes)
 
-- **stablyai/orca**, **herdrdev/herdr**, **chaitanyagiri/munder-difflin** —
-  all three occupy the same niche KingAgent already does (orchestrate
-  multiple coding-agent CLIs from one UI). herdr's persistent,
-  disconnect-surviving pty sessions and multi-machine/SSH story is the one
-  concrete capability gap worth a dedicated effort later — KingAgent's
-  panes today depend on the renderer window being open, and `node-pty` (an
-  existing dependency) is the building block for closing that gap. Orca's
-  worktree-per-agent comparison view and Munder Difflin's persistent
-  semantic-recall memory layer are backlog ideas, not committed work.
+- **stablyai/orca**, **chaitanyagiri/munder-difflin** — both occupy the same
+  niche KingAgent already does (orchestrate multiple coding-agent CLIs from
+  one UI). Orca's worktree-per-agent comparison view and Munder Difflin's
+  persistent semantic-recall memory layer are backlog ideas, not committed
+  work — see `docs/competitive-landscape.md`.
 
 ## Not integrated
 

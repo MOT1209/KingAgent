@@ -133,6 +133,14 @@ contextBridge.exposeInMainWorld('kingagent', {
   termWrite: (args) => ipcRenderer.invoke('term:write', args),
   termResize: (args) => ipcRenderer.invoke('term:resize', args),
   termKill: (args) => ipcRenderer.invoke('term:kill', args),
+  // Opt-in, per session: keep it running when it would otherwise be killed
+  // (tile close, window close, app quit). See background-sessions.js for
+  // what "keep running" does and does not mean — it does not reattach a
+  // terminal, only tells you later whether the process is still alive.
+  termSetPersistent: (args) => ipcRenderer.invoke('term:set-persistent', args),
+  backgroundList: () => ipcRenderer.invoke('background:list'),
+  backgroundKill: (id) => ipcRenderer.invoke('background:kill', { id }),
+  backgroundForget: (id) => ipcRenderer.invoke('background:forget', { id }),
   sessionWatchTitle: (args) => ipcRenderer.invoke('session:watch-title', args),
   onTermData: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('term:data', h); return () => ipcRenderer.removeListener('term:data', h); },
   onTermCommandDone: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('term:command-done', h); return () => ipcRenderer.removeListener('term:command-done', h); },

@@ -14,6 +14,13 @@ always the newest one below.
 
 ### Added
 
+- Opt-in per-session persistence (`term:set-persistent`, `background:list`,
+  `background:kill`, `background:forget` — `src/main/background-sessions.js`):
+  a session marked persistent is detached instead of killed on tile close,
+  window close or app quit. Every other session keeps the existing
+  kill-on-close behavior. Does not reattach a terminal — see
+  `docs/external-projects-review.md` for the scope this was deliberately
+  kept to.
 - `doc:convert` and `diagram:generate` builtin tools
   (`src/core/tools/builtin/`): convert workspace `.docx`/`.csv`/`.tsv`/
   `.txt`/`.md`/`.json` to Markdown (with a from-scratch minimal ZIP reader
