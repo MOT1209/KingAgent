@@ -50,6 +50,7 @@ test('tool-manager: builtins register as a closed set (fs+search+git+terminal wi
   const tm = makeManager();
   const ids = tm.list().map((t) => t.id).sort();
   assert.deepEqual(ids, [
+    'diagram:generate', 'doc:convert',
     'fs:delete', 'fs:exists', 'fs:list', 'fs:mkdir', 'fs:read', 'fs:write',
     'git:diff', 'git:log', 'git:status',
     'search:grep', 'terminal:run',
@@ -66,6 +67,7 @@ test('tool-manager: moderate agent misses destructive tools (incl. terminal:run)
   const tm = makeManager();
   const discovered = tm.discover(noopAgent()).sort();
   assert.deepEqual(discovered, [
+    'diagram:generate', 'doc:convert',
     'fs:exists', 'fs:list', 'fs:mkdir', 'fs:read', 'fs:write',
     'git:diff', 'git:log', 'git:status', 'search:grep',
   ]);

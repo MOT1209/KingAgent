@@ -9,6 +9,7 @@ import { Terminal } from './vendor/xterm.mjs';
 import { FitAddon } from './vendor/addon-fit.mjs';
 import { fileKind, shellQuote, fileUrl, docUrl, tailPath, pathRef } from './file-kinds.mjs';
 import { tileMenuItems } from './tile-menu.mjs';
+import { sessionMenuItems } from './session-menu.mjs';
 import { parseDoc, getField, setField, serializeDoc, editsAsFrontmatter, listItems, setListField, removeField } from './frontmatter.mjs';
 import { resolveOpen } from './peek-core.mjs';
 import { buildCreateSeed, buildImproveSeed, targetDirFor } from './seed-text.mjs';
@@ -2698,7 +2699,10 @@ function mountTile(p) {
   // drag reorder
   head.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', p.id); e.dataTransfer.effectAllowed = 'move'; root.classList.add('dragging'); });
   head.addEventListener('dragend', () => root.classList.remove('dragging'));
-  if (isSessionPanel(p)) head.oncontextmenu = (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY, [{ label: 'Add browser…', run: () => browsers.newBrowser(p.id) }]); };
+  if (isSessionPanel(p)) head.oncontextmenu = (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY, sessionMenuItems(p, {
+    addBrowser: () => browsers.newBrowser(p.id),
+    toggleKeepRunning: () => toggleKeepRunning(p),
+  })); };
   if (isFilePanel(p)) head.oncontextmenu = (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY, tileMenu(p)); };
   root.addEventListener('dragover', (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -4656,12 +4660,27 @@ function focusPanel(id, scroll = true, { preserveLayout = false } = {}) {
   for (const [pid, t] of tileEls) t.root.classList.toggle('active', pid === id);
   const t = tileEls.get(id); if (t) { const p = S.panels.find((x) => x.id === id); clearAttention(p); if (scroll) t.root.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); if (t.term) t.term.focus(); else if (t.aiInput) t.aiInput.focus(); else if (t.ta) t.ta.focus(); }
 }
+// A session panel's own opt-in for background-sessions.js: marks it with the
+// backend before the next close. `keepRunning` lives only on the in-memory
+// panel, not in the saved snapshot — it means nothing across a restart, since
+// a fresh launch has no live pty left to keep. The menu rebuilds itself from
+// this flag fresh on every right-click (session-menu.mjs), so no separate
+// repaint is needed. The backend call is fire-and-forget: term:set-persistent
+// only takes effect at the next close (see main.js), so there is nothing to
+// await here yet.
+function toggleKeepRunning(p) {
+  p.keepRunning = !p.keepRunning;
+  api.termSetPersistent({ id: p.id, persistent: p.keepRunning });
+}
 function closePanel(id, opts = {}) {
   const p = S.panels.find((x) => x.id === id); if (!p) return;
   if ((p.kind==='browser'||isSessionPanel(p)) && !opts.browserConfirmed && browsers.hasPending(p)) { browsers.canClose(p).then(ok=>{if(ok)closePanel(id,{...opts,browserConfirmed:true});}); return; }
   if (p.kind === 'browser') browsers.removeNotes(id); else if(isSessionPanel(p)&&browsers.hasPending(p)) browsers.clearNotes(p);
   if ((p.kind === 'editor' || p.kind === 'card') && p.dirty && !opts.silent && !confirm(`Discard unsaved changes to ${baseNameOf(p.filePath)}?`)) return;
   else if (!isFilePanel(p)) {
+    // term:set-persistent already ran when the toggle was clicked; term:kill
+    // reads that same flag on the main-process side and detaches instead of
+    // killing. Nothing extra to do here — this stays the one call site.
     api.termKill({ id });
   }
   const t = tileEls.get(id); if (t) { if (t.disposeRo) t.disposeRo(); if (t.disposeEditor) t.disposeEditor(); if (t.disposeBrowser) t.disposeBrowser(); t.root.remove(); tileEls.delete(id); }

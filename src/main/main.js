@@ -17,6 +17,7 @@ const { installAppMenu } = require('./app-menu.js');
 const { oneShotArgs, feedRunDone } = require('./run-done');
 const { startSeedGate } = require('./seed-gate');
 const { readLiveSession, liveSessionChanged } = require('./session-registry');
+const backgroundSessions = require('./background-sessions');
 const { stripInheritedClaude } = require('./session-env');
 const { detectAgents, agentStatus, findOnDisk } = require('./agents-detect');
 const { handles: opensHere, chooseTarget } = require('./open-with');
@@ -143,18 +144,44 @@ const windowThemes = new Map();
 const winFolders = new Map();     // webContents.id -> folder that window works in
 const sessionOwners = new Map();  // session id -> webContents.id, so closing a window reaps its sessions
 const termSessions = new Map();   // id -> pty
+const sessionMeta = new Map();    // id -> { cwd, kind, command, program, args, name }, captured at spawn
+// Sessions the user explicitly opted to keep running after this tile or
+// window closes — see background-sessions.js, including why this cannot
+// extend to the app quitting itself. Empty by default: every session
+// KingAgent spawns is still killed on close unless its id is added here first
+// via term:set-persistent.
+const persistentIds = new Set();
 // Sessions KingAgent is ending on purpose — quit, window close, tile close. pty.kill()
 // sends SIGHUP, which surfaces as exit 129, and without this the tile cannot tell
 // "you closed me" from "I died". Recorded before the kill, read in onExit.
 const deliberateKills = new Set();
 
 // Every intentional teardown goes through here, so the exit note stays honest.
-function killSession(id) {
+//
+// A session marked persistent is detached instead of killed: its process is
+// left running, and a record lands in background-sessions.json so a later
+// launch can say it exists (see background-sessions.js for what that does
+// and — just as importantly — does not do). `force` skips that and kills it
+// anyway, for the person who marked something persistent and then changed
+// their mind about a specific one.
+function killSession(id, { force = false } = {}) {
   const p = termSessions.get(id);
   if (!p) return false;
+  if (!force && persistentIds.has(id)) {
+    const meta = sessionMeta.get(id) || {};
+    backgroundSessions.recordDetach(backgroundSessions.fsIo, app.getPath('userData'), {
+      id, pid: p.pid, detachedAt: Date.now(), ...meta,
+    });
+    termSessions.delete(id);
+    sessionMeta.delete(id);
+    persistentIds.delete(id);
+    return 'detached';
+  }
   deliberateKills.add(id);
   try { p.kill(); } catch (_) {}
   termSessions.delete(id);
+  sessionMeta.delete(id);
+  persistentIds.delete(id);
   return true;
 }
 
@@ -1481,6 +1508,13 @@ ipcMain.handle('term:create', async (e, { id, cwd, cols, rows, kind, command, pr
 
   termSessions.set(id, p);
   sessionOwners.set(id, wc.id);
+  // Captured so a later detach (killSession with a persistent id) can write a
+  // background-sessions.json record without re-deriving how this session was
+  // launched. Cheap to keep for every session — most never opt into detaching.
+  sessionMeta.set(id, {
+    cwd: cwd || '', kind: kind || '', command: command || '',
+    program: file || '', args: Array.isArray(spawnArgs) ? spawnArgs : [], name: name || '',
+  });
   if (claudeWatch) watchTitle(id, wc, claudeWatch.transcript, { pid: p.pid, sid: claudeWatch.sid, cwd: claudeWatch.cwd });
   // A resumed run tile (codex, kimi, …) knows its id now; its name comes from
   // the agent's store rather than a transcript file. A fresh one registers
@@ -1533,7 +1567,7 @@ ipcMain.handle('term:create', async (e, { id, cwd, cols, rows, kind, command, pr
   p.onExit(({ exitCode, signal }) => {
     if (seedGate) { seedGate.stop(); seedGate = null; }
     if (stopDiscovery) stopDiscovery(); // a closed tile stops polling agent stores
-    termSessions.delete(id); sessionOwners.delete(id); titleWatch.delete(id);
+    termSessions.delete(id); sessionOwners.delete(id); titleWatch.delete(id); sessionMeta.delete(id); persistentIds.delete(id);
     // The note is built here rather than in the renderer because only main knows
     // whether this teardown was KingAgent's own doing.
     const deliberate = deliberateKills.delete(id);
@@ -1650,4 +1684,43 @@ ipcMain.handle('term:resize', (_e, { id, cols, rows }) => {
   }
   const p = termSessions.get(id); if (p) try { p.resize(cols, rows); } catch (_) {} return { ok: !!p };
 });
-ipcMain.handle('term:kill', (_e, { id }) => { killSession(id); sessionOwners.delete(id); titleWatch.delete(id); return { ok: true }; });
+ipcMain.handle('term:kill', (_e, { id, force }) => {
+  const outcome = killSession(id, { force: !!force });
+  sessionOwners.delete(id); titleWatch.delete(id);
+  return { ok: true, detached: outcome === 'detached' };
+});
+
+// Marking a session persistent takes effect the next time it would have been
+// killed (tile close or window close — not app quit, which kills it anyway;
+// see background-sessions.js's file header) — it does not do anything by
+// itself. Unmarking a session that has already detached is a no-op here;
+// it is gone from termSessions and only exists in background-sessions.json,
+// which background:kill / background:forget manage instead.
+ipcMain.handle('term:set-persistent', (_e, { id, persistent }) => {
+  if (!termSessions.has(id)) return { ok: false, reason: 'no such session' };
+  if (persistent) persistentIds.add(id); else persistentIds.delete(id);
+  return { ok: true, persistent: persistentIds.has(id) };
+});
+
+// The read side of background-sessions.json: what detached, and is it still
+// running. See background-sessions.js for why this never reattaches a
+// terminal — it can only tell you the process is alive or that it finished.
+ipcMain.handle('background:list', () => ({
+  ok: true,
+  sessions: backgroundSessions.listBackgroundSessions(backgroundSessions.fsIo, app.getPath('userData')),
+}));
+
+// Ends a detached process the user left running (by mistake, or on purpose
+// and is now done with) and removes its record either way.
+ipcMain.handle('background:kill', (_e, { id }) => {
+  const record = backgroundSessions.readAll(backgroundSessions.fsIo, app.getPath('userData')).find((r) => r.id === id);
+  if (record) { try { process.kill(record.pid, 'SIGTERM'); } catch (_) {} }
+  backgroundSessions.removeRecord(backgroundSessions.fsIo, app.getPath('userData'), id);
+  return { ok: true };
+});
+
+// Drops a record without touching its process — for a session that already
+// finished on its own and the user just wants the list clean.
+ipcMain.handle('background:forget', (_e, { id }) => ({
+  ok: backgroundSessions.removeRecord(backgroundSessions.fsIo, app.getPath('userData'), id),
+}));
