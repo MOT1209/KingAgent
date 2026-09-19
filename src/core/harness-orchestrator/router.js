@@ -19,6 +19,9 @@
 //
 //   manual              the caller named both; the router only validates
 //   fixed               the agent's own binding decides (agent.metadata.harness)
+//   priority            an explicit ordered preference list decides ties
+//                        (agent.metadata.harnessPriority), everything else
+//                        still has to clear the capability/policy gates first
 //   capability          most capable fit — the default
 //   best_available      prefer backends this machine actually has installed
 //   policy              policy verdict first, capability second
@@ -31,6 +34,7 @@ const { TYPES } = require('../events/event-bus');
 const ROUTING_STRATEGIES = Object.freeze([
   'manual',
   'fixed',
+  'priority',
   'capability',
   'best_available',
   'policy',
@@ -315,6 +319,22 @@ class AgentRouter {
           return -100;
         }
         return 0;
+      }
+      // An ordered preference list ("try codex, then claude-code, then
+      // whatever else fits") rather than a single hard binding. Position in
+      // the list beats capability-score differences of the size this file's
+      // other adjustments produce, but a harness the agent doesn't declare a
+      // preference for is untouched — it still competes on capability fit.
+      case 'priority': {
+        const order = (agent.metadata && Array.isArray(agent.metadata.harnessPriority)) ? agent.metadata.harnessPriority : null;
+        if (!order || order.length === 0) return 0;
+        const rank = order.indexOf(harness.id);
+        if (rank === -1) {
+          reasons.push('not in the agent\'s harness priority list');
+          return 0;
+        }
+        reasons.push(`priority ${rank + 1} of ${order.length}`);
+        return 50 - rank; // strictly decreasing by position, always above capability-only spread
       }
       case 'best_available': {
         const installed = this._harnesses ? this._harnesses.detected(harness.id) : null;

@@ -130,6 +130,26 @@ test('router: manual strategy validates the named pair and reports when it canno
   assert.match(missing.reasons.join(' '), /no enabled agents/);
 });
 
+test('router: priority strategy ranks by an agent\'s ordered harness preference', async () => {
+  const agents = new AgentRegistry();
+  agents.register({ id: 'ranked', name: 'Ranked', capabilities: ['code', 'read', 'write'], metadata: { harnessPriority: ['codex', 'claude-code'] } });
+  const router = new AgentRouter({ agentRegistry: agents, harnessRegistry: makeHarnesses() });
+
+  const decision = await router.route({ request: 'Fix the bug', strategy: 'priority' });
+  assert.equal(decision.harnessId, 'codex');
+  const winner = decision.candidates.find((c) => c.harnessId === 'codex');
+  assert.match(winner.reasons.join(' '), /priority 1 of 2/);
+});
+
+test('router: priority strategy falls back to capability scoring with no preference list', async () => {
+  const agents = new AgentRegistry();
+  agents.register({ id: 'unranked', name: 'Unranked', capabilities: ['code', 'read', 'write'] });
+  const router = new AgentRouter({ agentRegistry: agents, harnessRegistry: makeHarnesses() });
+  const priorityDecision = await router.route({ request: 'Fix the bug', strategy: 'priority' });
+  const capabilityDecision = await router.route({ request: 'Fix the bug', strategy: 'capability' });
+  assert.equal(priorityDecision.harnessId, capabilityDecision.harnessId);
+});
+
 test('router: cost_aware and performance_aware use the injected tables', async () => {
   const cheap = new AgentRouter({
     agentRegistry: makeAgents(),

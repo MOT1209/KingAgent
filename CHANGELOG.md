@@ -14,6 +14,15 @@ always the newest one below.
 
 ### Added
 
+- `doc:convert` and `diagram:generate` builtin tools
+  (`src/core/tools/builtin/`): convert workspace `.docx`/`.csv`/`.tsv`/
+  `.txt`/`.md`/`.json` to Markdown (with a from-scratch minimal ZIP reader
+  for `.docx`, `zip-reader.js`), and render a typed node/edge graph as a
+  self-contained HTML+SVG diagram artifact. Two new `domain-modeling` and
+  `diagnosis-loop` builtin skills adapted from the community. A `priority`
+  routing strategy on `AgentRouter` (`agent.metadata.harnessPriority`). See
+  `docs/external-projects-review.md` for what these came from and, just as
+  importantly, what was deliberately not adopted.
 - The skill ecosystem and MCP capability layer: `src/core/skills/` (discovery,
   ranking, evaluation, lifecycle, registry, runtime, security scanning, four
   sources), `src/core/mcp/` (registry, inspection, classification, bridge),

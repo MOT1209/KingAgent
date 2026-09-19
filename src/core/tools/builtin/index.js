@@ -9,6 +9,8 @@ const path = require('node:path');
 const { PERMISSIONS } = require('../definition');
 const { ToolError } = require('../manager');
 const { assertWithin } = require('../path-guard');
+const { convertToMarkdown, SUPPORTED: DOC_CONVERT_FORMATS } = require('./doc-convert');
+const { generateDiagram } = require('./diagram-generate');
 
 function registerBuiltinTools(tm, io) {
   const fs = io.fs || require('node:fs/promises');
@@ -145,6 +147,51 @@ function registerBuiltinTools(tm, io) {
         await fs.unlink(target);
       }
       return { path: input.path, deleted: true };
+    },
+  });
+
+  // --- documents (office/text -> Markdown, no shell-out, no new deps) ------
+  tm.register({
+    id: 'doc:convert',
+    name: 'Convert document to Markdown',
+    description: `Convert a workspace document (${DOC_CONVERT_FORMATS.join(', ')}) to Markdown so an agent can read it as text.`,
+    category: 'document',
+    capabilities: ['read', 'document'],
+    inputSchema: { type: 'object', properties: { path: { type: 'string', required: true } } },
+    permissions: { level: PERMISSIONS.READ_ONLY },
+    async execute(input) {
+      const target = assertWithin(root, input.path);
+      try {
+        const markdown = await convertToMarkdown(fs, target);
+        return { path: input.path, markdown };
+      } catch (err) {
+        throw new ToolError(`doc:convert failed for ${input.path}: ${err.message}`, { code: 'TOOL_FAILURE', toolId: 'doc:convert' });
+      }
+    },
+  });
+
+  // --- diagrams (typed node/edge graph -> self-contained HTML+SVG) ---------
+  tm.register({
+    id: 'diagram:generate',
+    name: 'Generate architecture diagram',
+    description: 'Render a directed graph of named nodes and edges as a self-contained HTML+SVG diagram artifact.',
+    category: 'document',
+    capabilities: ['document', 'architecture'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        nodes: { type: 'array', required: true },
+        edges: { type: 'array' },
+      },
+    },
+    permissions: { level: PERMISSIONS.READ_ONLY },
+    async execute(input) {
+      try {
+        return generateDiagram(input);
+      } catch (err) {
+        throw new ToolError(`diagram:generate failed: ${err.message}`, { code: 'TOOL_INVALID_INPUT', toolId: 'diagram:generate' });
+      }
     },
   });
 
