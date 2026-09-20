@@ -95,7 +95,11 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
     if (message.method === 'tools/list') {
       return { tools: [...await toolSchema(), ...KINGAGENT_TOOLS, ...MESSAGE_TOOLS] };
     }
-    if (message.method !== 'tools/call') throw new Error('Unsupported MCP method.');
+    if (message.method !== 'tools/call') {
+      const err = new Error(`Unsupported MCP method: ${message.method}`);
+      err.jsonRpcCode = -32601; // spec: Method not found — was a generic -32000
+      throw err;
+    }
     const { name, arguments: args = {} } = message.params || {};
     if (route.updating || route.revoked) throw new Error('KingAgent Browser access is being updated. Try again.');
     if (name === 'kingagent_sessions') return result((s.peers || []).filter((id) => access.sessions.has(id)).map((id) => ({ id, title: access.get(id).title })));
@@ -169,7 +173,7 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
     const run = serial.then(async () => { if (!routes.has(req.url?.split('?')[0]) || route.revoked) throw new Error('Connection revoked.'); route.inFlight = dispatch(route, m); try { return await route.inFlight; } finally { route.inFlight = null; } });
     serial = run.catch(() => {});
     try { const output = await run; res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: output })); }
-    catch (error) { res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: m.id, error: { code: -32000, message: error.message } })); }
+    catch (error) { res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: m.id, error: { code: error.jsonRpcCode || -32000, message: error.message } })); }
   });
   server.requestTimeout = 30000;
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });

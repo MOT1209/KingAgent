@@ -80,6 +80,19 @@ test('screenshot refuses pixels if its document changes while capture is pending
   } finally { await gateway.close(); }
 });
 
+test('an unsupported JSON-RPC method reports the spec method-not-found code, not a generic one', async () => {
+  const { createBrowserMcp } = require('../src/main/browser-mcp');
+  const { Access } = require('../src/main/browser-policy');
+  const access = new Access(); access.register('reader', 1); access.grant('reader', 1, ['view']);
+  const gateway = await createBrowserMcp({ access, views: new Map() });
+  try {
+    const { url } = await gateway.connection('reader');
+    const output = await fetch(url, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'notify/something' }) }).then(r => r.json());
+    assert.equal(output.error.code, -32601);
+    assert.match(output.error.message, /Unsupported MCP method: notify\/something/);
+  } finally { await gateway.close(); }
+});
+
 test('queued peer calls cannot use old permissions while a browser operation drains', async () => {
   const { createBrowserMcp } = require('../src/main/browser-mcp');
   const { Access } = require('../src/main/browser-policy');
