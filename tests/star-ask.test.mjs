@@ -2,15 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// app.js is a browser module that touches document on import, so the rules are
-// read out of the source rather than imported — the same approach the other
-// renderer tests take. What matters here is that the gate cannot regress into
-// asking twice, and that is a property of the code, not of a DOM.
-const src = readFileSync(new URL('../src/renderer/app.js', import.meta.url), 'utf8');
+// This logic lives in update-bar.mjs (extracted from app.js), a browser
+// module that touches document on import, so the rules are read out of the
+// source rather than imported — the same approach the other renderer tests
+// take. What matters here is that the gate cannot regress into asking
+// twice, and that is a property of the code, not of a DOM.
+const src = readFileSync(new URL('../src/renderer/update-bar.mjs', import.meta.url), 'utf8');
 
 // starAskDue is written pure precisely so it can be lifted out and exercised.
 const starAskDue = (() => {
-  const body = src.match(/function starAskDue\(\{ asked, launches \}\) \{([\s\S]*?)\n\}/)[1];
+  const body = src.match(/function starAskDue\(\{ asked, launches \}\) \{([\s\S]*?)\n\s*\}/)[1];
   const after = Number(src.match(/const ASK_AFTER_LAUNCHES = (\d+)/)[1]);
   return new Function('ASK_AFTER_LAUNCHES', `return function starAskDue({ asked, launches }) {${body}\n}`)(after);
 })();
@@ -45,20 +46,20 @@ test('the tally stops growing once the ask is due, so it cannot run away', () =>
 });
 
 test('an update always wins the slot — a favour never displaces it', () => {
-  const paint = src.match(/function paintStarAsk\(\) \{([\s\S]*?)\n\}/)[1];
+  const paint = src.match(/function paintStarAsk\(\) \{([\s\S]*?)\n\s*\}/)[1];
   assert.match(paint, /if \(!els\.updateRoot \|\| offered \|\| localStorage\.getItem\(STAR_ASKED\)\) return;/);
 });
 
 test('dismissing and clicking through are the same answer', () => {
-  const close = src.match(/function closeStarAsk\(\) \{([\s\S]*?)\n\}/)[1];
+  const close = src.match(/function closeStarAsk\(\) \{([\s\S]*?)\n\s*\}/)[1];
   assert.match(close, /localStorage\.setItem\(STAR_ASKED, '1'\)/);
   // the star button must mark it too, or clicking through leaves it due again
-  assert.match(src, /q\('#star-go'.*\{ api\.openUrl\(REPO_URL\); closeStarAsk\(\); \}/);
+  assert.match(src, /q\('#star-go'.*\{ onStarClick\(\); closeStarAsk\(\); \}/);
 });
 
 test('demo and screenshot runs never count as somebody coming back', () => {
-  const arm = src.match(/function armStarAsk\(\) \{([\s\S]*?)\n\}/)[1];
-  assert.match(arm, /if \(S\.demo\) return;/);
+  const arm = src.match(/function armStarAsk\(\) \{([\s\S]*?)\n\s*\}/)[1];
+  assert.match(arm, /if \(state\.demo\) return;/);
 });
 
 // The bar is position:absolute with no max-width, so a long message walks it
