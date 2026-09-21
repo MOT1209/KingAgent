@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import { grokAuthActions, GROK_API_KEY } from '../src/renderer/grok-auth.mjs';
 
 const appSrc = fs.readFileSync(new URL('../src/renderer/app.js', import.meta.url), 'utf8');
+// The Keys pane (where GROK_API_KEY is suggested) lives in settings-panes.mjs
+// now (extracted from app.js); the Grok auth sheet itself stayed in app.js.
+const settingsSrc = fs.readFileSync(new URL('../src/renderer/settings-panes.mjs', import.meta.url), 'utf8');
 
 test('the key Grok reads is XAI_API_KEY', () => {
   assert.equal(GROK_API_KEY, 'XAI_API_KEY');
@@ -57,7 +60,7 @@ test('already on the API key: can jump to the account or replace the key', () =>
 test('the Grok sheet and Keys pane both wire the helper', () => {
   assert.match(appSrc, /import \{ grokAuthActions, GROK_API_KEY \} from '\.\/grok-auth\.mjs'/);
   assert.match(appSrc, /grokAuthActions\(st\)/);
-  assert.match(appSrc, /name: GROK_API_KEY/);
+  assert.match(settingsSrc, /name: GROK_API_KEY/);
   assert.match(appSrc, /Sign in with xAI account/);
   assert.match(appSrc, /logoutAfterSave/);
 });

@@ -15,10 +15,11 @@ import { readFileSync } from 'node:fs';
 // the next, with nothing changed, is the confusing part -- so the flag now says
 // which of the two it is.
 
-const src = readFileSync(new URL('../src/renderer/app.js', import.meta.url), 'utf8');
+// voiceFlag and mb live in settings-panes.mjs now (extracted from app.js).
+const src = readFileSync(new URL('../src/renderer/settings-panes.mjs', import.meta.url), 'utf8');
 const voiceFlag = (() => {
-  const m = src.match(/function voiceFlag\(p\) \{([\s\S]*?)\n\}/);
-  assert.ok(m, 'voiceFlag must exist in app.js');
+  const m = src.match(/function voiceFlag\(p\) \{([\s\S]*?)\n\s*\}/);
+  assert.ok(m, 'voiceFlag must exist in settings-panes.mjs');
   // it calls mb() for the download size; hand it the real one
   const mbSrc = src.match(/function mb\(bytes\) \{ ([\s\S]*?) \}/)[1];
   const mb = new Function('bytes', mbSrc);

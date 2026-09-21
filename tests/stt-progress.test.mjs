@@ -57,12 +57,14 @@ test('a half-finished folder counts only what is left to fetch', async () => {
 
 // ---- the receiving end ------------------------------------------------------
 
-// app.js touches document on import, so the formatter is lifted out of the
-// source and exercised on its own — the same approach star-ask.test.mjs takes.
-const src = readFileSync(new URL('../src/renderer/app.js', import.meta.url), 'utf8');
+// dlProgressText lives in settings-panes.mjs now (extracted from app.js),
+// which also touches document on import, so the formatter is lifted out of
+// the source and exercised on its own — the same approach star-ask.test.mjs
+// takes.
+const src = readFileSync(new URL('../src/renderer/settings-panes.mjs', import.meta.url), 'utf8');
 const dlProgressText = (() => {
-  const m = src.match(/function dlProgressText\(ev\) \{([\s\S]*?)\n\}/);
-  assert.ok(m, 'dlProgressText must exist in app.js — it is the whole fix');
+  const m = src.match(/function dlProgressText\(ev\) \{([\s\S]*?)\n\s*\}/);
+  assert.ok(m, 'dlProgressText must exist in settings-panes.mjs — it is the whole fix');
   return new Function(`return function dlProgressText(ev) {${m[1]}\n}`)();
 })();
 
