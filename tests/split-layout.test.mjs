@@ -12,7 +12,9 @@ test('compact split keeps content readable below two useful pane widths', () => 
 });
 test('compact Session/File still flips data-show when pane ids stay the same', () => {
   const root = path.dirname(fileURLToPath(import.meta.url));
-  const src = fs.readFileSync(path.join(root, '../src/renderer/app.js'), 'utf8');
+  // focusPanel and closePanel live in panel-lifecycle.mjs now (extracted
+  // from app.js).
+  const src = fs.readFileSync(path.join(root, '../src/renderer/panel-lifecycle.mjs'), 'utf8');
   const css = fs.readFileSync(path.join(root, '../src/renderer/paper.css'), 'utf8');
   const fn = src.slice(src.indexOf('function focusPanel'), src.indexOf('function closePanel'));
   assert.match(fn, /syncSplitLayout\(pv\)/);
