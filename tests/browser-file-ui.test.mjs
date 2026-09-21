@@ -6,9 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const app = fs.readFileSync(path.resolve(dir, '../src/renderer/app.js'), 'utf8');
+// treeMenu and openOutside live in workspace-library.mjs now (extracted from
+// app.js), so the assertions that inspect their bodies read this file.
+const workspaceLib = fs.readFileSync(path.resolve(dir, '../src/renderer/workspace-library.mjs'), 'utf8');
 
 test('HTML browser actions exist in the tree, peek head, and pinned editor', () => {
-  assert.match(app, /fileKind\(n\.path\) === 'html'[\s\S]{0,180}Open in browser/);
+  assert.match(workspaceLib, /fileKind\(n\.path\) === 'html'[\s\S]{0,180}Open in browser/);
   assert.match(app, /class="btn pk-browser"/);
   assert.match(app, /class="btn ed-browser"/);
 });
@@ -20,9 +23,9 @@ test('opening a dirty HTML panel saves before invoking the browser channel', () 
 
 test('the ↗ buttons leave for Chrome; the tree offers both the tile and Chrome', () => {
   assert.match(app, /function bindBrowserButton[\s\S]{0,200}button\.onclick = \(\) => openOutside\(p\)/);
-  assert.match(app, /Open in browser'[\s\S]{0,120}Open in Chrome ↗/);
+  assert.match(workspaceLib, /Open in browser'[\s\S]{0,120}Open in Chrome ↗/);
   // a dirty page is saved before Chrome reads the file
-  assert.match(app, /async function openOutside[\s\S]{0,200}if \(p\.dirty && !\(await saveEditor\(p\)\)\) return;[\s\S]{0,80}api\.openFileInBrowser/);
+  assert.match(workspaceLib, /async function openOutside[\s\S]{0,200}if \(p\.dirty && !\(await saveEditor\(p\)\)\) return;[\s\S]{0,80}api\.openFileInBrowser/);
 });
 
 test('pinning an HTML peek pins the rendered page, not its source', () => {

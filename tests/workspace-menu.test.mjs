@@ -10,8 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { pathRef } from '../src/renderer/file-kinds.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const app = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');
-const menu = app.slice(app.indexOf('function treeMenu('), app.indexOf('\n}', app.indexOf('function treeMenu(')));
+// treeMenu and addPathToSession live in workspace-library.mjs now (extracted
+// from app.js).
+const workspaceLib = fs.readFileSync(path.join(root, 'src/renderer/workspace-library.mjs'), 'utf8');
+const menu = workspaceLib.slice(workspaceLib.indexOf('function treeMenu('), workspaceLib.indexOf('\n  }', workspaceLib.indexOf('function treeMenu(')));
 
 test('a workspace row offers Add to session and Open in new window', () => {
   assert.match(menu, /label: 'Add to session'/);
@@ -19,8 +21,8 @@ test('a workspace row offers Add to session and Open in new window', () => {
 });
 
 test('a file goes to the session as the same text a drag would type', () => {
-  assert.match(app, /function addPathToSession/);
-  assert.match(app, /pathRef\(path, S\.project && S\.project\.path, isDir\)/);
+  assert.match(workspaceLib, /function addPathToSession/);
+  assert.match(workspaceLib, /pathRef\(path, S\.project && S\.project\.path, isDir\)/);
   // the reference itself: mention inside the project, quoted path outside
   assert.equal(pathRef('/w/p/notes.md', '/w/p', false), '@notes.md ');
   assert.equal(pathRef('/w/p/src', '/w/p', true), '@src/ ');
