@@ -73,6 +73,7 @@
     "marked": "^18.0.11"
   },
   "//deps": "transformers and onnxruntime-node are pinned exactly on purpose: a v3→v4 transformers bump swaps the tokenizer and the wasm-vendoring story, and onnxruntime-node's prebuilt-binary layout moves between napi generations. Re-pin deliberately, never by caret drift. Packaging lives in electron-builder.yml. A bump to transformers 4.3.0 / onnxruntime-node 1.30.0 (to clear the sharp/libvips/libheif CVEs transformers 3.8.1 pulls in) was attempted and reverted: onnxruntime-node's postinstall downloads its prebuilt binary via a raw HTTPS GET to a GitHub releases asset URL, which this environment's outbound proxy resets (it serves anonymous git clone/fetch of public repos, not arbitrary HTTPS requests to github.com). The bump needs a network environment that can actually reach GitHub release assets before it can be verified and shipped.",
+  "//overrides": "sharp is transformers@3.8.1's own dependency (^0.34.1, installed as a transitive package, never required directly by this app), and the range npm resolves it to still carried the libvips/libheif CVEs GHSA-f88m-g3jw-g9cj and GHSA-rgj7-g3m4-5g8c. Unlike the transformers/onnxruntime-node bump above, sharp's postinstall fetches its prebuilt binary from the npm registry (its own package tarball), not a raw GitHub releases URL, so it is not blocked by this environment's proxy — verified by a clean install and `require('sharp')` actually loading. Pinning it above the range transformers asks for, rather than bumping transformers itself, keeps the tokenizer/wasm change out of this fix entirely.",
   "//c8": "Two scopes, because they answer different questions. `test:coverage` is the gate and covers src/main and src/core: those run under node, so a test that imports one exercises it. `test:coverage:renderer` measures src/renderer and is report-only — most of it needs a DOM and app.js needs an Electron window, so the same thresholds there would either fail every build or have to be lowered until passing meant nothing. Measure it, do not gate on it.",
   "c8": {
     "all": true,
@@ -90,5 +91,8 @@
       "json-summary",
       "html"
     ]
+  },
+  "overrides": {
+    "sharp": "0.35.4"
   }
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { readSettings, writeSettings, normalizeTheme, themeBackground, THEMES, DEFAULT_THEME, normalizeView, VIEWS } from '../src/main/settings.js';
+import { readSettings, writeSettings, normalizeTheme, themeBackground, THEMES, DEFAULT_THEME, normalizeView, VIEWS, ENC_PREFIX } from '../src/main/settings.js';
 
 function tmpFile() {
   return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nami-set-')), 'settings.json');
@@ -78,6 +78,81 @@ test('creates the parent directory on first write', () => {
   const res = writeSettings({ file, patch: { theme: 'paper' } });
   assert.equal(res.ok, true);
   assert.equal(readSettings({ file }).theme, 'paper');
+});
+
+// ---- secrets at rest ---------------------------------------------------------
+// `crypt` stands in for Electron's safeStorage: a reversible, order-marked
+// "encryption" so tests can tell a stored value was transformed without
+// pulling in the real OS keychain.
+function fakeCrypt({ available = true } = {}) {
+  return {
+    isEncryptionAvailable: () => available,
+    encryptString: (s) => Buffer.from('CIPHER(' + s + ')'),
+    decryptString: (buf) => {
+      const s = buf.toString();
+      const m = /^CIPHER\((.*)\)$/.exec(s);
+      if (!m) throw new Error('not our ciphertext');
+      return m[1];
+    },
+  };
+}
+
+test('openaiKey, elevenKey, sttKey and every envKeys entry are encrypted on disk', () => {
+  const file = tmpFile();
+  const crypt = fakeCrypt();
+  writeSettings({
+    file, crypt,
+    patch: { openaiKey: 'sk-a', elevenKey: 'el-b', sttKey: 'stt-c', envKeys: { FOO: 'bar', BAZ: 'qux' }, theme: 'paper' },
+  });
+  const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'));
+  for (const v of [onDisk.openaiKey, onDisk.elevenKey, onDisk.sttKey, onDisk.envKeys.FOO, onDisk.envKeys.BAZ]) {
+    assert.ok(v.startsWith(ENC_PREFIX), `expected ${v} to be encrypted`);
+    assert.doesNotMatch(v, /sk-a|el-b|stt-c|bar|qux/, 'plaintext must not appear on disk');
+  }
+  // A non-secret key stored beside them is untouched.
+  assert.equal(onDisk.theme, 'paper');
+  // readSettings, given the same crypt, hands back the original plain text —
+  // every existing caller (stt.js, storedEnvKeys(), settings:get's masking)
+  // keeps working unmodified.
+  const doc = readSettings({ file, crypt });
+  assert.deepEqual(
+    [doc.openaiKey, doc.elevenKey, doc.sttKey, doc.envKeys.FOO, doc.envKeys.BAZ],
+    ['sk-a', 'el-b', 'stt-c', 'bar', 'qux'],
+  );
+});
+
+test('a settings.json an older KingAgent wrote in plain text still reads back plainly', () => {
+  const file = tmpFile();
+  fs.writeFileSync(file, JSON.stringify({ openaiKey: 'sk-legacy', envKeys: { FOO: 'old' }, theme: 'dusk' }));
+  const doc = readSettings({ file, crypt: fakeCrypt() });
+  assert.equal(doc.openaiKey, 'sk-legacy');
+  assert.equal(doc.envKeys.FOO, 'old');
+  assert.equal(doc.theme, 'dusk');
+});
+
+test('without encryption available, secrets are stored and read as plain text (documented degrade)', () => {
+  const file = tmpFile();
+  const crypt = fakeCrypt({ available: false });
+  writeSettings({ file, crypt, patch: { openaiKey: 'sk-a' } });
+  const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(onDisk.openaiKey, 'sk-a');
+  assert.equal(readSettings({ file, crypt }).openaiKey, 'sk-a');
+});
+
+test('an encrypted value read without a crypt (or a broken one) is returned opaque, never guessed at as plain text', () => {
+  const file = tmpFile();
+  writeSettings({ file, crypt: fakeCrypt(), patch: { openaiKey: 'sk-a' } });
+  const doc = readSettings({ file }); // no crypt passed
+  assert.notEqual(doc.openaiKey, 'sk-a');
+  assert.ok(doc.openaiKey.startsWith(ENC_PREFIX));
+});
+
+test('callers that never pass crypt keep the exact old plain-text behavior', () => {
+  const file = tmpFile();
+  writeSettings({ file, patch: { openaiKey: 'sk-a', envKeys: { FOO: 'bar' } } });
+  const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(onDisk.openaiKey, 'sk-a');
+  assert.equal(onDisk.envKeys.FOO, 'bar');
 });
 
 // ---- themes -----------------------------------------------------------------

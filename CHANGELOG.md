@@ -12,6 +12,44 @@ always the newest one below.
 
 ## [Unreleased]
 
+### Fixed
+
+- The `kingagent-doc://` HTML/browser viewer never rendered anything on
+  Windows: its `net.fetch` URL was hand-built as `'file://' + file.split('/')`,
+  which has no `/` to split a Windows path on and turned the whole
+  `C:\Users\...` string into a garbage `file://C%3A%5CUsers...` URL. Replaced
+  with `pathToFileURL` (`src/main/doc-protocol.js`'s new `docFileUrl`),
+  covered for both path styles.
+- The `fs:newFile`/`fs:newFolder`/`fs:move`/`fs:rename`/`fs:import`/
+  `fs:duplicate`/`fs:trash` IPC handlers took their confinement `root` from
+  the renderer's own IPC payload; fs-actions.js's inside-root guard is only
+  as strong as the root it is handed, so a compromised renderer could name
+  any folder as `root` and walk outside the open project. Each handler now
+  overwrites `root` with the window's own tracked folder (`winFolders`)
+  before calling into fs-actions.js.
+- API keys (`openaiKey`, `elevenKey`, `sttKey`, and every name under
+  `envKeys`) were written to `settings.json` as plain text; the file's
+  `0o600` mode is a no-op on Windows and protects nothing once the file
+  leaves the machine. They are now encrypted at rest with Electron's
+  `safeStorage` (OS keychain / libsecret-backed) when available, decrypted
+  transparently on read so no caller needed to change, and fall back to the
+  previous plain-text behavior — same as before — on a machine with no
+  keyring. An older KingAgent's plain-text settings.json still reads back
+  correctly and is encrypted on the next write.
+- The main window ran without `sandbox: true`, unlike every other
+  `webContents` this app creates (the in-app browser and overlays). Its
+  preload only ever touches `contextBridge`/`ipcRenderer`/`webUtils`, all
+  still available sandboxed, so this closes off OS-syscall surface a
+  renderer compromise could otherwise reach at no functional cost.
+- `npm audit` flagged two high-severity libvips/libheif CVEs in `sharp`
+  (GHSA-f88m-g3jw-g9cj, GHSA-rgj7-g3m4-5g8c), pulled in transitively by
+  `@huggingface/transformers@3.8.1`. Unlike the transformers/onnxruntime-node
+  bump noted below (blocked by this environment's proxy), sharp's own
+  postinstall fetches from the npm registry, not a raw GitHub releases URL,
+  so it could be pinned above transformers' requested range via `overrides`
+  without touching the pinned transformers/onnxruntime-node versions.
+  `npm audit` now reports zero vulnerabilities.
+
 ## [0.5.6] — 2026-09-19
 
 ### Added

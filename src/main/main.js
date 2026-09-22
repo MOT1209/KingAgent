@@ -2,7 +2,7 @@
 // Owns: the window, PTY terminal sessions,
 // the open folder + its .claude scan, restart-proof state, and all IPC.
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, protocol, net, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, protocol, net, Menu, nativeImage, safeStorage } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -218,8 +218,11 @@ function persist(partial) {
 // ---- settings (how the app behaves: theme, model, transcription) ------------
 // Every write merges and renames — see settings.js for why.
 function settingsFile() { return path.join(app.getPath('userData'), 'settings.json'); }
-function readSettings() { return settingsStore.readSettings({ file: settingsFile() }); }
-function writeSettings(patch) { return settingsStore.writeSettings({ file: settingsFile(), patch }); }
+// `safeStorage` encrypts the API keys settings.json carries (see settings.js);
+// every read/write of this app's own settings file goes through these two
+// wrappers, so threading it through here is the one place that needs to know.
+function readSettings() { return settingsStore.readSettings({ file: settingsFile(), crypt: safeStorage }); }
+function writeSettings(patch) { return settingsStore.writeSettings({ file: settingsFile(), patch, crypt: safeStorage }); }
 
 function sendWc(wc, channel, payload) { if (wc && !wc.isDestroyed()) wc.send(channel, payload); }
 
@@ -412,7 +415,16 @@ function createWindow(folder, bounds) {
     ...(bounds && Number.isFinite(bounds.width) ? bounds : {}),
     ...windowChrome(),
     backgroundColor: settingsStore.themeBackground(readSettings().theme),
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, plugins: true },
+    // sandbox: true alongside contextIsolation/nodeIntegration:false — the pattern
+    // every other webContents in this app already uses (browser-views.js,
+    // browser-overlays.js). preload.js only ever touches contextBridge,
+    // ipcRenderer and webUtils, all of which stay available to a sandboxed
+    // preload, so this costs nothing and closes off the OS-syscall surface a
+    // renderer compromise (an XSS in agent output, say) would otherwise reach.
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false,
+      sandbox: true, plugins: true,
+    },
   });
   browserViews.bindWindow(w);
   const wcId = w.webContents.id;
@@ -1300,13 +1312,19 @@ ipcMain.handle('file:openBrowser', async (_e, file) => {
   }
 });
 // Workspace file verbs: guarded in fs-actions.js to stay inside the project root.
-ipcMain.handle('fs:newFile', (_e, a) => fsActions.newFile(a || {}));
-ipcMain.handle('fs:newFolder', (_e, a) => fsActions.newFolder(a || {}));
-ipcMain.handle('fs:move', (_e, a) => fsActions.movePath(a || {}));
-ipcMain.handle('fs:rename', (_e, a) => fsActions.renamePath(a || {}));
-ipcMain.handle('fs:import', (_e, a) => fsActions.importPaths(a || {}));
-ipcMain.handle('fs:duplicate', (_e, a) => fsActions.duplicatePath(a || {}));
-ipcMain.handle('fs:trash', (_e, a) => fsActions.trashPath({ ...(a || {}), trashFn: (p) => shell.trashItem(p) }));
+// `root` still arrives on `a` because every call site already has it handy, but
+// it is never trusted from there — fs-actions' `inside()` guard is only as
+// strong as the root it is given, and the renderer is not a trust boundary
+// (see the doc-protocol note above). Each window's real open folder, recorded
+// in winFolders when it navigated there, replaces whatever the call claims.
+function trustedRoot(e) { return winFolders.get(e.sender.id) || null; }
+ipcMain.handle('fs:newFile', (e, a) => fsActions.newFile({ ...(a || {}), root: trustedRoot(e) }));
+ipcMain.handle('fs:newFolder', (e, a) => fsActions.newFolder({ ...(a || {}), root: trustedRoot(e) }));
+ipcMain.handle('fs:move', (e, a) => fsActions.movePath({ ...(a || {}), root: trustedRoot(e) }));
+ipcMain.handle('fs:rename', (e, a) => fsActions.renamePath({ ...(a || {}), root: trustedRoot(e) }));
+ipcMain.handle('fs:import', (e, a) => fsActions.importPaths({ ...(a || {}), root: trustedRoot(e) }));
+ipcMain.handle('fs:duplicate', (e, a) => fsActions.duplicatePath({ ...(a || {}), root: trustedRoot(e) }));
+ipcMain.handle('fs:trash', (e, a) => fsActions.trashPath({ ...(a || {}), root: trustedRoot(e), trashFn: (p) => shell.trashItem(p) }));
 
 // ---- the Workspace tree's watcher ------------------------------------------
 // One dir-watch per window, because each window has its own open folder, and one

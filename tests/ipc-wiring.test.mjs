@@ -74,3 +74,19 @@ test('view:set is exposed, handled, and the boot payload carries the saved view'
   assert.match(mainSrc, /ipcMain\.handle\('view:set'/);
   assert.match(mainSrc, /view: settingsStore\.normalizeView\(readSettings\(\)\.view\)/);
 });
+
+test('fs:* handlers never trust a renderer-supplied root — they overwrite it with the window\'s own folder', () => {
+  // A compromised renderer can send any `root` it likes; fs-actions.js only
+  // confines a path to whatever root it is handed. If main.js forwarded the
+  // renderer's root unchecked, that confinement would be worthless. Each
+  // fs:* handler must instead resolve root from winFolders (the value main.js
+  // itself set when the window opened), not from `a`/args.
+  const channels = ['fs:newFile', 'fs:newFolder', 'fs:move', 'fs:rename', 'fs:import', 'fs:duplicate', 'fs:trash'];
+  for (const ch of channels) {
+    const re = new RegExp(`ipcMain\\.handle\\('${ch}',[^\\n]*\\n?[^;]*\\);`, 'm');
+    const m = mainSrc.match(re);
+    assert.ok(m, `${ch} handler not found`);
+    assert.match(m[0], /root:\s*trustedRoot\(e\)/, `${ch} must set root from trustedRoot(e), not from the renderer's payload`);
+  }
+  assert.match(mainSrc, /function trustedRoot\(e\)\s*\{\s*return winFolders\.get\(e\.sender\.id\)/);
+});

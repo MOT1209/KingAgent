@@ -18,11 +18,54 @@ const fsIo = {
   },
 };
 
-function readSettings({ file, io = fsIo }) {
+// Secrets at rest: settings.json is the one file that holds API keys (the
+// top-level provider keys below, and every name in envKeys), and it used to
+// hold them as plain text — mode 0o600 is owner-only on POSIX but is not a
+// real access control on Windows, and either way it does nothing once the
+// file leaves the machine (a backup, a synced folder, a stolen laptop with
+// disk encryption off). `crypt` is Electron's `safeStorage` — OS-keychain
+// backed on macOS/Windows, libsecret-backed on Linux where a keyring is
+// present — injected by main.js so this module stays loadable, and testable
+// with a fake, outside Electron. A value is only ever encrypted if `crypt`
+// reports encryption available; otherwise it is stored as before, which is
+// also what happens to an already-encrypted install on a Linux box with no
+// keyring: a documented, honest degrade, not a silent one.
+const SECRET_KEYS = ['openaiKey', 'elevenKey', 'sttKey'];
+const ENC_PREFIX = 'enc:v1:';
+
+function encryptOne(v, crypt) {
+  if (typeof v !== 'string' || !v) return v;
+  if (!crypt || typeof crypt.isEncryptionAvailable !== 'function' || !crypt.isEncryptionAvailable()) return v;
+  try { return ENC_PREFIX + crypt.encryptString(v).toString('base64'); } catch (_) { return v; }
+}
+function decryptOne(v, crypt) {
+  if (typeof v !== 'string' || !v.startsWith(ENC_PREFIX)) return v;
+  if (!crypt || typeof crypt.decryptString !== 'function') return v; // can't decrypt yet; never leak plaintext by guessing
+  try { return crypt.decryptString(Buffer.from(v.slice(ENC_PREFIX.length), 'base64')); } catch (_) { return v; }
+}
+// envKeys is a name -> secret map (see main.js's keys:* handlers); every
+// value in it is a secret too, not just the three named fields above.
+function mapSecrets(doc, fn, crypt) {
+  const out = { ...doc };
+  for (const k of SECRET_KEYS) if (k in out) out[k] = fn(out[k], crypt);
+  if (out.envKeys && typeof out.envKeys === 'object' && !Array.isArray(out.envKeys)) {
+    const next = {};
+    for (const [name, v] of Object.entries(out.envKeys)) next[name] = fn(v, crypt);
+    out.envKeys = next;
+  }
+  return out;
+}
+const decryptSecrets = (doc, crypt) => mapSecrets(doc, decryptOne, crypt);
+const encryptSecrets = (doc, crypt) => mapSecrets(doc, encryptOne, crypt);
+
+// `crypt` is optional throughout: every existing caller (tests included) that
+// does not pass one gets exactly the old plain-text behavior, forwards- and
+// backwards-compatible with a settings.json an older KingAgent wrote.
+function readSettings({ file, io = fsIo, crypt = null }) {
   if (!io.exists(file)) return {};
   try {
     const doc = JSON.parse(io.read(file));
-    return doc && typeof doc === 'object' && !Array.isArray(doc) ? doc : {};
+    return doc && typeof doc === 'object' && !Array.isArray(doc) ? decryptSecrets(doc, crypt) : {};
   } catch (_) {
     // A corrupt file must not brick the app; it gets replaced on the next write.
     return {};
@@ -31,13 +74,16 @@ function readSettings({ file, io = fsIo }) {
 
 // Shallow-merges `patch` over what is on disk. A key set to `null` is deleted —
 // that is how the UI clears an API key without having to know the whole document.
-function writeSettings({ file, patch, io = fsIo }) {
+// The returned `settings` (and every in-memory read) is always plain text —
+// only the bytes handed to `io.write` are encrypted — so no caller anywhere
+// else in the app needs to know this happens.
+function writeSettings({ file, patch, io = fsIo, crypt = null }) {
   try {
-    const doc = readSettings({ file, io });
+    const doc = readSettings({ file, io, crypt });
     for (const [k, v] of Object.entries(patch || {})) {
       if (v === null) delete doc[k]; else doc[k] = v;
     }
-    io.write(file, JSON.stringify(doc, null, 2) + '\n');
+    io.write(file, JSON.stringify(encryptSecrets(doc, crypt), null, 2) + '\n');
     return { ok: true, settings: doc };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -133,4 +179,5 @@ function researchConfig(settings) {
 module.exports = {
   readSettings, writeSettings, fsIo, normalizeTheme, themeBackground, THEMES, DEFAULT_THEME,
   normalizeView, VIEWS, researchConfig, RESEARCH_DEFAULTS, RESEARCH_MODES,
+  SECRET_KEYS, ENC_PREFIX,
 };
