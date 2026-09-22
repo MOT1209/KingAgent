@@ -45,7 +45,7 @@ const { userPath, refreshUserPath } = require('./user-path');
 const { exitNote } = require('./exit-note');
 const { sendPing } = require('./ping');
 const { hasStagedFile, updaterState, createUpdateManager } = require('./updater');
-const { parseDocUrl, resolveWithinRoot, docContentType } = require('./doc-protocol');
+const { parseDocUrl, resolveWithinRoot, docContentType, docFileUrl } = require('./doc-protocol');
 const { browserFileUrl } = require('./browser-file');
 const { wireBrowserViews } = require('./browser-views');
 const stt = require('./stt');
@@ -85,7 +85,7 @@ function installDocProtocol() {
     const file = resolveWithinRoot(parsed.root, parsed.rel);
     // null means the path escaped its folder — refuse, do not explain.
     if (!file) return new Response('not found', { status: 404 });
-    const res = await net.fetch('file://' + file.split('/').map(encodeURIComponent).join('/'));
+    const res = await net.fetch(docFileUrl(file));
     // Re-wrap so we set our own content type and, above all, our CSP — net.fetch
     // of a file:// URL carries neither.
     return new Response(res.body, {

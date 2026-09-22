@@ -14,6 +14,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 
 // A kingagent-doc URL is  kingagent-doc://doc/<root>/<rel>  where both parts
 // are
@@ -95,4 +96,12 @@ function docContentType(file) {
   })[e] || 'application/octet-stream';
 }
 
-module.exports = { docContentType, buildDocUrl, parseDocUrl, resolveWithinRoot, isInside };
+// The file:// URL the handler fetches for a resolved path. pathToFileURL, not a
+// hand-built 'file://' + split('/'): on Windows a path has no '/' to split on,
+// so the whole 'C:\…' string was percent-encoded into the URL's host and no
+// page could be served. `windows` is only for tests; the host platform decides.
+function docFileUrl(file, windows = process.platform === 'win32') {
+  return pathToFileURL(file, { windows }).href;
+}
+
+module.exports = { docContentType, buildDocUrl, parseDocUrl, resolveWithinRoot, isInside, docFileUrl };

@@ -102,3 +102,10 @@ test('a sibling-named folder is not inside', () => {
   assert.equal(isInside('/root', '/root/x'), true);
   assert.equal(isInside('/root', '/root'), true);
 });
+
+test('docFileUrl builds a real file URL on both path styles', () => {
+  const { docFileUrl } = require('../src/main/doc-protocol.js');
+  assert.equal(docFileUrl('/home/me/a b#c.html', false), 'file:///home/me/a%20b%23c.html');
+  // The Windows case that the old 'file://' + split('/') mangled into a host.
+  assert.equal(docFileUrl('C:\\Users\\me\\proj\\page 1.html', true), 'file:///C:/Users/me/proj/page%201.html');
+});
