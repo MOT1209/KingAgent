@@ -5,21 +5,23 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const app = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'src/renderer/paper.css'), 'utf8');
+// mountEditor (the rich/Markdown editor tabs and block editor mount) lives in
+// tile-content.mjs now (extracted from app.js).
+const tileContent = fs.readFileSync(path.join(root, 'src/renderer/tile-content.mjs'), 'utf8');
 
 test('plain Markdown cards expose Read, Edit, and Markdown without affecting MDX', () => {
-  assert.match(app, /richMarkdownPath\(p\.filePath\)/);
-  assert.match(app, /data-m="markdown">Markdown/);
-  assert.match(app, /mountMarkdownEditor\(/);
-  assert.match(app, /class="ed-rich/);
+  assert.match(tileContent, /richMarkdownPath\(p\.filePath\)/);
+  assert.match(tileContent, /data-m="markdown">Markdown/);
+  assert.match(tileContent, /mountMarkdownEditor\(/);
+  assert.match(tileContent, /class="ed-rich/);
 });
 
 test('media creation is deliberately absent until its interaction is ready', () => {
-  assert.doesNotMatch(app, /class="ed-add/);
-  assert.doesNotMatch(app, /class="ed-asset-pop/);
-  assert.doesNotMatch(app, /api\.chooseFile\(/);
-  assert.doesNotMatch(app, /api\.importMarkdownAsset\(/);
+  assert.doesNotMatch(tileContent, /class="ed-add/);
+  assert.doesNotMatch(tileContent, /class="ed-asset-pop/);
+  assert.doesNotMatch(tileContent, /api\.chooseFile\(/);
+  assert.doesNotMatch(tileContent, /api\.importMarkdownAsset\(/);
 });
 
 test('rich and source panes are mutually exclusive and theme-token driven', () => {

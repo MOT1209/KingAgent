@@ -12,11 +12,13 @@ const workspaceLib = fs.readFileSync(path.resolve(dir, '../src/renderer/workspac
 // bindBrowserButton, openFileInBrowser and mountTile's tile-menu wiring live
 // in tile-shell.mjs now (extracted from app.js).
 const tileShell = fs.readFileSync(path.resolve(dir, '../src/renderer/tile-shell.mjs'), 'utf8');
+// mountEditor (the ed-browser button) lives in tile-content.mjs now.
+const tileContent = fs.readFileSync(path.resolve(dir, '../src/renderer/tile-content.mjs'), 'utf8');
 
 test('HTML browser actions exist in the tree, peek head, and pinned editor', () => {
   assert.match(workspaceLib, /fileKind\(n\.path\) === 'html'[\s\S]{0,180}Open in browser/);
   assert.match(app, /class="btn pk-browser"/);
-  assert.match(app, /class="btn ed-browser"/);
+  assert.match(tileContent, /class="btn ed-browser"/);
 });
 
 test('opening a dirty HTML panel saves before invoking the browser channel', () => {

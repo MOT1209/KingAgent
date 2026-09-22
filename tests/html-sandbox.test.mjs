@@ -26,6 +26,9 @@ import { fileURLToPath } from 'node:url';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const app = fs.readFileSync(path.resolve(dir, '../src/renderer/app.js'), 'utf8');
 const main = fs.readFileSync(path.resolve(dir, '../src/main/main.js'), 'utf8');
+// mountEditor and mountViewer, where every html iframe in this scan lives,
+// moved into tile-content.mjs (extracted from app.js).
+const tileContent = fs.readFileSync(path.resolve(dir, '../src/renderer/tile-content.mjs'), 'utf8');
 
 // Each html iframe as a { sandbox, source } pair, however it is written —
 // setAttribute + a following src/srcdoc assignment, or an inline attribute.
@@ -48,7 +51,7 @@ function iframeSandboxes(src) {
   return out;
 }
 
-const frames = iframeSandboxes(app);
+const frames = iframeSandboxes(app + tileContent);
 
 test('the html iframes are found (both edit-preview and viewer paths)', () => {
   assert.ok(frames.length >= 3, `expected at least 3 html iframes, found ${frames.length}`);
