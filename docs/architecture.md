@@ -235,6 +235,42 @@ result set that reads as "nothing exists about this topic".
 See `docs/research.md` for the pipeline, the four invariants that make the
 output trustworthy, the threat model and the developer API.
 
+## Phase 8: runs, the organization and model routing
+
+Three additions that sit *above* the phases above without replacing any of
+them — the orchestrator composes them, and none of them owns a planner, a
+runtime or a scheduler.
+
+| Subsystem | Path | Responsibility | Wired as | Doc |
+| --- | --- | --- | --- | --- |
+| runs | `runs/` | a Run indexes one objective: the agents, tasks, tools, artifacts and spend it touched, plus a timeline fed off the event bus | `platform.runs` | [runs.md](./runs.md) |
+| agent factory | `agents/factory.js` | runtime creation of specialists with a risk-based spawn policy, plus promotion/demotion | `platform.agentFactory` | [runs.md](./runs.md) |
+| agent governor | `agents/governor.js` | depth / fan-out / concurrency / runtime / budget limits, duplicate and recursive-spawn detection, runaway sweep | `platform.agentGovernor` | [runs.md](./runs.md) |
+| chief system | `agents/presets/chief.js`, `agents/chief.js` | Ahmad 🧠 plans, Rashid 👨‍💻 executes, specialists are spawned through the factory | `platform.chief` | [agents-hierarchy.md](./agents-hierarchy.md) |
+| model router | `ai/model-router.js` | a *kind* of work → provider + model, by capability/cost/latency/privacy, deterministic when nothing is wired | `platform.modelRouter` | [model-routing.md](./model-routing.md) |
+| browser | `browser/` | ten `browser:*` tools with named policy actions and risk levels, plus session ownership and take/return control | `platform.browser` | [browser.md](./browser.md) |
+
+The orchestrator uses the last two directly: `handle()` asks the router for a
+selection, starts a Run before work begins, and folds the agent, task, provider,
+model, context and artifacts into it as the run proceeds. Run indexing is an
+observer — `_indexRun` swallows its own failure so a bookkeeping problem can
+never turn into a failed run.
+
+System agents (Ahmad, Rashid) carry `metadata.system` and are excluded from
+capability-based delegation, so a broad executive cannot out-compete a narrow
+specialist for every job.
+
+### Rendering the organization
+
+`src/renderer/agent-org.mjs` is the view's *data* layer, and it is separate from
+any DOM on purpose: `buildOrgTree` folds lineage into a tree (`orgRows` is the
+display order), `runTimeline` narrows a run's timeline to one agent,
+`runHeadline` summarizes a run and `agentDetail` assembles the §42 panel. All
+pure, so the whole view is asserted in plain node
+(`tests/agent-org.test.mjs`); `mountOrgView` is the thin adapter that renders
+rows and calls back with the id that was clicked. Only the mount remains to be
+placed in the shell.
+
 ## Mode of transport
 
 - Main is CJS (`"type": "commonjs"`, entry `src/main/main.js`); the renderer is

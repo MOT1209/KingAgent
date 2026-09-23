@@ -166,7 +166,12 @@ class ToolManager {
 
     const timeoutMs = tool.timeoutMs || 30_000;
     try {
-      const result = await withTimeout(signal, timeoutMs, Promise.resolve(tool.execute(normalizeInput(input), { abort: signal })));
+      // `agent` and `taskId` are handed to execute() so a tool can apply an
+      // identity-dependent rule of its own (the browser tools refuse to act on a
+      // session that belongs to another agent). The ToolManager cannot make that
+      // judgement for them, and a tool that looks up the agent from its input
+      // would be trusting the caller to name itself.
+      const result = await withTimeout(signal, timeoutMs, Promise.resolve(tool.execute(normalizeInput(input), { abort: signal, agent, taskId })));
       const durationMs = Date.now() - startedAt;
       this._bus.emit(TYPES.TOOL_COMPLETED, { taskId, toolId: id }, { ok: true, durationMs });
       return { ok: true, data: result, durationMs, toolId: id };

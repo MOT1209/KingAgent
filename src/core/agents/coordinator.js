@@ -74,11 +74,17 @@ class AgentCoordinator {
       const match = enabled.find((a) => a.id === preferred);
       if (match) return match;
     }
-    if (capabilities.length === 0) return enabled[0];
+    // System agents (Ahmad, Rashid) orchestrate; they are not delegation
+    // targets. Without this, a broad executive covers every capability set and
+    // out-competes every narrow specialist, which is the opposite of an
+    // organization. They remain selectable when explicitly `preferred` above.
+    const delegable = enabled.filter((a) => !(a.metadata && a.metadata.system));
+    const pool = delegable.length ? delegable : enabled;
+    if (capabilities.length === 0) return pool[0];
 
     let best = null;
     let bestScore = -1;
-    for (const agent of enabled) {
+    for (const agent of pool) {
       const have = new Set(agent.capabilities || []);
       const covered = capabilities.filter((c) => have.has(c)).length;
       // Prefer full coverage; break ties toward the narrower agent, so a
@@ -86,7 +92,7 @@ class AgentCoordinator {
       const score = covered * 100 - (agent.capabilities || []).length;
       if (covered > 0 && score > bestScore) { best = agent; bestScore = score; }
     }
-    return best || enabled[0];
+    return best || pool[0];
   }
 
   selectAgents({ capabilities = [], limit = 3 } = {}) {

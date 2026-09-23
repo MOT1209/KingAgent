@@ -31,6 +31,11 @@ class Orchestrator {
     artifacts = null, approvals = null, projects = null, workflows = null,
     agents = null, tools = null, bus = null, logger = null, provider = null,
     policies = {}, scheduler = null,
+    // Optional, additive. `runs` indexes each objective as a Run the human can
+    // inspect afterwards; `modelRouter` picks the provider/model a kind of work
+    // should run on. Neither is required, and neither is allowed to break a
+    // run if it fails — see `_indexRun`.
+    runs = null, modelRouter = null,
   } = {}) {
     if (!runtime) throw new Error('Orchestrator requires an AgentRuntime');
     if (!workspaces) throw new Error('Orchestrator requires a WorkspaceManager');
@@ -55,6 +60,8 @@ class Orchestrator {
     this._router = new Router({ policies: this._policies, agents, workflows, provider, logger });
     this._scheduler = scheduler || new Scheduler({ maxConcurrent: this._policies.maxConcurrentTasks, logger });
     this._runs = new Map(); // runId -> run record
+    this._runIndex = runs;   // the RunManager that indexes an objective
+    this._modelRouter = modelRouter;
   }
 
   get policies() { return this._policies; }
@@ -88,6 +95,14 @@ class Orchestrator {
     const agent = this._pickAgent(decision, agentId);
     const root = normalizeRoot(workspaceSpec);
 
+    // Model selection is routing too: which provider and model a *kind* of work
+    // runs on is infrastructure, not a choice a person should have to make per
+    // message. With no router (or no providers wired) this is null and the
+    // deterministic path is unchanged.
+    const modelSelection = this._modelRouter
+      ? this._modelRouter.route({ kind: decision.mode })
+      : null;
+
     const identity = createIdentity({
       sessionId: sessionId || undefined,
       agentId: agent ? agent.id : null,
@@ -114,19 +129,44 @@ class Orchestrator {
         request: request.slice(0, 240), mode: decision.mode, agentId: agent ? agent.id : null,
       });
     }
+    // Index the objective as a Run before work begins, so even a request that
+    // fails immediately leaves something a person can open.
+    const runEntry = this._runIndex
+      ? await this._runIndex.start({
+        objective: request,
+        projectId: projectId || null,
+        sessionId: identity.sessionId,
+        traceId: trace ? trace.traceId : identity.traceId,
+        agentId: agent ? agent.id : null,
+        metadata: {
+          mode: decision.mode,
+          model: modelSelection ? { provider: modelSelection.provider, model: modelSelection.model } : null,
+        },
+      })
+      : null;
+    if (runEntry) {
+      if (agent) await this._indexRun({ runId: runEntry.id }, (runs, id) => runs.addAgent(id, { id: agent.id, role: (agent.metadata && agent.metadata.role) || null }));
+      if (modelSelection && modelSelection.provider) await this._indexRun({ runId: runEntry.id }, (runs, id) => runs.addProvider(id, { id: modelSelection.provider }));
+      if (modelSelection && modelSelection.model) await this._indexRun({ runId: runEntry.id }, (runs, id) => runs.addModel(id, { id: modelSelection.model }));
+    }
+
+    const runId = runEntry ? runEntry.id : null;
     if (this._bus) {
-      this._bus.emit(TYPES.ORCHESTRATION_ROUTED, identityRefs(workspace.identity), {
+      this._bus.emit(TYPES.ORCHESTRATION_ROUTED, { ...identityRefs(workspace.identity), runId }, {
         mode: decision.mode, reason: decision.reason, capabilities: decision.capabilities,
         agentId: agent ? agent.id : null,
+        model: modelSelection ? { provider: modelSelection.provider, model: modelSelection.model } : null,
       });
     }
 
     const record = {
       id: workspace.workspaceId,
+      runId,
       request,
       decision,
       identity: { ...workspace.identity },
       agentId: agent ? agent.id : null,
+      model: modelSelection,
       status: 'queued',
       startedAt: Date.now(),
       completedAt: null,
@@ -170,9 +210,22 @@ class Orchestrator {
     if (this._coordinator) this._coordinator.cancelDelegations({});
     const ws = this._workspaces.get(runId);
     if (ws) this._workspaces.close(runId);
+    if (this._runIndex && run.runId) this._runIndex.cancel(run.runId, reason).catch(() => {});
     run.status = 'cancelled';
     run.completedAt = Date.now();
     return true;
+  }
+
+  // Run indexing is an observer, never a participant. A failure to record what
+  // happened must not turn into a failure of what happened.
+  async _indexRun(record, fn) {
+    if (!this._runIndex || !record.runId) return null;
+    try {
+      return await fn(this._runIndex, record.runId);
+    } catch (err) {
+      if (this._logger) this._logger.warn('run indexing failed', { error: err.message });
+      return null;
+    }
   }
 
   // --- execution -----------------------------------------------------------
@@ -205,6 +258,9 @@ class Orchestrator {
           items: packet.items.length, usedTokens: packet.budget.usedTokens,
         });
       }
+      await this._indexRun(record, (runs, id) => runs.addEvent(id, {
+        type: 'context.created', summary: `context packet ${packet.id} (${packet.items.length} items)`,
+      }));
 
       // 3. run it in whatever shape routing chose
       let outcome;
@@ -232,6 +288,11 @@ class Orchestrator {
       record.error = outcome.ok ? null : outcome.error;
       record.completedAt = Date.now();
 
+      if (record.taskId) await this._indexRun(record, (runs, id) => runs.addTask(id, { id: record.taskId }));
+      await this._indexRun(record, (runs, id) => (outcome.ok
+        ? runs.complete(id, { result: { ok: true, mode: decision.mode, summary: outcome.summary || null } })
+        : runs.fail(id, { error: outcome.error || `run ended in ${decision.mode}` })));
+
       if (trace) await this._traces.completeTrace(trace.traceId, { ok: outcome.ok, mode: decision.mode });
       if (this._bus) {
         this._bus.emit(outcome.ok ? TYPES.ORCHESTRATION_COMPLETED : TYPES.ORCHESTRATION_FAILED,
@@ -244,6 +305,7 @@ class Orchestrator {
       record.error = err.message;
       record.completedAt = Date.now();
       if (trace) await this._traces.failTrace(trace.traceId, err);
+      await this._indexRun(record, (runs, id) => runs.fail(id, { error: err.message }));
       if (this._bus) this._bus.emit(TYPES.ORCHESTRATION_FAILED, identityRefs(workspace.identity), { error: err.message });
       if (this._logger) this._logger.error('orchestration failed', { error: err.message });
       return { ok: false, error: err.message };
@@ -422,6 +484,7 @@ class Orchestrator {
     if (this._artifacts && diff.length > 0) {
       const artifact = await this._artifacts.recordDiff(diff, { workspace, name: `changes-${workspace.taskId}` });
       if (trace) this._traces.appendEvent(trace.traceId, TRACE_EVENTS.ARTIFACT_CREATED, { id: artifact.id, type: ARTIFACT_TYPES.DIFF, name: artifact.name });
+      await this._indexRun(record, (runs, id) => runs.addArtifact(id, { id: artifact.id, name: artifact.name, type: artifact.type }));
     }
 
     if (this._memory && agent && (agent.memoryPolicy ? agent.memoryPolicy.write : true) && this._policies.memory.write) {
@@ -489,9 +552,10 @@ function normalizeRoot(spec) {
 
 function publicRun(run) {
   return {
-    id: run.id, request: run.request, status: run.status, mode: run.decision.mode,
-    reason: run.decision.reason, agentId: run.agentId, taskId: run.taskId,
-    packetId: run.packetId, identity: run.identity, error: run.error,
+    id: run.id, runId: run.runId || null, request: run.request, status: run.status,
+    mode: run.decision.mode, reason: run.decision.reason, agentId: run.agentId,
+    taskId: run.taskId, packetId: run.packetId, identity: run.identity, error: run.error,
+    model: run.model || null,
     startedAt: run.startedAt, completedAt: run.completedAt,
     outcome: run.outcome ? { ok: run.outcome.ok, error: run.outcome.error || null } : null,
   };

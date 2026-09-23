@@ -73,6 +73,14 @@ const FORWARD_TYPES = new Set([
   // stay off the wire and reach the UI as counts in `research.progress` and in
   // `research:status` — the same judgement already made about `policy.evaluated`.
   ...RESEARCH_UI_EVENTS,
+
+  // The governed browser. `browser.action` fires per agent action and is a live
+  // signal a person watching wants (it names the session, the action and the
+  // URL); the session and control-transfer events are what make "an agent is
+  // driving a tab" and "the agent has been paused" visible in the workspace.
+  TYPES.BROWSER_SESSION_OPENED, TYPES.BROWSER_SESSION_CLOSED,
+  TYPES.BROWSER_ACTION, TYPES.BROWSER_ACTION_FAILED,
+  TYPES.BROWSER_PAUSED, TYPES.BROWSER_RESUMED, TYPES.BROWSER_CONTROL_TRANSFERRED,
 ]);
 
 function createMainPlatform({

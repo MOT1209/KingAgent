@@ -30,6 +30,9 @@ const NAMESPACES = Object.freeze({
   MCP_SERVER: 'mcpserver',
   // Phase 7. Research cache for retrieval and evidence deduplication.
   RESEARCH_CACHE: 'researchcache',
+  // Runs: the human's unit of work, aggregating the tasks/agents/artifacts one
+  // objective produced (src/core/runs/).
+  RUN: 'run',
 });
 
 function assertStore(store) {
@@ -109,6 +112,7 @@ function createCollections(store) {
     skills: createCollection(store, NAMESPACES.SKILL),
     mcpServers: createCollection(store, NAMESPACES.MCP_SERVER),
     researchCache: createCollection(store, NAMESPACES.RESEARCH_CACHE),
+    runs: createCollection(store, NAMESPACES.RUN),
   };
 }
 

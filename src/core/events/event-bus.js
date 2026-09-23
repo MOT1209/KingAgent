@@ -26,6 +26,10 @@ function makeEvent(type, refs = {}, payload) {
     sessionId: refs.sessionId || null,
     traceId: refs.traceId || null,
     parentEventId: refs.parentEventId || null,
+    // The run a piece of work belongs to. A run is an index over many tasks,
+    // workspaces and traces, so without this key the stream cannot be filtered
+    // down to "everything that happened while King was asking for X".
+    runId: refs.runId || null,
     seq: seq,
     // Phase 4 correlation refs. A harness/policy/sandbox event is only useful
     // if it can be joined back to the work it happened for.
@@ -215,6 +219,43 @@ const TYPES = Object.freeze({
   MCP_TOOL_CLASSIFIED: 'mcp.tool.classified',
   MCP_TOOL_INVOKED: 'mcp.tool.invoked',
   MCP_TOOL_DENIED: 'mcp.tool.denied',
+
+  // --- Runs (src/core/runs/) --------------------------------------------------
+  // A run is the human's unit of work: one objective, one conversation, many
+  // tasks and agents beneath it. These are the lifecycle events a UI watches to
+  // show "what is my AI organization doing right now", and the reason the run
+  // record can be rebuilt from the stream alone.
+  RUN_STARTED: 'run.started',
+  RUN_UPDATED: 'run.updated',
+  RUN_PAUSED: 'run.paused',
+  RUN_RESUMED: 'run.resumed',
+  RUN_COMPLETED: 'run.completed',
+  RUN_FAILED: 'run.failed',
+  RUN_CANCELLED: 'run.cancelled',
+  RUN_STOPPED: 'run.stopped',
+  // --- Dynamic agents (src/core/agents/factory.js + governor.js) -------------
+  // AGENT_STARTED / AGENT_COMPLETED above cover execution. These cover the
+  // agent *existing*: created at runtime, refused by the governor, made
+  // permanent, or destroyed when its task finished.
+  AGENT_CREATED: 'agent.created',
+  AGENT_DESTROYED: 'agent.destroyed',
+  AGENT_PROMOTED: 'agent.promoted',
+  AGENT_DEMOTED: 'agent.demoted',
+  AGENT_SPAWN_DENIED: 'agent.spawn.denied',
+
+  // --- Browser (src/core/browser/) -------------------------------------------
+  // A browser session is the one place an agent touches the live web, so every
+  // action is observable and control can move between the agent and the human
+  // mid-session. BROWSER_CONTROL_TRANSFERRED is the event §23/§60 are written
+  // against: it is what makes "King took control" visible and auditable rather
+  // than a local UI state.
+  BROWSER_SESSION_OPENED: 'browser.session.opened',
+  BROWSER_SESSION_CLOSED: 'browser.session.closed',
+  BROWSER_ACTION: 'browser.action',
+  BROWSER_ACTION_FAILED: 'browser.action.failed',
+  BROWSER_PAUSED: 'browser.paused',
+  BROWSER_RESUMED: 'browser.resumed',
+  BROWSER_CONTROL_TRANSFERRED: 'browser.control.transferred',
 
   // AGENT_DELEGATED, AGENT_HANDOFF, AGENT_MESSAGE and ARTIFACT_CREATED were
   // also defined here under Phase 4 with the identical key and value the

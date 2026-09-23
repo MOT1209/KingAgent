@@ -64,11 +64,18 @@ const { createProviderRegistry } = require('./ai/provider');
 const { createMemory } = require('./memory/memory');
 const { AgentRegistry } = require('./agents/registry');
 const { builtinAgents } = require('./agents/presets/builtin');
+const { chiefAgents } = require('./agents/presets/chief');
+const { ChiefSystem } = require('./agents/chief');
+const { createModelRouter } = require('./ai/model-router');
 const { ToolManager, ToolDeniedError } = require('./tools/manager');
 const { registerBuiltinTools } = require('./tools/builtin');
+const { createBrowserSubsystem } = require('./browser');
 const { createMemoryStore, createJsonStore } = require('./persistence/store');
 const { createCollections } = require('./persistence/collections');
 const { Planner } = require('./planning/planner');
+const { RunManager } = require('./runs');
+const { AgentGovernor } = require('./agents/governor');
+const { AgentFactory } = require('./agents/factory');
 const { Reasoner } = require('./reasoning/reasoning');
 const { AgentRuntime } = require('./runtime/runtime');
 const { WorkflowEngine } = require('./workflows/engine');
@@ -116,6 +123,10 @@ function createPlatform({
   loggerOptions = {},
   storeDir = null,
   autoRegisterBuiltinAgents = true,
+  // Ahmad and Rashid are the two permanent system agents. On by default because
+  // they are the product; `false` gives a host a bare roster without disabling
+  // anything else.
+  registerChiefAgents = true,
   autoRegisterBuiltinHarnesses = true,
   loadBaselinePolicies = true,
   policies = {},
@@ -148,6 +159,13 @@ function createPlatform({
   if (autoRegisterBuiltinAgents) {
     for (const def of builtinAgents()) agents.register(def);
   }
+  if (registerChiefAgents) {
+    // Guarded so a host that already registered them (or persisted them from a
+    // previous run) does not collide on startup.
+    for (const def of chiefAgents()) {
+      if (!agents.get(def.id)) agents.register(def);
+    }
+  }
 
   // --- approvals ------------------------------------------------------------
   // Constructed before the ToolManager because it supplies the authorization
@@ -174,6 +192,39 @@ function createPlatform({
   });
   if (loadBaselinePolicies) policy.loadBaseline();
 
+  // --- dynamic agents: governor, then factory --------------------------------
+  // The factory is how an agent "decides it needs a specialist" at runtime, and
+  // the governor is the only thing standing between that and a fork bomb: spawn
+  // depth, fan-out, concurrency, runtime and budget limits, plus duplicate and
+  // recursive-spawn detection (see agents/governor.js). Medium- and high-risk
+  // spawns are routed through the *same* ApprovalManager the tool gate uses, so
+  // a human decision here is one auditable record, not a second approval queue.
+  const agentIo = io.agents || {};
+  const agentGovernor = new AgentGovernor({
+    config: (policies.agents && policies.agents.governor) || {},
+    logger: logger.child('agent-governor'),
+  });
+  const agentFactory = new AgentFactory({
+    registry: agents,
+    governor: agentGovernor,
+    bus,
+    logger: logger.child('agent-factory'),
+    spawnPolicy: (policies.agents && policies.agents.spawnPolicy) || {},
+    approver: agentIo.approver || (async ({ action, summary, risk, proposal }) => {
+      const meta = proposal.metadata || {};
+      const { decision } = approvals.requestApproval({
+        action,
+        summary,
+        reason: `dynamic agent ${proposal.id}`,
+        risk,
+        parameters: { agentId: proposal.id, role: meta.role },
+        identity: { taskId: meta.rootTaskId || null, projectId: meta.projectId || null, agentId: meta.parentAgentId || null },
+      });
+      const outcome = await decision;
+      return outcome.status === 'approved';
+    }),
+  });
+
   // --- tools -----------------------------------------------------------------
   // Two gates in front of one call: a policy `deny` is final (the human loop
   // below is never reached, so a human cannot accidentally approve what policy
@@ -190,6 +241,18 @@ function createPlatform({
     root: io.root || null,
     cwd: io.cwd || (() => process.cwd()),
     runShell: io.runShell || null,
+  });
+
+  // The browser is a capability, not a special case: it registers the same way
+  // the filesystem and terminal do, so the policy, permission and approval gates
+  // that already protect `terminal:run` protect `browser:authenticate` too. The
+  // host adapter is injected (`io.browser.host`) and may be late-bound, because
+  // Electron only has a browser handle once a window exists.
+  const browser = createBrowserSubsystem({
+    toolManager: tools,
+    bus,
+    logger: logger.child('browser'),
+    host: (io.browser && io.browser.host) || null,
   });
 
   // Code execution is a capability that has to be opted into: the executor is
@@ -278,6 +341,17 @@ function createPlatform({
     budget: (policies.context && policies.context.maxChars) ? { maxChars: policies.context.maxChars } : {},
   });
 
+  // A run is the human's unit of work — one objective, everything it touched.
+  // `attachBus` is what makes it a complete index: any event carrying a `runId`
+  // is folded onto that run's timeline, so no subsystem has to know a Run
+  // exists for the run to be answerable afterwards.
+  const runs = new RunManager({
+    collection: collections.runs,
+    bus,
+    logger: logger.child('runs'),
+  });
+  runs.attachBus(bus);
+
   const messages = new AgentMessageBus({ bus, logger: logger.child('messaging') });
 
   const coordinator = new AgentCoordinator({
@@ -301,6 +375,16 @@ function createPlatform({
     logger: logger.child('recovery'),
   });
 
+  // Models are infrastructure: this turns a *kind* of work into a provider and
+  // a model, so a person never has to pick one. With no providers wired it still
+  // returns a deterministic decision rather than throwing.
+  const modelRouter = createModelRouter({
+    providers,
+    catalog: (io.models && io.models.providers) || {},
+    routes: (policies.models && policies.models.routes) || {},
+    policy: policies.models || {},
+  });
+
   const orchestrator = new Orchestrator({
     runtime,
     coordinator,
@@ -318,8 +402,24 @@ function createPlatform({
     logger: logger.child('orchestrator'),
     provider,
     policies,
+    runs,
+    modelRouter,
   });
   orchestrator.attachRecovery(recovery);
+
+  // The organization, as one object: Ahmad plans, Rashid executes, specialists
+  // are created through the governed factory. A facade over the subsystems
+  // above — it owns no planning, execution or spawning logic of its own.
+  const chief = new ChiefSystem({
+    registry: agents,
+    orchestrator,
+    coordinator,
+    agentFactory,
+    governor: agentGovernor,
+    runs,
+    bus,
+    logger: logger.child('chief'),
+  });
   approvals.setPolicy(orchestrator.policies.approvalPolicy());
 
   // The environment a workspace starts from. Nothing is inherited from the host
@@ -497,6 +597,12 @@ function createPlatform({
     providers,
     memory,
     agents,
+    agentGovernor,
+    agentFactory,
+    chief,
+    runs,
+    modelRouter,
+    browser,
     tools,
     codeExec,
     planner,
