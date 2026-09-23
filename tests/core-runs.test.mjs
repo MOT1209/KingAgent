@@ -216,6 +216,29 @@ test('run indexing: the orchestrator creates a Run and records the model it chos
   assert.ok(['completed', 'failed'].includes(detail.status));
 });
 
+// The whole point: a run's budget is a number that survived the last restart,
+// where the governor's per-agent totals did not.
+test('governor: a spawned agent is judged against the run the platform persisted', async (t) => {
+  const dir = await tempProject();
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const platform = createPlatform({
+    io: { root: dir, cwd: () => dir },
+    policies: { agents: { governor: { maxRunTokens: 100 } } },
+  });
+  t.after(() => platform.dispose());
+
+  const run = await platform.runs.start({ objective: 'spawn specialists until it hurts' });
+  await platform.runs.noteUsage(run.id, { tokens: 500 });
+
+  const proposal = platform.agentFactory.propose({ role: 'auditor', id: 'dyn-cap-1' });
+  const created = await platform.agentFactory.create(proposal, { runId: run.id });
+  assert.equal(created.created, true, 'the agent itself is fine');
+
+  const breaches = platform.agentGovernor.sweep();
+  assert.equal(breaches.length, 1, 'but the run it belongs to is not');
+  assert.equal(breaches[0].code, 'RUN_TOKEN_BUDGET_EXCEEDED');
+});
+
 test('platform: chief runs work as Rashid and lists the roster', async (t) => {
   const dir = await tempProject();
   t.after(() => fs.rm(dir, { recursive: true, force: true }));

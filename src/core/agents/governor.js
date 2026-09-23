@@ -30,6 +30,10 @@ const GOVERNOR_DEFAULTS = Object.freeze({
   maxTokenBudget: 500_000,
   maxCost: 25,
   maxTaskCount: 50,
+  // Per-run ceilings. Deliberately larger than the per-agent ones: these are
+  // what stops a fork bomb, not what stops one wasteful agent.
+  maxRunTokens: 2_000_000,
+  maxRunCost: 100,
   duplicateWindowMs: 60_000,
   maxSpawnsPerRun: 50,
   // How far back a `usedBy` lookup walks. Bounded so a corrupted parent chain
@@ -51,6 +55,11 @@ const USAGE_CODES = Object.freeze({
   TOKENS: 'AGENT_TOKEN_BUDGET_EXCEEDED',
   COST: 'AGENT_COST_BUDGET_EXCEEDED',
   TASKS: 'AGENT_TASK_LIMIT_EXCEEDED',
+  // Per *run*, not per agent. A fork bomb that stays under each agent's own
+  // budget can still spend a run into the ground, so the run needs its own
+  // ceiling — and the run's spend is the one number that survives a restart.
+  RUN_TOKENS: 'RUN_TOKEN_BUDGET_EXCEEDED',
+  RUN_COST: 'RUN_COST_BUDGET_EXCEEDED',
 });
 
 class AgentGovernor {
@@ -60,6 +69,17 @@ class AgentGovernor {
     this._now = clock || (() => Date.now());
     this._live = new Map(); // agentId -> record
     this._spawnCount = 0;
+    this._usageOf = null; // (runId) -> { tokens, cost } | null
+  }
+
+  // Where a run's *durable* spend comes from — the Run record, which is
+  // persisted, rather than this object's in-memory totals, which restart at zero
+  // with the process. Late-bound because the run store is built after the
+  // governor is; without it the per-agent caps still work, they just cannot
+  // remember yesterday.
+  attachUsage(provider) {
+    this._usageOf = typeof provider === 'function' ? provider : null;
+    return this;
   }
 
   get config() { return { ...this._config }; }
@@ -73,7 +93,7 @@ class AgentGovernor {
     return `${role || 'agent'}|${caps}|${purpose ? String(purpose).slice(0, 80) : ''}`;
   }
 
-  register({ agentId, parentAgentId = null, role = null, fingerprint = null, depth = 0, startedAt = null }) {
+  register({ agentId, parentAgentId = null, role = null, fingerprint = null, depth = 0, startedAt = null, runId = null }) {
     if (!agentId) throw new Error('governor.register requires an agentId');
     const record = {
       agentId,
@@ -84,6 +104,7 @@ class AgentGovernor {
       // `startedAt` may legitimately be 0 (a clock-injected host, a test), so
       // this is a null check rather than a truthiness one.
       startedAt: startedAt === null || startedAt === undefined ? this._now() : startedAt,
+      runId: runId || null,
       tokens: 0,
       cost: 0,
       tasks: 0,
@@ -229,6 +250,27 @@ class AgentGovernor {
     }
     if (record.tasks > this._config.maxTaskCount) {
       return { code: USAGE_CODES.TASKS, reason: `tasks ${record.tasks} exceed the limit of ${this._config.maxTaskCount}` };
+    }
+    return this._runBreach(record);
+  }
+
+  // The run's own budget, read from the durable record when one is wired.
+  //
+  // `Math.max` of memory and store is deliberate: the run record is cumulative
+  // for the whole run, so it is normally the larger of the two, and taking the
+  // larger means a provider that lags behind cannot be used to slip past a cap
+  // that this process already knows was passed.
+  _runBreach(record) {
+    if (!record.runId) return null;
+    const spend = this._usageOf ? this._usageOf(record.runId) : null;
+    if (!spend) return null;
+    const tokens = Math.max(record.tokens, Number(spend.tokens) || 0);
+    const cost = Math.max(record.cost, Number(spend.cost) || 0);
+    if (tokens > this._config.maxRunTokens) {
+      return { code: USAGE_CODES.RUN_TOKENS, reason: `run ${record.runId} has spent ${tokens} tokens, over the budget of ${this._config.maxRunTokens}` };
+    }
+    if (cost > this._config.maxRunCost) {
+      return { code: USAGE_CODES.RUN_COST, reason: `run ${record.runId} has spent ${cost}, over the budget of ${this._config.maxRunCost}` };
     }
     return null;
   }

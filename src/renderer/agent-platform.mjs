@@ -14,6 +14,7 @@
 // deliberation by accident.
 
 import { reduceActivity, renderProgress, statusDot } from './agent-activity.mjs';
+import { buildOrgTree, orgRows, agentDetail } from './agent-org.mjs';
 import { mountResearch } from './research-panel.mjs';
 
 const PANEL_CLASS = 'agent-platform-panel';
@@ -67,6 +68,26 @@ function mountAgentPlatform() {
     .agent-platform-panel .approval button { flex: 1; padding: 4px; border: 0; border-radius: 6px; cursor: pointer; }
     .agent-platform-panel .approval .yes { background: #3ddc84; color: #04210f; }
     .agent-platform-panel .approval .no { background: #ff5f6d; color: #2a0206; }
+    /* The organization view (§41/§42). Depth is indentation, so lineage reads
+       without a graph widget; the tone is a colour per lifecycle state rather
+       than a second vocabulary. */
+    .agent-platform-panel .org-row { display: flex; align-items: center; gap: 6px; width: 100%;
+      border: 0; background: transparent; color: inherit; text-align: left; padding: 3px 6px;
+      border-radius: 6px; cursor: pointer; font: inherit; }
+    .agent-platform-panel .org-row:hover { background: rgba(127,127,160,.14); }
+    .agent-platform-panel .org-row[aria-current='true'] { background: rgba(76,92,255,.28); }
+    .agent-platform-panel .org-row .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .agent-platform-panel .tone-done { background: #3ddc84; }
+    .agent-platform-panel .tone-failed { background: #ff5f6d; }
+    .agent-platform-panel .tone-working { background: #ffcf5c; }
+    .agent-platform-panel .tone-waiting { background: #ffa45c; }
+    .agent-platform-panel .tone-paused { background: #9aa3c4; }
+    .agent-platform-panel .org-detail { border: 1px solid rgba(127,127,160,.35); border-radius: 8px;
+      padding: 6px 8px; margin-top: 6px; }
+    .agent-platform-panel .org-detail dl { margin: 0; display: grid;
+      grid-template-columns: auto 1fr; gap: 2px 8px; }
+    .agent-platform-panel .org-detail dt { color: #8b93b8; }
+    .agent-platform-panel .org-detail dd { margin: 0; overflow-wrap: anywhere; }
   `;
   document.head.appendChild(style);
 
@@ -89,6 +110,7 @@ function mountAgentPlatform() {
   let events = [];
   let rawEvents = [];
   let approvals = [];
+  let selectedAgent = null;
   let open = false;
 
   function refreshTasks() {
@@ -106,9 +128,32 @@ function mountAgentPlatform() {
     const tasksHtml = tasks.length
       ? tasks.map((t) => `<div class="row"><span><span class="status-dot ${statusColor(t.state)}"></span>${escapeHtml(t.request.slice(0, 60))}</span><span class="chip muted">${t.state}</span></div>`).join('')
       : '<div class="muted">No tasks yet.</div>';
-    const agentsHtml = agents
-      .map((a) => `<div class="row"><span>${escapeHtml(a.name)} <span class="muted">(${a.id})</span></span><span class="chip">${(a.capabilities || []).slice(0, 3).join(', ')}</span></div>`)
-      .join('');
+    // The organization, not a list. Lineage comes from what the factory wrote
+    // when it created the agent, so the tree is what actually happened rather
+    // than what a layout inferred.
+    const tree = buildOrgTree(agents);
+    const orgHtml = orgRows(tree)
+      .map((r) => `<button type="button" class="org-row" data-agent-id="${escapeHtml(r.id)}"
+        ${r.id === selectedAgent ? 'aria-current="true"' : ''} style="padding-left:${6 + r.depth * 14}px">
+        <span class="status-dot tone-${escapeHtml(r.tone)}"></span>
+        <span class="grow">${r.system ? '★ ' : ''}${escapeHtml(r.name)}</span>
+        <span class="chip muted">${escapeHtml(r.statusLabel)}</span>
+      </button>`)
+      .join('') || '<div class="muted">No agents registered.</div>';
+    const selected = selectedAgent ? agents.find((a) => a.id === selectedAgent) : null;
+    const detail = selected ? agentDetail({ agent: selected, tree }) : null;
+    const detailHtml = detail ? `
+      <div class="org-detail">
+        <dl>
+          <dt>Role</dt><dd>${escapeHtml(detail.role || '—')}</dd>
+          <dt>Status</dt><dd>${escapeHtml(detail.statusLabel)}</dd>
+          <dt>Parent</dt><dd>${detail.parent ? escapeHtml(detail.parent.name) : '—'}</dd>
+          ${detail.children.length ? `<dt>Reported to it</dt><dd>${detail.children.map((c) => escapeHtml(c.name)).join(', ')}</dd>` : ''}
+          <dt>Model</dt><dd>${escapeHtml(modelText(detail.model))}</dd>
+          <dt>Tools</dt><dd>${escapeHtml(detail.tools.length ? detail.tools.join(', ') : '—')}</dd>
+          ${detail.promoted ? '<dt>Promoted</dt><dd>kept as a reusable agent</dd>' : ''}
+        </dl>
+      </div>` : '';
     const toolsHtml = `<div class="muted">${tools.length} tools registered: ${tools.map((t) => t.id).join(', ')}</div>`;
     const eventsHtml = events.slice(-12).map((e) => `<div>${escapeHtml(e.type)}</div>`).join('');
 
@@ -163,7 +208,7 @@ function mountAgentPlatform() {
         ${approvals.length ? `<section><h2>Approvals</h2>${approvalsHtml}</section>` : ''}
         <section class="events"><h2>Activity</h2>${streamHtml}</section>
         <section><h2>Tasks</h2><div id="ap-tasks">${tasksHtml}</div></section>
-        <section><h2>Agents</h2>${agentsHtml}</section>
+        <section><h2>Agents</h2>${orgHtml}${detailHtml}</section>
         <section><h2>Tools</h2>${toolsHtml}</section>
         <section class="events"><h2>Events</h2>${eventsHtml || '<div class="muted">Listen in live…</div>'}</section>
       </div>`;
@@ -173,6 +218,17 @@ function mountAgentPlatform() {
     // every render would restart both and lose whatever was on screen. So it is
     // built once and re-attached after each rebuild.
     attachResearch(panel.querySelector('.agent-platform-scroll'));
+
+    // Selecting a node opens its detail panel. The click is the only thing this
+    // list does: everything shown in the panel was folded from data the platform
+    // already had.
+    for (const row of panel.querySelectorAll('.org-row')) {
+      row.addEventListener('click', () => {
+        const id = row.getAttribute('data-agent-id');
+        selectedAgent = selectedAgent === id ? null : id;
+        render();
+      });
+    }
 
     for (const node of panel.querySelectorAll('.approval')) {
       const id = node.getAttribute('data-approval');
@@ -300,6 +356,16 @@ function mountAgentPlatform() {
     api.pendingApprovals().then((rows) => { approvals = rows || []; render(); }).catch(() => {});
   }
   return { api, refresh: refreshTasks };
+}
+
+// A model is infrastructure, so it is shown as `provider/id` rather than as an
+// object — and as an em dash when nothing is bound, which is a different fact
+// from a model that failed to load.
+function modelText(model) {
+  if (!model) return '—';
+  if (typeof model === 'string') return model;
+  const parts = [model.provider, model.id].filter(Boolean);
+  return parts.length ? parts.join('/') : '—';
 }
 
 function escapeHtml(s) {

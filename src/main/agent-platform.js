@@ -74,6 +74,17 @@ const FORWARD_TYPES = new Set([
   // `research:status` — the same judgement already made about `policy.evaluated`.
   ...RESEARCH_UI_EVENTS,
 
+  // Runs and dynamic agents. Low volume by construction — a run emits on state
+  // change, not on every fold, and `note()` is silent — and they are what the
+  // shared conversation (§13) is made of: without them a person sees tasks but
+  // never the objective they belong to, nor an agent being born or a spawn being
+  // refused. `run.updated` is deliberately included: it is the transition the
+  // run actually took, not a tick.
+  TYPES.RUN_STARTED, TYPES.RUN_UPDATED, TYPES.RUN_PAUSED, TYPES.RUN_RESUMED,
+  TYPES.RUN_COMPLETED, TYPES.RUN_FAILED, TYPES.RUN_CANCELLED, TYPES.RUN_STOPPED,
+  TYPES.AGENT_CREATED, TYPES.AGENT_DESTROYED, TYPES.AGENT_PROMOTED, TYPES.AGENT_DEMOTED,
+  TYPES.AGENT_SPAWN_DENIED,
+
   // The governed browser. `browser.action` fires per agent action and is a live
   // signal a person watching wants (it names the session, the action and the
   // URL); the session and control-transfer events are what make "an agent is
@@ -85,7 +96,7 @@ const FORWARD_TYPES = new Set([
 
 function createMainPlatform({
   storeDir, cwd, askAuthorization, runShellOverride, root = null, policyApprover, harnessRunner,
-  researchIo = null, researchConfig: research = null,
+  researchIo = null, researchConfig: research = null, browserHost = null,
 }) {
   const runShell = runShellOverride || createRunShell({ defaultCwd: typeof cwd === 'function' ? cwd() : cwd });
   // `askAuthorization` is optional now. When the host does not supply one, the
@@ -112,6 +123,13 @@ function createMainPlatform({
       // still answers file questions, which is the correct behaviour for an
       // install that has not been given a search backend.
       ...(researchIo ? { research: researchIo } : {}),
+      // The governed browser. `browserHost` is the adapter over the app's own
+      // tabs, and it may be a function: the browser module is wired at require
+      // time while the platform is built once the app is ready, so binding the
+      // adapter lazily is what lets the tools exist before a window does.
+      // Without it the browser tools still register and fail with a nameable
+      // code, which is honest about an install that cannot drive a page.
+      ...(browserHost ? { browser: { host: browserHost } } : {}),
     },
     storeDir,
     ...(research ? { policies: { research } } : {}),
@@ -149,6 +167,9 @@ function taskView(task) {
 
 function registerIpcHandlers({ ipcMain, platform, forward }) {
   const { agents, tools, runtime, workflows, bus } = platform;
+  // Not destructured with the rest because it is optional: a platform built
+  // without the Phase 3 layers still has a registry to list.
+  const coordinator = platform.coordinator;
   const emit = forward || (() => {});
 
   // Event → renderer forwarding.
@@ -165,16 +186,36 @@ function registerIpcHandlers({ ipcMain, platform, forward }) {
   }
 
   // --- agents ---------------------------------------------------------------
-  handle('agent:listAgents', () =>
-    agents.list({ enabled: true }).map((a) => ({
+  handle('agent:listAgents', () => {
+    // What each agent is doing right now, from the coordinator's live
+    // lifecycles. A registered agent with no live instance is `ready` — able to
+    // take work — which is a different statement from `running`, and the
+    // difference is the whole point of a status column.
+    const live = new Map();
+    if (coordinator) {
+      try {
+        for (const l of coordinator.lifecycles()) live.set(l.agentId, l.state);
+      } catch { /* a coordinator that cannot answer still lists agents */ }
+    }
+    return agents.list({ enabled: true }).map((a) => ({
       id: a.id,
       name: a.name,
       description: a.description,
       capabilities: a.capabilities,
       tools: a.tools,
       model: { provider: a.model.provider, id: a.model.id },
-    })),
-  );
+      // Lineage and role. The factory writes these when it creates a specialist
+      // at runtime; without them a renderer can only draw a flat list, which is
+      // the thing an organization view exists to replace.
+      role: (a.metadata && a.metadata.role) || null,
+      system: Boolean(a.metadata && a.metadata.system),
+      parentAgentId: (a.metadata && a.metadata.parentAgentId) || null,
+      createdBy: (a.metadata && a.metadata.createdBy) || null,
+      promoted: Boolean(a.metadata && a.metadata.promoted),
+      enabled: a.enabled !== false,
+      status: live.get(a.id) || (a.enabled === false ? 'stopped' : 'ready'),
+    }));
+  });
 
   handle('agent:get', ({ id }) => {
     const a = agents.get(id);
@@ -911,7 +952,7 @@ function summarizeInstance(inst) {
 }
 
 // Installs everything into the running Electron app.
-function installAgentPlatform({ app, ipcMain }) {
+function installAgentPlatform({ app, ipcMain, browserViews = null }) {
   const { BrowserWindow } = require('electron');
   const path = require('node:path');
   const fs = require('node:fs');
@@ -961,6 +1002,9 @@ function installAgentPlatform({ app, ipcMain }) {
     askAuthorization,
     policyApprover,
     researchConfig: research,
+    // Late-bound: the tabs exist before this runs, but the object itself is
+    // only meaningful once there is a browser to point it at.
+    browserHost: browserViews ? () => browserViews.host : null,
     // A host that ships a search backend registers it here. None is bundled:
     // core imports no HTTP client and the app has no search API key of its own,
     // so out of the box research answers from files and from MCP servers the

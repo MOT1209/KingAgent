@@ -224,7 +224,7 @@ task, provider, model, context packet and artifacts into it. Indexing is an
 observer: `_indexRun` swallows its own failures so bookkeeping can never break a
 run. Covered by the integration tests in `tests/core-runs.test.mjs`.
 
-**Stage D — Agent observability UI. — 🟡 DATA LAYER DONE, MOUNT REMAINING**
+**Stage D — Agent observability UI. — ✅ DONE (inside the existing shell)**
 `src/renderer/agent-org.mjs`: the org tree (lineage from what the factory
 actually wrote, orphans kept and flagged, cycles cut rather than recursed,
 deterministic ordering with system agents first), the run timeline (§34, folded
@@ -232,16 +232,29 @@ from the run record's own event summaries and filterable to one agent), the run
 headline, and the §42 agent detail panel — plus a deliberately dumb DOM adapter.
 Pure, no DOM, no preload, so the whole view is asserted in plain node; tests in
 `tests/agent-org.test.mjs` (16).
-**Remaining**: mounting it in the shell (which needs the layout decision in
-Stage E, since where the tree lives depends on whether there is an Activity
-pane).
+Mounted in the Agent Platform panel: the flat agent list is now the organization
+tree (system agents first, lineage by indentation, a status tone per row), and
+selecting a node opens the §42 detail panel. For the tree to be real rather than
+decorated, `agent:listAgents` now exposes lineage (`role`, `system`,
+`parentAgentId`, `createdBy`, `promoted`) and a live status taken from the
+coordinator's lifecycles — an agent with no live instance is `ready`, which is a
+different statement from `running`.
 
-**Stage E — Shared conversation + project shell (product decision). — ⬜ DEFERRED**
-The big one. Requires choosing between (i) replacing the tile design, or (ii)
-adding a "Conversation" view alongside tiles. Must not retire the PTY workbench
-without explicit sign-off.
+**Stage E — Shared conversation (§13/§38). — ✅ DONE, BESIDE THE TILES**
+Decision taken by the owner: a Conversation view **alongside** the tile
+workbench, not replacing it. `src/renderer/conversation-view.mjs` folds the
+platform's own event stream into one transcript — King, Ahmad, Rashid,
+specialists, tools, approvals — and King's input goes to `orchestrator:run`, so
+saying what you want *is* starting a run. Two rules keep it honest: every line is
+an event that really happened (there is no per-agent chat state to drift), and
+the text comes from the vocabulary `agent-activity.mjs` already fixed, so an
+event nobody has decided how to phrase produces no line rather than a raw type
+name. Mounted from `agent-platform-boot.mjs` as a second floating panel.
+For this to work at all, `RUN_*` and the dynamic-agent events had to be added to
+the renderer's forwarded set — without them a person would have seen tasks but
+never the objective they belong to.
 
-**Stage F — Browser parity. — 🟡 CONTROL PLANE DONE, WIRING REMAINING**
+**Stage F — Browser parity. — ✅ DONE**
 Verified first, and the verification changed the verdict: the browser **is**
 already agent-reachable, through a per-session Playwright MCP endpoint over a
 scoped CDP transport (`src/main/browser-mcp.js`, `browser-cdp.js`) with its own
@@ -256,9 +269,22 @@ level, policy and approval gates apply with no new permission system. Wired as
 bound function) that owns the real engine, and with none wired the tools register
 but fail with `BROWSER_UNAVAILABLE`. Tests: `tests/core-browser.test.mjs` (18).
 Documented in [browser.md](./browser.md).
-**Remaining** (main side, cannot be verified without Electron): the host adapter
-over `browser-views.js`, holding the MCP route when a person takes control, and a
-UI affordance. Named in [browser.md](./browser.md) §"What is not done yet".
+Then the wiring, all three pieces:
+`src/main/browser-agent-host.js` maps each action onto the app's own tabs through
+`browserUrl()` (the address-bar validator) and injected `webContents` — so this
+module is testable in plain node and an agent still cannot navigate to `file:`.
+`browser:authenticate` refuses **by design** (signing in is a person's act;
+credentials are only ever filled by an explicit trusted action) and
+`browser:upload` reports the missing CDP support rather than faking it.
+`createBrowserMcp` now refuses the browser-facing MCP tools while a person holds
+a granted tab, so take-control stops the path agents actually use, not just the
+new one; a control plane that cannot answer fails closed with an honest "cannot
+confirm", and taking control of a tab deliberately does not stop an agent
+messaging another tile. `wireBrowserViews` reports tabs to the control plane as
+they open and close, and adds `browser:control` / `browser:takeControl` /
+`browser:returnControl` behind the human half of §23 — reachable only from the
+browser menu, never as a tool, because an agent must not be able to hand itself
+the wheel.
 
 **Stage G — Docs.** `docs/agents/`, `docs/runs.md`, `docs/model-routing.md`,
 update `docs/architecture.md`.

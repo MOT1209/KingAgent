@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld('kingagent', {
   browserStatus: () => ipcRenderer.invoke('browser:status'),
   browserEnable: (enabled) => ipcRenderer.invoke('browser:enable', { enabled }),
   browserGrant: (args) => ipcRenderer.invoke('browser:grant', args),
+  // Who is driving a tab, and the person's half of take-control (§23). These
+  // are the only browser channels that exist for the *agent's* benefit to be
+  // revoked: there is deliberately no renderer channel that hands control to an
+  // agent, because that is what an agent asking for it would look like.
+  browserControl: () => ipcRenderer.invoke('browser:control'),
+  browserTakeControl: (args) => ipcRenderer.invoke('browser:takeControl', args),
+  browserReturnControl: (args) => ipcRenderer.invoke('browser:returnControl', args),
   onBrowserEvent: (cb) => { const h = (_e, ev) => cb(ev); ipcRenderer.on('browser:event', h); return () => ipcRenderer.removeListener('browser:event', h); },
   // The renderer styles window chrome per OS (traffic-light deck on mac,
   // titleBarOverlay clearance on windows); a string beats an IPC round-trip.

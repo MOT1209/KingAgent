@@ -250,6 +250,14 @@ runtime or a scheduler.
 | model router | `ai/model-router.js` | a *kind* of work → provider + model, by capability/cost/latency/privacy, deterministic when nothing is wired | `platform.modelRouter` | [model-routing.md](./model-routing.md) |
 | browser | `browser/` | ten `browser:*` tools with named policy actions and risk levels, plus session ownership and take/return control | `platform.browser` | [browser.md](./browser.md) |
 
+The browser's other half lives in `main`, because that is where the tabs are:
+`browser-agent-host.js` is the `io.browser.host` adapter (each action over the
+app's own `webContents`, navigation still validated by `browserUrl()`), and
+`browser-mcp.js` refuses the browser-facing MCP tools while a person holds a
+granted tab — so take-control stops the route agents actually use, not only the
+new one. Take/return control is reachable from the browser menu and never as a
+tool.
+
 The orchestrator uses the last two directly: `handle()` asks the router for a
 selection, starts a Run before work begins, and folds the agent, task, provider,
 model, context and artifacts into it as the run proceeds. Run indexing is an
@@ -259,6 +267,19 @@ never turn into a failed run.
 System agents (Ahmad, Rashid) carry `metadata.system` and are excluded from
 capability-based delegation, so a broad executive cannot out-compete a narrow
 specialist for every job.
+
+### The shared conversation (§13/§38)
+
+`src/renderer/conversation-view.mjs` is one transcript for the whole
+organization, mounted beside the tile workbench rather than instead of it. It
+folds the *same* event stream the activity view reads: King's objective, Ahmad
+planning, Rashid executing, specialists appearing, tool calls, approvals and the
+result. King's input goes to `orchestrator:run`, so saying what you want is what
+starts a run.
+
+The vocabulary is `agent-activity.mjs`'s `describe()` — a fixed list of
+operational facts — so no line can be private reasoning, and an event nobody has
+decided how to phrase produces no line instead of a raw type name.
 
 ### Rendering the organization
 

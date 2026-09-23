@@ -124,6 +124,65 @@ test('queued peer calls cannot use old permissions while a browser operation dra
   } finally { finish?.({ isEmpty: () => false, toPNG: () => Buffer.from('image') }); await gateway.close(); }
 });
 
+// §23: taking control has to stop the agent on the path agents actually use.
+// The core tools were easy; this route is the one that was already shipping, and
+// if it kept driving the same tab then "take control" would be a button that
+// lies.
+async function controlGateway(control) {
+  const { createBrowserMcp } = require('../src/main/browser-mcp');
+  const { Access } = require('../src/main/browser-policy');
+  const access = new Access(); access.register('reader', 1); access.grant('reader', 1, ['view']);
+  const view = { id: 'view', view: { webContents: { getTitle: () => 'Page', getURL: () => 'https://example.test/', isDestroyed: () => false } } };
+  const gateway = await createBrowserMcp({ access, views: new Map([['view', view]]), control });
+  const { url } = await gateway.connection('reader');
+  const call = (name, args = {}) => fetch(url, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }) }).then(r => r.json());
+  return { gateway, access, call };
+}
+
+test('a person holding a granted tab stops the agent on the MCP route too', async () => {
+  const { gateway, call } = await controlGateway({ list: ({ owner } = {}) => (owner === 'human' ? [{ sessionId: 'view' }] : []) });
+  try {
+    const held = await call('kingagent_browser_tabs');
+    assert.match(held.error.message, /A person has taken control/);
+    assert.match(held.error.message, /control is returned/);
+  } finally { await gateway.close(); }
+});
+
+test('an unheld tab still works, and a held tab that was never granted does not pause anyone', async () => {
+  const free = await controlGateway({ list: () => [] });
+  try {
+    const ok = await free.call('kingagent_browser_tabs');
+    assert.ok(ok.result, 'nobody has control, so the agent keeps working');
+  } finally { await free.gateway.close(); }
+
+  // A person is driving a *different* tab. This session was never granted it, so
+  // it is none of this agent's business.
+  const other = await controlGateway({ list: ({ owner } = {}) => (owner === 'human' ? [{ sessionId: 'tab-someone-else' }] : []) });
+  try {
+    const ok = await other.call('kingagent_browser_tabs');
+    assert.ok(ok.result);
+  } finally { await other.gateway.close(); }
+});
+
+test('a control plane that cannot answer fails closed, without inventing a person', async () => {
+  const { gateway, call } = await controlGateway({ list: () => { throw new Error('platform unavailable'); } });
+  try {
+    const output = await call('kingagent_browser_tabs');
+    assert.match(output.error.message, /Cannot confirm who is driving/);
+    assert.doesNotMatch(output.error.message, /person has taken control/);
+  } finally { await gateway.close(); }
+});
+
+test('taking control of a tab does not stop an agent talking to another tile', async () => {
+  const { gateway, access, call } = await controlGateway({ list: ({ owner } = {}) => (owner === 'human' ? [{ sessionId: 'view' }] : []) });
+  try {
+    access.register('peer', 1); access.get('reader').peers = ['peer'];
+    const sent = await call('kingagent_send_message', { to: 'peer', text: 'Still working on the other tab.' });
+    assert.ok(sent.result, 'the pause is about the page, not about the agent existing');
+    assert.equal(access.get('peer').inbox.length, 1);
+  } finally { await gateway.close(); }
+});
+
 test('sharing menus and access sheets are gone from the browser tile', () => {
   const root = path.dirname(fileURLToPath(import.meta.url));
   const pane = fs.readFileSync(path.join(root, '../src/renderer/browser-pane.mjs'), 'utf8');

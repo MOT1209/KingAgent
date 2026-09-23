@@ -85,7 +85,10 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     rec.disposeBrowser = () => { disposeAnnotations(); ro.disconnect(); api.browserClose(p.id).catch(() => {}); };
     const form = q('form', rec.body);
     form.onsubmit = async (event) => { event.preventDefault(); const value=q('input',form).value.trim(); if(p.filePath&&value===p.filePath){api.browserAction({id:p.id,action:'reload'}).then(check);return;} const r = await api.browserResolve(value); if (check(r) && r.url) api.browserAction({ id: p.id, action: 'navigate', url: r.url }).then(check); };
-    form.querySelectorAll('[data-browser-action]').forEach((b) => { b.type = 'button'; b.onclick = () => b.dataset.browserAction === 'menu' ? openMenu(p, b) : api.browserAction({ id: p.id, action: b.dataset.browserAction }).then(check); });
+    form.querySelectorAll('[data-browser-action]').forEach((b) => { b.type = 'button'; b.onclick = () => {
+      if (b.dataset.browserAction === 'menu') { openMenu(p, b).catch(() => {}); return; }
+      api.browserAction({ id: p.id, action: b.dataset.browserAction }).then(check);
+    }; });
     q('.browser-annotate', form).onclick = () => { annotations.toggle(p); schedule(); };
     q('.browser-selection button', rec.body).onclick = () => annotateSelection(p, rec.pendingSelection);
     if (p.focusAddress) { delete p.focusAddress; const input = q('input', form); requestAnimationFrame(() => { input.focus(); input.select(); }); }
@@ -99,9 +102,16 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
   function clearNotes(p) { annotations.clear(p); }
   let menu = null;
   function closeMenu() { menu?.remove(); menu = null; schedule(); }
-  function openMenu(p, anchor) {
+  async function openMenu(p, anchor) {
     closeMenu();
     menu = document.createElement('div'); menu.className = 'browser-menu'; menu.setAttribute('role','menu');
+    // Who is driving this tab. Fetched before the menu is drawn, so the row that
+    // is offered is the one that applies — showing both would ask a person to
+    // reconcile a menu against a state they cannot see.
+    // `null` means "not known", and an unknown state offers neither row rather
+    // than a row that might be the wrong way round.
+    let control = null;
+    try { control = (await api.browserControl())?.sessions?.find((s) => s.sessionId === p.id) || null; } catch { /* leave it unknown */ }
     const actions = [
       ['Open in Chrome \u2197', () => openOutside(p)],
       ['Find in page', () => findInPage(p)],
@@ -114,6 +124,14 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
       ['Clear browsing data…', () => show({type:'browser-profiles',panelId:p.id,section:'clear'})],
       ['Browser settings…', () => settings('browser')],
     ];
+    // §23: the person's half of take-control. An agent is paused on this tab
+    // until the second row is used — and the agent cannot unpause itself, which
+    // is why taking control is not a tool.
+    if (control) {
+      actions.unshift(control.owner === 'human'
+        ? ['Return control to the agent', () => api.browserReturnControl({ id: p.id }).then((r) => { if (check(r)) toast('The agent may drive this tab again.'); })]
+        : ['Take control from the agent', () => api.browserTakeControl({ id: p.id, reason: 'Taken from the browser menu' }).then((r) => { if (check(r)) toast('You have control. The agent is paused on this tab.'); })]);
+    }
     for (const [label, run] of actions) { const b = document.createElement('button'); b.type='button'; b.setAttribute('role','menuitem'); b.textContent=label; b.onclick=()=>{closeMenu();run();}; menu.appendChild(b); }
     document.body.appendChild(menu); const r=anchor.getBoundingClientRect();
     menu.style.left=Math.max(8,Math.min(r.right-menu.offsetWidth,innerWidth-menu.offsetWidth-8))+'px'; menu.style.top=Math.max(8,Math.min(r.bottom+4,innerHeight-menu.offsetHeight-8))+'px';

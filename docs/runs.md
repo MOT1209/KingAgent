@@ -103,6 +103,7 @@ exists because its absence is a specific failure mode:
 | `maxSpawnsPerRun` | a single objective producing agents forever |
 | `maxRuntimeMs` | a stuck agent that never stops billing |
 | `maxTokenBudget` / `maxCost` | one agent burning the whole budget |
+| `maxRunTokens` / `maxRunCost` | a crowd of agents each staying under their own cap while together spending the run into the ground |
 | `maxTaskCount` | an agent that "helps" forever |
 | `duplicateWindowMs` | the same specialist re-created every second |
 | role-in-ancestry check | an agent creating copies of its own kind (recursive spawn) |
@@ -115,10 +116,28 @@ const verdict = governor.canSpawn({ parentAgentId, depth, role, fingerprint });
 governor.sweep(); // agents past runtime or budget, for a host's watchdog to stop
 ```
 
-Known limitation: the governor tracks **live** agents only, in memory. Persisted
-definitions are the registry's business, and after a restart nothing counts as
-live until it is running again — which is the correct reading of "running", but
-means a host that wants restart-surviving budgets must persist usage itself.
+### Budgets that survive a restart
+
+The governor tracks **live** agents only, in memory, and that is the correct
+reading of "running": after a restart nothing is live yet. But a budget that
+resets when the app closes is not a budget — quitting would be a way to escape
+what a runaway agent spent.
+
+So the *run* carries the durable number, and the governor reads it:
+
+```js
+agentGovernor.attachUsage((runId) => runs.get(runId)?.usage || null);
+```
+
+A spawned agent is registered with the `runId` it belongs to, so its own cap and
+the run's cap are both checked against the same record that persists. The
+comparison takes `Math.max` of memory and store, so a provider that lags cannot
+be used to slip past a limit this process already knows was passed. A run with no
+wired provider keeps exactly the per-agent behaviour it had.
+
+Still true: **per-agent** totals are per process. Two runs of the same dynamic
+role in one session share the process but not a record — which is the honest
+reading, since they are different agents.
 
 ## Events
 

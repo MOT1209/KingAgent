@@ -150,7 +150,7 @@ class AgentFactory {
 
   // Creates a proposed agent. Every path returns a decision object, so a caller
   // can always explain why an agent does or does not exist.
-  async create(proposal, { approver = null, depth = 0 } = {}) {
+  async create(proposal, { approver = null, depth = 0, runId = null } = {}) {
     const proposed = unwrap(proposal);
     if (!proposed || !proposed.definition) return { created: false, code: 'FACTORY_INVALID', reason: 'create() requires a proposal from propose()' };
     const { definition } = proposed;
@@ -209,6 +209,9 @@ class AgentFactory {
         fingerprint: proposed.fingerprint,
         depth,
         startedAt: this._now(),
+        // Which run this agent belongs to, so the run's own budget can be
+        // enforced against a record that outlives the process.
+        runId: runId || agent.metadata.runId || null,
       });
     }
 

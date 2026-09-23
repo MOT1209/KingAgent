@@ -528,7 +528,11 @@ app.whenReady().then(() => {
   // validated IPC surface. Wrapped so a platform failure can never keep the
   // desk itself from starting — the terminal and its agents carry on.
   try {
-    require('./agent-platform').installAgentPlatform({ app, ipcMain });
+    // The browser module is handed over so an agent can actually drive a tab,
+    // and the platform is kept so the browser module can ask it who is driving
+    // (take-control, §23). Both directions are late-bound: whichever of the two
+    // finishes wiring first, neither is undefined when it is used.
+    agentPlatform = require('./agent-platform').installAgentPlatform({ app, ipcMain, browserViews });
   } catch (e) {
     console.error('[agent-platform] platform unavailable:', e.message);
   }
@@ -595,7 +599,13 @@ app.on('quit', () => {
 // collide with the sessions it just left behind.
 let bootSeq = 0;
 
-const browserViews = wireBrowserViews(ipcMain, { readSettings, writeSettings });
+let agentPlatform = null;
+const browserViews = wireBrowserViews(ipcMain, {
+  readSettings, writeSettings,
+  // Null until the platform is installed, which is exactly the window in which
+  // the browser has tabs and no agent exists yet.
+  getControl: () => agentPlatform?.browser?.control || null,
+});
 require('./browser-overlays').wireBrowserOverlays(ipcMain);
 let usagePending;
 ipcMain.handle('usage:read', async (e) => {

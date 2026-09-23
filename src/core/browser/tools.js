@@ -232,6 +232,14 @@ function registerBrowserTools(toolManager, { host = null, control, bus = null } 
             error: err.message,
             code: err.code || null,
           });
+          // A host classifies its own refusals (`BROWSER_NOT_FOUND`, a closed
+          // tab, "signing in is a person's act"). Those codes are the whole
+          // point of the classification, so they are carried through the
+          // ToolManager's failure wrapping instead of being flattened into a
+          // generic failure nobody can act on.
+          if (err && typeof err.code === 'string' && err.code.startsWith('BROWSER_') && !(err instanceof ToolError)) {
+            throw new ToolError(err.message, { code: err.code, toolId: def.id, cause: err });
+          }
           throw err;
         }
       },

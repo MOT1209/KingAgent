@@ -13,6 +13,9 @@ const MESSAGE_TOOLS = [
   { name: 'kingagent_send_message', description: 'Leave a message in an allowed peer session inbox. Does not submit a terminal prompt.', inputSchema: { type: 'object', properties: { to: { type: 'string' }, text: { type: 'string' } }, required: ['to', 'text'] } },
   { name: 'kingagent_inbox', description: 'Read and acknowledge messages sent to this session.', inputSchema: { type: 'object', properties: {} } },
 ];
+// KingAgent's own tools that read or move the page, as opposed to the ones that
+// only carry messages between tiles.
+const BROWSER_FACING = new Set(['kingagent_browser_tabs', 'kingagent_browser_screenshot']);
 const result = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 const KINGAGENT_TOOLS = [
   { name: 'kingagent_browser_screenshot', description: 'Read a screenshot of an exact shared KingAgent Browser tab. Returns the visible page image, title, URL and access time. Never uses an external browser.', inputSchema: { type: 'object', properties: { tabId: { type: 'string' } }, required: ['tabId'] } },
@@ -20,8 +23,11 @@ const KINGAGENT_TOOLS = [
   { name: 'kingagent_read_annotation_image', description: 'Read an explicitly inserted KingAgent annotation image by its opaque ID. No arbitrary files.', inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
   { name: 'kingagent_read_session_context', description: 'Read the latest published visible context of an explicitly linked KingAgent session. Terminal snapshots can be incomplete. Does not send a message or start a turn.', inputSchema: { type: 'object', properties: { sourceId: { type: 'string' } }, required: ['sourceId'] } },
 ];
-async function createBrowserMcp({ access, views, create, remove, send, notifyMessage, contexts, images, onActivity }) {
+async function createBrowserMcp({ access, views, create, remove, send, notifyMessage, contexts, images, onActivity, control = null }) {
   const routes = new Map(); let serial = Promise.resolve();
+  // Who is driving each tab, from `core/browser/`. Late-bound for the same
+  // reason browser-views is: the platform is built after this module is wired.
+  const controlRef = () => { try { return typeof control === 'function' ? control() || null : control; } catch { return null; } };
   let schemaPromise;
   async function toolSchema() {
     if (!schemaPromise) schemaPromise = (async () => {
@@ -102,6 +108,33 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
     }
     const { name, arguments: args = {} } = message.params || {};
     if (route.updating || route.revoked) throw new Error('KingAgent Browser access is being updated. Try again.');
+    // §23: while a person has the wheel, the agent stops interacting with that
+    // browser session — and this route is how agents actually drive the browser
+    // today. Checking it only in the core tools would leave take-control
+    // stopping the new path while this one kept driving the same page, which is
+    // worse than not having the feature: the person would believe they had
+    // taken control.
+    //
+    // The check is per route rather than per tab because a Playwright tool does
+    // not always say which page it will act on. Refusing when *any* tab this
+    // session was granted is held is the conservative reading, and the message
+    // names them so the reason is never a mystery.
+    //
+    // Only the tools that touch the browser are held. Taking control of a tab is
+    // not a reason to stop an agent talking to another tile: the pause is about
+    // the page, not about the agent existing.
+    if (BROWSER_FACING.has(name) || ALLOWED_TOOLS.has(name)) {
+      const held = heldTabs(controlRef(), route, access);
+      if (held === null) {
+        // The control plane could not answer. This fails closed rather than
+        // open — but it says "unknown", not "a person has taken control",
+        // because the message has to be true for a person to act on it.
+        throw new Error('Cannot confirm who is driving this browser tab, so the agent is not allowed to act. Try again.');
+      }
+      if (held.length) {
+        throw new Error(`A person has taken control of this browser session (${held.join(', ')}). The agent is paused until control is returned.`);
+      }
+    }
     if (name === 'kingagent_sessions') return result((s.peers || []).filter((id) => access.sessions.has(id)).map((id) => ({ id, title: access.get(id).title })));
     if (name === 'kingagent_inbox') { const messages = s.inbox.splice(0); return result(messages); }
     if (name === 'kingagent_send_message') {
@@ -203,4 +236,20 @@ async function createBrowserMcp({ access, views, create, remove, send, notifyMes
     status: (id) => { const r = [...routes.values()].find(r => r.id === id && !r.revoked); return { initialized: !!r?.connected, initializedAt: r?.initializedAt || null, activities: Object.values(r?.activity || {}) }; },
     refresh, revoke, close: async () => { for (const route of [...routes.values()]) await revoke(route.id); server.closeAllConnections(); server.close(); } };
 }
-module.exports = { createBrowserMcp, ALLOWED_TOOLS };
+// Tabs this session was granted that a person is currently driving, or `null`
+// when the control plane could not answer. `null` and `[]` are different: one
+// means "nobody has control, carry on" and the other means "I do not know",
+// and only the caller can decide what to do about not knowing.
+function heldTabs(control, route, access) {
+  if (!control) return [];
+  if (typeof control.list !== 'function') return null;
+  try {
+    return control.list({ owner: 'human' })
+      .map((s) => s.sessionId)
+      .filter((id) => access.allows(route.id, id));
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { createBrowserMcp, ALLOWED_TOOLS, heldTabs };

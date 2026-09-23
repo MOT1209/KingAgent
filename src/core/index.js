@@ -352,6 +352,16 @@ function createPlatform({
   });
   runs.attachBus(bus);
 
+  // The governor's per-agent budgets restart with the process; a run's do not.
+  // Joining the two is what makes a budget a budget rather than a suggestion —
+  // otherwise quitting the app would be a way to reset what a runaway agent
+  // spent, and a crowd of agents each under their own cap could still empty the
+  // run.
+  agentGovernor.attachUsage((runId) => {
+    const run = runs.get(runId);
+    return run ? run.usage : null;
+  });
+
   const messages = new AgentMessageBus({ bus, logger: logger.child('messaging') });
 
   const coordinator = new AgentCoordinator({

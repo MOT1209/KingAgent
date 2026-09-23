@@ -3,9 +3,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
-const { browserUrl, userBrowserUrl, isBlankTab, cleanSelection, cleanAnnotationLayout, Access, loadFailureMessage, browserUserAgent } = require('./browser-policy');
+const { browserUrl, userBrowserUrl, isBlankTab, clean, cleanSelection, cleanAnnotationLayout, Access, loadFailureMessage, browserUserAgent } = require('./browser-policy');
 const { buildDocUrl, parseDocUrl, resolveWithinRoot, docContentType } = require('./doc-protocol');
 const { createProfileStore, uniqueDownloadPath, popupDecision, permissionAllowed, detectChromiumProfiles, cookieImportStatus, chromeKeychainPassword, importChromiumCookies, deriveChromeKey, readChromeLogins, readChromeHistory, popupModeOf } = require('./browser-profiles');
+const { createBrowserAgentHost } = require('./browser-agent-host');
 const WELCOME = path.join(__dirname, '../renderer/browser-welcome.html');
 
 function blankMode(settings) {
@@ -40,11 +41,22 @@ async function paintBlank(wc, dark) {
   await wc.insertCSS(css).catch(() => {});
 }
 
-function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
+function wireBrowserViews(ipcMain, { readSettings, writeSettings, getControl = null }) {
   // Status is polled frequently. Never turn a UI refresh into filesystem or
   // macOS privacy access; only startup and an explicit toggle touch settings.
   let browserEnabled = !!readSettings().browserEnabled;
   const views = new Map(), access = new Access(), partitions = new Map();
+  // Who is driving each tab. `core/browser/` owns the fact; this module is one
+  // of its callers — it reports tabs as they open and close, and it asks before
+  // letting anything act. Late-bound because the platform (and therefore the
+  // control) is built after this module is wired, and lazy because a window that
+  // never opens a browser should never be the reason the platform fails to load.
+  const control = () => {
+    try { return typeof getControl === 'function' ? getControl() || null : null; } catch { return null; }
+  };
+  // The `io.browser.host` the core tools call. Created here because this is
+  // where the tabs are, and passed to the platform as a late-bound function.
+  const host = createBrowserAgentHost({ views });
   function applyBlankAppearance(mode) {
     const settings = readSettings();
     const dark = blankIsDark(mode, settings);
@@ -145,6 +157,11 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
     const e = { id: args.id, identity: randomUUID(), owner: args.owner, profileId, pendingCount, record, window: w, view, filePath: args.filePath, localUrl: args.filePath ? url : null };
     views.set(e.id, e); w.contentView.addChildView(view); view.setVisible(false);
     const wc = view.webContents;
+    // A tab exists, so a browser session exists. Reported to the control plane
+    // immediately, before any agent can name it: a session that appeared only
+    // once an agent touched it could never be taken over before the first
+    // action, which is exactly when a person wants to breathe on it.
+    control()?.open(e.id, { title: '', url: e.localUrl || wc.getURL() });
     wc.on('before-input-event', (event, input) => {
       if (input.type === 'keyDown' && (input.meta || input.control) && !input.alt && String(input.key).toLowerCase() === 'l') { event.preventDefault(); w.webContents.focus(); send(e, 'address-focus', {}); }
     });
@@ -207,6 +224,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
     return e;
   }
   async function remove(id, { notify = true, confirmed = false } = {}) {
+    control()?.close(id);
     const e = views.get(id); if (!e) return;
     if (e.pendingCount && !confirmed) throw new Error('This tab has pending annotations. Review or discard them in KingAgent before closing the tab.');
     views.delete(id);
@@ -511,7 +529,7 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
   });
   async function ensureGateway() {
     if (gatewayStarting) return gatewayStarting;
-    if (!gateway) gatewayStarting = require('./browser-mcp').createBrowserMcp({ access, views, create, remove, send, contexts, images,
+    if (!gateway) gatewayStarting = require('./browser-mcp').createBrowserMcp({ access, views, create, remove, send, contexts, images, control,
       onActivity: (sessionId, activity) => {
         const s = access.sessions.get(sessionId);
         const target = s && BrowserWindow.getAllWindows().find(w => w.webContents.id === s.windowId);
@@ -619,6 +637,33 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings }) {
     });
     w.webContents.once('destroyed', () => { for (const e of [...views.values()]) if (e.window === w) remove(e.id, { confirmed: true }); });
   }
-  return { bindWindow, views, access, contexts, images, connectionFor, registerSession: ({ id, windowId, title }) => access.register(id, windowId, title), close: async () => { await gateway?.close(); for (const id of [...views.keys()]) await remove(id, { confirmed: true }); } };
+  // The human side of take-control (§23). Reached from the browser pane, never
+  // from a tool: an agent must not be able to hand the wheel to itself, and
+  // "pause that agent" is a person's act. Both directions report what they did
+  // so the pane can trust the state it renders rather than assume its click
+  // landed.
+  guarded('browser:control', async (w) => {
+    const c = control();
+    if (!c) return { available: false, sessions: [] };
+    const owned = new Set([...views.values()].filter((e) => e.window === w).map((e) => e.id));
+    return { available: true, sessions: c.list().filter((s) => owned.has(s.sessionId)) };
+  });
+  guarded('browser:takeControl', async (w, { id, reason }) => {
+    find(w, id);
+    const c = control();
+    if (!c) throw new Error('The agent platform is not running, so there is no agent to pause.');
+    // A tab an agent was never granted to is a tab nobody is driving, so this is
+    // still allowed — a person taking the wheel of their own tab is a no-op, not
+    // an error.
+    return { session: c.takeControl(id, { by: 'king', reason: clean(reason, 400) }) };
+
+  });
+  guarded('browser:returnControl', async (w, { id }) => {
+    find(w, id);
+    const c = control();
+    if (!c) throw new Error('The agent platform is not running.');
+    return { session: c.returnControl(id, { by: 'king' }) };
+  });
+  return { bindWindow, views, access, contexts, images, connectionFor, host, registerSession: ({ id, windowId, title }) => access.register(id, windowId, title), close: async () => { await gateway?.close(); for (const id of [...views.keys()]) await remove(id, { confirmed: true }); } };
 }
 module.exports = { wireBrowserViews };

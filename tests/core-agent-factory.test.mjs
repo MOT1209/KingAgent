@@ -20,6 +20,46 @@ function fixture({ governorConfig = {}, spawnPolicy = {}, withGovernor = true } 
   return { bus, registry, governor, factory };
 }
 
+// --- run budgets ------------------------------------------------------------------
+
+// A process restart is the easiest way to "reset" an in-memory budget, which is
+// why the run's spend comes from the durable record instead.
+test('governor: a run over its budget is caught even though the new agent spent nothing yet', () => {
+  const usage = new Map([['run-1', { tokens: 5_000, cost: 3 }]]);
+  const governor = new AgentGovernor({ config: { maxRunTokens: 1_000, maxRunCost: 2 } });
+  governor.attachUsage((runId) => usage.get(runId) || null);
+  governor.register({ agentId: 'agent-2', role: 'react-specialist', runId: 'run-1' });
+
+  const breaches = governor.sweep();
+  assert.equal(breaches.length, 1);
+  assert.equal(breaches[0].code, 'RUN_TOKEN_BUDGET_EXCEEDED');
+  assert.match(breaches[0].reason, /run-1/);
+  assert.equal(governor.get('agent-2').tokens, 0, 'the agent itself spent nothing');
+});
+
+test('governor: the cost ceiling is checked separately from tokens', () => {
+  const governor = new AgentGovernor({ config: { maxRunTokens: 1_000_000, maxRunCost: 2 } });
+  governor.attachUsage(() => ({ tokens: 10, cost: 9 }));
+  governor.register({ agentId: 'agent-3', role: 'auditor', runId: 'run-2' });
+  assert.equal(governor.sweep()[0].code, 'RUN_COST_BUDGET_EXCEEDED');
+});
+
+test('governor: an agent with no run is not judged against a run budget', () => {
+  const governor = new AgentGovernor({ config: { maxRunTokens: 1 } });
+  governor.attachUsage(() => ({ tokens: 1_000_000, cost: 0 }));
+  governor.register({ agentId: 'loose', role: 'researcher' });
+  assert.deepEqual(governor.sweep(), []);
+});
+
+test('governor: a provider that cannot answer leaves the per-agent caps intact', () => {
+  const governor = new AgentGovernor({ config: { maxTokenBudget: 100, maxRunTokens: 50 } });
+  governor.attachUsage(() => null);
+  governor.register({ agentId: 'agent-4', role: 'coder', runId: 'run-3' });
+  const verdict = governor.noteUsage('agent-4', { tokens: 150 });
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.code, 'AGENT_TOKEN_BUDGET_EXCEEDED', 'the agent cap still applies');
+});
+
 // --- proposal --------------------------------------------------------------------
 
 test('factory: a proposal is a valid definition that is not yet registered', () => {

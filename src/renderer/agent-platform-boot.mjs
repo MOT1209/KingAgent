@@ -1,4 +1,5 @@
 import { mountAgentPlatform } from './agent-platform.mjs';
+import { mountConversationView } from './conversation-view.mjs';
 
 // `mountAgentPlatform()` returning null is the normal, silent case — the
 // agent platform simply isn't installed in this build (see its own header
@@ -33,4 +34,14 @@ try {
 } catch (err) {
   console.error('[agent-platform] ui unavailable:', err);
   try { showBootError(err); } catch (_) { /* document not ready — console line above still stands */ }
+}
+
+// The shared conversation (§13): one transcript for the whole organization,
+// beside the tiles rather than instead of them. It returns null when the
+// platform is not installed, which is the normal case for that build and not an
+// error worth a banner.
+try {
+  mountConversationView({ api: window.kingagent && window.kingagent.agentPlatform });
+} catch (err) {
+  console.error('[conversation] ui unavailable:', err);
 }
