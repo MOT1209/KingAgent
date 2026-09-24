@@ -45,6 +45,11 @@ const ALLOWED_DIRS = new Set([
   'build',     // icon and entitlements the installer needs
   'brand',     // source art and the scripts that regenerate the icons/logo
   '.github',   // the release workflow
+  // Agent skills, checked in on purpose: they are repo content, not a personal
+  // scratch folder, because a clone that cannot load them cannot use them. They
+  // are deliberately *not* in the installer — `electron-builder.yml` lists what
+  // ships, and the check below is what proves it. Pinned by `skills-lock.json`.
+  '.agents',
 ]);
 const ALLOWED_ROOT = new Set([
   'package.json', 'package-lock.json', 'electron-builder.yml',
@@ -62,6 +67,10 @@ const ALLOWED_ROOT = new Set([
   // eslint.config.mjs is: it is read by a person who wants to know what the
   // numbers in the CI log actually measured.
   '.c8rc.renderer.json',
+  // The lockfile for `.agents/skills`: which skill came from which source and
+  // at what content hash. Present so an upgrade can tell a real change from a
+  // re-download of the same bytes.
+  'skills-lock.json',
 ]);
 
 test('nothing is published from outside the folders that make KingAgent', { skip: notStandalone }, () => {

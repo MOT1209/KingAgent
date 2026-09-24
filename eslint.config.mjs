@@ -20,6 +20,12 @@ export default [
       // console.log in it failed this config, which is a rule enforcing the
       // opposite of the instruction right beside it. Nothing in here ships.
       '_local/**',
+      // Installed agent skills, like the vendored renderer bundles above: code
+      // from another repository, on its own terms, with its own style. Linting
+      // it would fail `npm run lint` on upstream code the project deliberately
+      // did not write, and "fix" it by editing a copy of something the lockfile
+      // pins. Checked in so a clone can use them; not ours to reformat.
+      '.agents/**',
     ],
   },
   js.configs.recommended,
