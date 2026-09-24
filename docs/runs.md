@@ -139,12 +139,42 @@ Still true: **per-agent** totals are per process. Two runs of the same dynamic
 role in one session share the process but not a record — which is the honest
 reading, since they are different agents.
 
+## The watchdog: a limit that acts
+
+A sweep that only *reports* a breach is a number, not a limit. The watchdog
+(`agents/watchdog.js`, `platform.agentWatchdog`) is the verb: it runs
+`governor.sweep()` and, for every agent past a limit, actually stops it —
+cancels the agent's delegations, releases its governor slot, and announces
+`agent.stopped` on the bus with the `runId` ref, so the stop lands on the run's
+timeline without the watchdog knowing Runs exist.
+
+It is host-driven by design: `tick()` is synchronous and takes no arguments
+(tests drive it directly), while `start()` adds the interval timer a real app
+wants. The core never starts the timer itself — a core platform must leave the
+event loop alone — so the Electron layer starts it in `installAgentPlatform`
+and `platform.dispose()` stops it. The timer is unref'd: a watchdog watches
+agents, it is never a reason a process stays alive.
+
+Two bounds keep the watchdog itself from misbehaving:
+
+* `maxStopsPerTick` (32) — a sweep reporting hundreds of breaches is itself a
+  symptom; one pathological pass cannot turn into hundreds of cancellations.
+  What the cap hides is reported as `deferred`, and the next tick picks it up.
+* a throwing coordinator or bus handler is logged and the stop still happens —
+  the slot release is the part that protects everything else.
+
+`agent.stopped` carries `{ code, reason, kind: 'budget' | 'limit',
+cancelledDelegations }`, and the shared conversation renders it as an explicit
+line (`Stopped <agent>: …`) so a person watching sees an agent was taken down on
+purpose rather than that work quietly vanished.
+
 ## Events
 
 New types on the one event bus, so a UI can watch without polling:
 `run.started`, `run.updated`, `run.paused`, `run.resumed`, `run.completed`,
 `run.failed`, `run.cancelled`, `run.stopped`, `agent.created`,
-`agent.destroyed`, `agent.promoted`, `agent.demoted`, `agent.spawn.denied`.
+`agent.destroyed`, `agent.promoted`, `agent.demoted`, `agent.spawn.denied`,
+`agent.stopped`.
 
 ## Tests
 

@@ -83,7 +83,7 @@ const FORWARD_TYPES = new Set([
   TYPES.RUN_STARTED, TYPES.RUN_UPDATED, TYPES.RUN_PAUSED, TYPES.RUN_RESUMED,
   TYPES.RUN_COMPLETED, TYPES.RUN_FAILED, TYPES.RUN_CANCELLED, TYPES.RUN_STOPPED,
   TYPES.AGENT_CREATED, TYPES.AGENT_DESTROYED, TYPES.AGENT_PROMOTED, TYPES.AGENT_DEMOTED,
-  TYPES.AGENT_SPAWN_DENIED,
+  TYPES.AGENT_SPAWN_DENIED, TYPES.AGENT_STOPPED,
 
   // The governed browser. `browser.action` fires per agent action and is a live
   // signal a person watching wants (it names the session, the action and the
@@ -1036,6 +1036,11 @@ function installAgentPlatform({ app, ipcMain, browserViews = null }) {
       }
     },
   });
+
+  // The watchdog is the only thing that stops a runaway agent, so a real app
+  // runs it — the core deliberately does not, because a core platform must
+  // leave the event loop alone. Its timer is unref'd and `dispose()` stops it.
+  platform.agentWatchdog.start();
 
   return platform;
 }

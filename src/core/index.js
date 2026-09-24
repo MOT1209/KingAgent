@@ -76,6 +76,7 @@ const { Planner } = require('./planning/planner');
 const { RunManager } = require('./runs');
 const { AgentGovernor } = require('./agents/governor');
 const { AgentFactory } = require('./agents/factory');
+const { createAgentWatchdog } = require('./agents/watchdog');
 const { Reasoner } = require('./reasoning/reasoning');
 const { AgentRuntime } = require('./runtime/runtime');
 const { WorkflowEngine } = require('./workflows/engine');
@@ -375,6 +376,19 @@ function createPlatform({
     logger: logger.child('coordinator'),
   });
 
+  // The watchdog is what makes the governor's runtime and budget limits real:
+  // `sweep()` finds an agent that is over a limit, and the watchdog is what
+  // actually stops it. Deliberately not started here — a core platform must
+  // leave the event loop alone — so a host calls `agentWatchdog.start()` (the
+  // Electron layer does; tests drive `tick()` directly).
+  const agentWatchdog = createAgentWatchdog({
+    governor: agentGovernor,
+    coordinator,
+    bus,
+    logger: logger.child('watchdog'),
+    intervalMs: (io.agents && Number.isFinite(io.agents.watchdogIntervalMs)) ? io.agents.watchdogIntervalMs : null,
+  });
+
   const agentState = new AgentStateStore({ collection: collections.agentState });
   const recovery = new StateRecoveryManager({
     store: agentState,
@@ -609,6 +623,7 @@ function createPlatform({
     agents,
     agentGovernor,
     agentFactory,
+    agentWatchdog,
     chief,
     runs,
     modelRouter,
@@ -670,6 +685,7 @@ function createPlatform({
     // holding. Called when the app quits, so a pending approval or a sandboxed
     // process cannot keep the app alive after the window closes.
     async dispose() {
+      agentWatchdog.stop();
       approvals.dispose();
       orchestrator.scheduler.cancelAll('platform disposed');
       // Research first: a live research task holds provider requests, and

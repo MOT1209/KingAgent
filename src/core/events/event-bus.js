@@ -242,6 +242,10 @@ const TYPES = Object.freeze({
   AGENT_PROMOTED: 'agent.promoted',
   AGENT_DEMOTED: 'agent.demoted',
   AGENT_SPAWN_DENIED: 'agent.spawn.denied',
+  // AGENT_STOPPED is the watchdog's event (agents/watchdog.js): an agent that
+  // was live and was taken down because it ran past a limit. It carries the
+  // `runId` ref, which is what puts the stop on the run's timeline.
+  AGENT_STOPPED: 'agent.stopped',
 
   // --- Browser (src/core/browser/) -------------------------------------------
   // A browser session is the one place an agent touches the live web, so every

@@ -246,6 +246,7 @@ runtime or a scheduler.
 | runs | `runs/` | a Run indexes one objective: the agents, tasks, tools, artifacts and spend it touched, plus a timeline fed off the event bus | `platform.runs` | [runs.md](./runs.md) |
 | agent factory | `agents/factory.js` | runtime creation of specialists with a risk-based spawn policy, plus promotion/demotion | `platform.agentFactory` | [runs.md](./runs.md) |
 | agent governor | `agents/governor.js` | depth / fan-out / concurrency / runtime / budget limits, duplicate and recursive-spawn detection, runaway sweep | `platform.agentGovernor` | [runs.md](./runs.md) |
+| agent watchdog | `agents/watchdog.js` | turns the governor's sweep into an actual stop: cancels delegations, releases the slot, emits `agent.stopped` with the `runId` ref; host-driven timer, unref'd | `platform.agentWatchdog` | [runs.md](./runs.md) |
 | chief system | `agents/presets/chief.js`, `agents/chief.js` | Ahmad 🧠 plans, Rashid 👨‍💻 executes, specialists are spawned through the factory | `platform.chief` | [agents-hierarchy.md](./agents-hierarchy.md) |
 | model router | `ai/model-router.js` | a *kind* of work → provider + model, by capability/cost/latency/privacy, deterministic when nothing is wired | `platform.modelRouter` | [model-routing.md](./model-routing.md) |
 | browser | `browser/` | ten `browser:*` tools with named policy actions and risk levels, plus session ownership and take/return control | `platform.browser` | [browser.md](./browser.md) |

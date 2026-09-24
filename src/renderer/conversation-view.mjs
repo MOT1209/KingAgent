@@ -49,6 +49,9 @@ const BY_TYPE = Object.freeze({
   'approval.rejected': { speaker: 'king', text: () => 'Rejected' },
   'agent.created': { speaker: 'rashid', text: (e) => `Created ${e.payload.name || e.payload.role || e.payload.agentId || 'an agent'}` },
   'agent.spawn.denied': { speaker: 'system', text: (e) => `Refused a spawn: ${e.payload.reason || e.payload.code || 'limits'}` },
+  // The watchdog's stop. Worth a line of its own: a person watching needs to
+  // know an agent was taken down on purpose, not that work quietly vanished.
+  'agent.stopped': { speaker: 'system', text: (e) => `Stopped ${e.agentId || e.payload.agentId || 'an agent'}: ${e.payload.reason || e.payload.code || 'over its limits'}` },
   'run.completed': { speaker: 'system', text: () => 'Run complete' },
   'run.failed': { speaker: 'system', text: (e) => `Run failed: ${e.payload.error || ''}` },
 });

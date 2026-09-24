@@ -289,6 +289,14 @@ the wheel.
 **Stage G — Docs.** `docs/agents/`, `docs/runs.md`, `docs/model-routing.md`,
 update `docs/architecture.md`.
 
+**Follow-up — the watchdog.** `agents/watchdog.js` (`platform.agentWatchdog`)
+closes the last honest gap in the limit story: a sweep that only reported a
+breach left the breach alive. Now the watchdog stops the agent for real —
+releases the slot, cancels its delegations, emits `agent.stopped` with the
+`runId` ref so the stop lands on the run's timeline, and the shared conversation
+renders it as an explicit line. Host-driven (`tick()` sync for tests,
+`start()` for the app, stopped in `dispose()`), bounded per tick, unref'd timer.
+
 ---
 
 ## 4. Risks / constraints
