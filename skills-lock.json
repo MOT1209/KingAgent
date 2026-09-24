@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "create-brand-kit": {
+      "source": "leonvanzyl/skills",
+      "sourceType": "github",
+      "skillPath": "skills/apps/create-brand-kit/SKILL.md",
+      "computedHash": "d05484eeebd84e6388bdf8854db69a3841373cd33bc69948c33e7e16efe02cbf"
+    },
+    "create-upstash-software-factory": {
+      "source": "leonvanzyl/skills",
+      "sourceType": "github",
+      "skillPath": "skills/factories/create-upstash-software-factory/SKILL.md",
+      "computedHash": "9c6f0e879cd33e74f707bbb14d46f20a648f800159d4a1834c8395b078c9d1ff"
+    },
+    "deploy-an-app": {
+      "source": "leonvanzyl/skills",
+      "sourceType": "github",
+      "skillPath": "skills/apps/deploy-an-app/SKILL.md",
+      "computedHash": "f3dd14f12072dcf8a2d67ac27e9e1f78ecba48a7e06d83fe27035abd1aa37dd9"
+    },
+    "review-an-app": {
+      "source": "leonvanzyl/skills",
+      "sourceType": "github",
+      "skillPath": "skills/apps/review-an-app/SKILL.md",
+      "computedHash": "af60197e074da5c5601b953aba7b923c64ee6f28a2482ba081ea2cfbaef3f4d5"
+    },
+    "start-an-app": {
+      "source": "leonvanzyl/skills",
+      "sourceType": "github",
+      "skillPath": "skills/apps/start-an-app/SKILL.md",
+      "computedHash": "315c7e5f0320b30dae2cf2f89611ca899fe929c0348ee95634bc0cb1c3f4416c"
+    }
+  }
+}

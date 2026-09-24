@@ -1,0 +1,42 @@
+{
+  "skill_name": "create-brand-kit",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I'm launching a company called Tidewater — we build autonomous underwater drones that inspect offshore wind-farm foundations and export cables. Buyers are marine-operations managers at energy utilities; the feel should be serious maritime engineering, not a gadget startup. No website yet, just this description. Create the complete brand kit — logo, wordmark, lockups, icons, favicon, guidelines, everything — as vector assets that work on light and dark backgrounds.",
+      "expected_output": "A packaged brand-kit folder: svg/ subfolders (mark, wordmark, lockup, icon, themed) with dark/light/mono logomark variants, an outlined (not live-text) wordmark, baseline-aligned lockups, round-safe avatar + adaptive icons, a self-theming favicon, PNG rasters, a README with usage rules and honest limitations, and a generated guidelines.html. Process evidence of critique (concepts reviewed/scored, not first-idea-shipped).",
+      "files": [],
+      "assertions": [
+        "Kit is packaged: a brand-kit folder exists containing organised svg subfolders (mark, wordmark, lockup, icon or equivalent), a README, and a guidelines HTML page",
+        "Logomark ships in both dark-ground and light-ground colourways AND at least one single-colour (mono) variant",
+        "All shipped SVGs are pure vector: no <image> elements, no <filter>/feGaussianBlur, and marks contain no live <text>",
+        "Every shipped SVG has a viewBox plus explicit width and height attributes (survives Office/Slides import and bare <img> use)",
+        "Wordmark is real outlines: contains <path> data for the letterforms and no <text>/<tspan> elements",
+        "Round-safe icons exist: a dedicated avatar and/or adaptive-icon variant whose artwork is scaled visibly smaller in-frame than the square icon (ink fits a circular mask), not just a copy",
+        "Favicon strategy handles both tab themes: either one SVG embedding a prefers-color-scheme style block, or explicit dark+light favicon files",
+        "PNG rasters are included at more than one size (e.g. favicon sizes and at least one large export)",
+        "README (or guidelines) states usage rules including a light/dark or circular-mask caveat, and an honest known-limitations section",
+        "Critique ran: working files show multiple distinct concepts with review evidence (kill/rework/advance verdicts, scores, or kill-list audits) — not a single first idea shipped",
+        "Render-and-look evidence: PNG previews/contact sheets of candidate marks exist among the working files",
+        "The master logomark is not favicon-grid blocky: its SVG uses curves or fine geometry (not exclusively axis-aligned rectangles on a coarse module), and a separate simplified small-size/favicon variant exists",
+        "The guidelines HTML is self-contained: no http(s):// references to external scripts, stylesheets, or fonts"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "hey, my sister and I are opening a bakery called Crumb & Ember. we sell wood-fired sourdough, seasonal fruit galettes, and small-batch coffee. vibe is warm and a bit rustic but modern, not twee farmhouse. we have zero branding — no colours, no fonts, nothing. can you come up with the branding for us? we need a logo for the shopfront sign, stickers for the bread bags, an instagram avatar, and a website favicon.",
+      "expected_output": "A complete packaged brand kit whose style suits a warm rustic-modern bakery (not a tech aesthetic): logomark + outlined wordmark + lockups, round-safe avatar for Instagram, favicon, PNGs, README, guidelines.html. A palette and type pairing appropriate to the brief, and evidence that multiple concepts were explored and critiqued.",
+      "files": [],
+      "assertions": [
+        "Kit is packaged with svg subfolders, PNGs, a README, and a guidelines HTML page",
+        "The identity fits the brief's character: palette is not a default tech near-black/electric-accent scheme, and the guidelines justify colour and type choices against the warm rustic-modern brief",
+        "A round-safe avatar variant exists for the Instagram use case (ink fits a circular mask)",
+        "Favicon handles both tab themes (embedded prefers-color-scheme or explicit dark+light files)",
+        "Wordmark is outlined path data (no live <text>), and the chosen typefaces are named in the guidelines",
+        "Multiple distinct concepts were explored with critique/selection evidence in the working files",
+        "Render-and-look evidence exists: preview PNGs or contact sheets among the working files",
+        "The mark's geometry is clean at large size (no self-intersections or stray elements visible in the large preview render) and a simplified small-size variant covers favicon duty"
+      ]
+    }
+  ]
+}
