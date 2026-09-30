@@ -36,7 +36,7 @@ const { createDirWatch } = require('./dir-watch');
 const { fmtSize, listDirectory } = require('./workspace-tree');
 const { ptyCwd } = require('./pty-cwd');
 const settingsStore = require('./settings');
-const { migrateRecents, rememberFolderIn, setPinnedIn, removeFrom } = require('./recents');
+const { migrateRecents, rememberFolderIn, setPinnedIn, removeFrom, normalizeFolderKey, sameFolder } = require('./recents');
 const { windowChrome, cacheDir, APP_NAME, APP_DATA_DIRNAME } = require('./platform');
 const { cachedShell } = require('./terminal');
 const { unzip } = require('./unzip');
@@ -188,31 +188,91 @@ function killSession(id, { force = false } = {}) {
 // ---- state (restart-proof) -------------------------------------------------
 function stateFile() { return path.join(app.getPath('userData'), 'state.json'); }
 let state = { recentFolders: [], currentFolder: null, panels: [], panelsByFolder: {}, windows: [] };
+// True once a usable state has been loaded or explicitly created. A corrupt
+// state.json must never be overwritten with an empty desk — see loadState.
+let stateLoadedOk = true;
+function backupCorruptState(file, raw) {
+  try {
+    const bak = file + '.bak';
+    fs.mkdirSync(path.dirname(bak), { recursive: true });
+    fs.writeFileSync(bak, typeof raw === 'string' ? raw : String(raw ?? ''));
+    console.error('[state] corrupt state backed up to', bak);
+  } catch (e) { console.error('[state] backup failed:', e && e.message || e); }
+}
+function normalizePanelsByFolder(map) {
+  const out = {};
+  if (!map || typeof map !== 'object') return out;
+  for (const [rawKey, panels] of Object.entries(map)) {
+    if (rawKey === '__no_folder__') continue; // empty-desk pollution, never a real desk
+    const key = normalizeFolderKey(rawKey) || '__no_folder__';
+    if (key === '__no_folder__') continue;
+    if (!Array.isArray(panels)) continue;
+    // Merge spelling duplicates (C:\Proj vs c:/proj/): keep the fuller desk.
+    if (!out[key] || panels.length > out[key].length) out[key] = panels;
+  }
+  return out;
+}
 function loadState() {
-  try { state = Object.assign(state, JSON.parse(fs.readFileSync(stateFile(), 'utf8'))); } catch (_) {}
+  let raw = null;
+  try { raw = fs.readFileSync(stateFile(), 'utf8'); } catch (_) { stateLoadedOk = true; }
+  if (raw === null) {
+    state.recentFolders = migrateRecents(state.recentFolders);
+    return;
+  }
+  try {
+    state = Object.assign(state, JSON.parse(raw));
+    stateLoadedOk = true;
+  } catch (e) {
+    console.error('[state] corrupt state.json, keeping empty desk in memory:', e && e.message || e);
+    backupCorruptState(stateFile(), raw);
+    stateLoadedOk = false;
+  }
   if (!state.panelsByFolder || typeof state.panelsByFolder !== 'object') state.panelsByFolder = {};
+  else state.panelsByFolder = normalizePanelsByFolder(state.panelsByFolder);
   if (!Array.isArray(state.windows)) state.windows = [];
   // pre-multi-window states kept a single desk in `panels`
-  if (Array.isArray(state.panels) && state.panels.length && state.currentFolder && !state.panelsByFolder[state.currentFolder]) {
-    state.panelsByFolder[state.currentFolder] = state.panels;
+  if (Array.isArray(state.panels) && state.panels.length && state.currentFolder && !state.panelsByFolder[folderKey(state.currentFolder)]) {
+    state.panelsByFolder[folderKey(state.currentFolder)] = state.panels;
   }
   // recentFolders used to be a bare path list; it now carries when it was last
   // opened and whether it is pinned, so the popover can sort and label rows.
   state.recentFolders = migrateRecents(state.recentFolders);
 }
-const folderKey = (f) => f || '__no_folder__';
+const folderKey = (f) => normalizeFolderKey(f) || '__no_folder__';
 function panelsFor(folder) { const p = state.panelsByFolder[folderKey(folder)]; return Array.isArray(p) ? p.slice(0, 12) : []; }
 let saveTimer = null;
-function persist(partial) {
-  if (partial) state = Object.assign(state, partial);
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+// Synchronous write with one retry: on Windows an AV scanner or OneDrive sync
+// can hold state.json (EBUSY/EPERM) exactly when quit flushes. Swallowing that
+// silently is how a restart loses the open project.
+function writeStateNow() {
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
       fs.mkdirSync(path.dirname(stateFile()), { recursive: true });
       fs.writeFileSync(stateFile() + '.tmp', JSON.stringify(state, null, 2));
       fs.renameSync(stateFile() + '.tmp', stateFile());
-    } catch (_) {}
-  }, 250);
+      stateLoadedOk = true;
+      return true;
+    } catch (e) {
+      const code = e && e.code;
+      console.error(`[state] write failed (attempt ${attempt + 1}):`, e && e.message || e);
+      if ((code === 'EBUSY' || code === 'EPERM') && attempt === 0) continue;
+      return false;
+    }
+  }
+  return false;
+}
+function persist(partial) {
+  if (partial) state = Object.assign(state, partial);
+  // Never clobber a corrupt file with an empty in-memory desk. The next
+  // explicit user action (open folder, save panels) flips stateLoadedOk via
+  // writeStateNow success; until then keep the .bak on disk intact.
+  if (!stateLoadedOk) {
+    const hasContent = (state.recentFolders && state.recentFolders.length)
+      || state.currentFolder || Object.keys(state.panelsByFolder || {}).length;
+    if (!hasContent) return;
+  }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { writeStateNow(); }, 250);
 }
 
 // ---- settings (how the app behaves: theme, model, transcription) ------------
@@ -559,11 +619,7 @@ app.on('before-quit', () => {
     bounds: w.getNormalBounds(),
   }));
   clearTimeout(saveTimer);
-  try {
-    fs.mkdirSync(path.dirname(stateFile()), { recursive: true });
-    fs.writeFileSync(stateFile() + '.tmp', JSON.stringify(state, null, 2));
-    fs.renameSync(stateFile() + '.tmp', stateFile());
-  } catch (_) {}
+  writeStateNow();
   for (const id of [...termSessions.keys()]) killSession(id);
 });
 
@@ -676,6 +732,7 @@ ipcMain.handle('boot', (e) => {
 
 // Renderer sends its panel layout after every change; restored per folder on next boot.
 ipcMain.handle('panels:save', (_e, { panels, folder }) => {
+  if (!folder || !normalizeFolderKey(folder)) return { ok: true };
   state.panelsByFolder[folderKey(folder)] = Array.isArray(panels) ? panels.slice(0, 12) : [];
   persist();
   return { ok: true };
@@ -693,8 +750,10 @@ ipcMain.handle('recents:remove', (_e, p) => {
   state.recentFolders = removeFrom(state.recentFolders || [], p);
   // Forget the desk too — leaving it behind would resurrect the tiles if the
   // same path is ever opened again, which is not what "remove" looks like.
+  // Keys are normalized (case/separator-insensitive on Windows) so a remove
+  // issued with a different spelling still finds the desk.
   delete state.panelsByFolder[folderKey(p)];
-  if (state.currentFolder === p) state.currentFolder = null;
+  if (state.currentFolder && sameFolder(state.currentFolder, p)) state.currentFolder = null;
   persist(); broadcastRecents();
   return recentsForRenderer();
 });
