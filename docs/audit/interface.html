@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الواجهة والعربية — تقرير تدقيق KingAgent</title>
+<meta name="description" content="واجهة KingAgent لا تدعم العربية إطلاقًا: لا dir، ولا خط عربي، و122 تصريحًا فيزيائيًا. مع reachability، أداء، وتباين.">
+<link rel="stylesheet" href="audit.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#fffdf6" stroke="#2f2b26" stroke-width="2.5"/>
+        <rect x="7" y="7" width="12" height="11" rx="2" fill="#ef6461"/>
+        <rect x="21" y="7" width="12" height="7" rx="2" fill="#8ab4c4"/>
+        <rect x="7" y="20" width="8" height="13" rx="2" fill="#c9a87c"/>
+        <rect x="17" y="16" width="16" height="17" rx="2" fill="#2f2b26"/>
+      </svg>
+      <span class="brand-txt"><b>KingAgent</b><span>تقرير التدقيق 2026</span></span>
+    </a>
+    <nav class="nav" aria-label="صفحات التقرير">
+      <a href="index.html">نظرة عامة</a>
+      <a href="findings.html">كل النتائج</a>
+      <a href="interface.html" aria-current="page">الواجهة</a>
+      <a href="security.html">الأمان</a>
+      <a href="performance.html">الأداء</a>
+      <a href="quality.html">الجودة</a>
+      <a href="fixplan.html">خطة الإصلاح</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <h1 class="hero-title">الواجهة: <em>لا تدعم العربية</em> إطلاقًا</h1>
+    <p class="hero-sub">
+      ليست هذه ملاحظة على ترجمة ناقصة. لا يوجد وسم <code>dir</code> في المشروع كله، ولا خاصية CSS
+      منطقية واحدة، ولا خط عربي. سِتّة وتسعون تصريحًا فيزيائيًا موزّعًا على 23 ملفًا. للحصول على واجهة
+      عربية، المتطلّب ليس ترجمة سلاسل — بل كنسة ميكانيكية عبر ١٢٢ تصريحًا و٢٣ ملفًا.
+    </p>
+    <div class="hero-meta">
+      <span>نتائج الواجهة <b>51</b> من 90</span>
+      <span>نتائج حرجة <b>6</b></span>
+      <span>ملفات CSS <b>11</b> · أسطر <b>4,751</b></span>
+      <span>أسطر الـ renderer <b>19,385</b></span>
+    </div>
+  </section>
+
+  <div class="wrap">
+
+    <!-- ======================================================== the gap -->
+    <section class="section">
+      <div class="callout callout--danger">
+        <h4><i class="dot" style="background:var(--sev-critical)"></i> الحالة الحقيقية</h4>
+        <p>
+          <code>index.html</code> لا يحتوي وسم <code>&lt;html&gt;</code> أصلًا — يبدأ بـ
+          <code>&lt;meta charset&gt;</code>. لا <code>lang</code> ولا <code>dir</code>، و
+          <code>font-src 'self'</code> يمنع أي خط من الشبكة. النتيجة: النص العربي يُعرض بخط
+          بديل تختاره النظام، علامات الترقيم في الجهة الخاطئة، و<code>blockquote</code> مع
+          <code>&gt; اقتباس</code> يقلب محرف الاستشهاد إلى آخر السطر — لأنها ليست
+          <code>dir="auto"</code>.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="sec-head">
+        <h2>القياس، لا الانطباع</h2>
+        <p>الأعمدة على اليسار هي ما يجب أن يوجد. الثلاثة الأولى على اليمين هي ما وجدته الأدوات فعلًا.</p>
+      </div>
+      <div class="grid split-2-1">
+        <div class="card">
+          <div class="chart-title">فجوة RTL</div>
+          <div id="chart-rtl"></div>
+        </div>
+        <div class="card card--glass">
+          <div class="chart-title">ما الذي يجب تغييره</div>
+          <div class="table-wrap" style="box-shadow:none;border:0;background:transparent">
+            <table>
+              <thead><tr><th>المقياس</th><th>الآن</th><th>الهدف</th></tr></thead>
+              <tbody>
+                <tr><td>خصائص CSS منطقية</td><td class="num">0</td><td class="num">122</td></tr>
+                <tr><td>خطوط عربية</td><td class="num">0</td><td class="num">1</td></tr>
+                <tr><td>سمات <code>dir</code></td><td class="num">0</td><td class="num">1</td></tr>
+                <tr><td>أشهر خلل بالتكرار</td><td class="num">33</td><td class="num">0</td></tr>
+                <tr><td>ملفات متأثرة</td><td class="num">23</td><td class="num">0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================== fonts -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>الخطوط: خمسة خطوط، ولا واحد منها عربي</h2>
+        <p>كل ملف <code>.woff2</code> مرفق يحمل <code>-latin</code> في اسمه، ولا يوجد
+           <code>unicode-range: U+0600-06FF</code> في أي مكان. لا Cairo، ولا Tajawal، ولا Noto Naskh.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>جرد <code>@font-face</code> في الـ renderer. علامة «لا» في العمود الأخير هي النتيجة التي تهم.</caption>
+          <thead><tr><th>العائلة</th><th>الوزن</th><th>الملف</th><th>يغطي العربية؟</th></tr></thead>
+          <tbody id="fonts-body"></tbody>
+        </table>
+      </div>
+
+      <div class="callout callout--good" style="margin-block-start:16px">
+        <h4><i class="dot" style="background:var(--sev-ok)"></i> الإصلاح لا يحتاج شبكة</h4>
+        <p>
+          <code>font-src 'self'</code> تظل كما هي. ضع ملف الخط في
+          <code>src/renderer/vendor/fonts/</code> وأضف
+          <code>unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;</code>
+          ثم ضعه في <em>نهاية</em> كل مكدّس <code>font-family</code> — الحروف العربية تسقط إليه،
+          واللاتينية تبقى على الخط الحالي. لا تغيير في CSP، ولا طلب شبكة.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===================================================== RTL details -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>أين ينكسر الاتجاه فعليًا</h2>
+        <p>التصريح مُشوَّه بحد ذاته. هذه المواضع تحديدًا هي ما يجعل الانقلاع مرئيًا — وليست كل الـ ١٢٢.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3><span class="badge badge--critical">المؤشر الأوضح</span> شجرة الملفات</h3>
+          <p class="card-note">
+            <code>workspace-library.mjs:293</code>: <code>row.style.paddingLeft = (6 + depth * 13) + 'px'</code>.
+            و<code>agent-platform.mjs:137</code> يكرّرها في <code>style="padding-left:${6 + r.depth * 14}px"</code>.
+            في RTL يتدرّج كل مجلد من الحافة الخاطئة. أول ما يراه المستخدم.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--critical">33 مرة</span> <code>margin-left: auto</code></h3>
+          <p class="card-note">
+            في <code>paper.css</code> وحده: الأسطر 455, 511, 674, 741, 881, 938, 953, 1306, 1388,
+            1434, 1444, 1851, 1853, 1894, 1933, 1942, 2002, 2073, 2091, 2236, 2252, 2282, 2288,
+            2291, 2508. تدفع البيانات الوصفية إلى اليمين في LTR — وستدفعها إلى اليسار في RTL،
+            فينقلب كل سطر <code>اسم … حالة</code>.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--high">هندسة</span> ارتساء النوافذ المنبثقة</h3>
+          <p class="card-note">
+            <code>workspace-library.mjs:75, 119, 465</code> · <code>browser-pane.mjs:137</code> ·
+            <code>link-hint.mjs:46-47</code> · <code>browser-annotations.mjs:70, 81</code> — كلها
+            <code>style.left</code> مع <code>getBoundingClientRect().left</code>. منطق LTR مكتوب
+            في الطبقة الصعبة، لا في CSS.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--high">إيماءة</span> مقبض التحجيم</h3>
+          <p class="card-note">
+            <code>tile-shell.mjs:370, 401</code> يكتبان <code>rec.root.style.left</code> أثناء السحب،
+            والمقبض <code>nwse-resize</code> (<code>paper.css:1216</code>) — في RTL يقع زاوية
+            التحجيم على الجهة الخاطئة تمامًا.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--high">دلالات</span> محاذاة جدول Markdown</h3>
+          <p class="card-note">
+            <code>md.mjs:176</code> يُصدر <code>text-align:right</code> لعمود GFM align. المعنى
+            القياسي هو «حاذِ إلى <em>النهاية</em>» — في RTL هي اليسار. عمود الأرقام في جدول
+           البنية سيصبح على اليسار.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--high">نص</span> لا <code>dir="auto"</code> في Markdown</h3>
+          <p class="card-note">
+            المستند المختلط عربي/لاتيني بلا <code>dir="auto"</code> على <code>p</code> أو
+            <code>blockquote</code> أو <code>li</code> يورّث اتجاه الصفحة لكل فقرة — فينكسر
+            كل سطر مختلط. <code>md.mjs:264</code> يعيد أيضًا تحليل الاقتباسات المتداخلة من الصفر
+            عند كل مستوى، أي <code>O(n²)</code> على خيط الواجهة.
+          </p>
+        </div>
+      </div>
+
+      <details class="more">
+        <summary>كيف تُنفَّذ الكنسة الميكانيكية بأقل مخاطرة</summary>
+        <pre><code>// 1. CSS sweep — آلي وآمن
+margin-left   → margin-inline-start
+margin-right  → margin-inline-end
+padding-left  → padding-inline-start
+padding-right → padding-inline-end
+border-left   → border-inline-start
+border-right  → border-inline-end
+left / right  → inset-inline-start / inset-inline-end
+text-align: left|right → start|end
+
+// 2. read-backs الخمسة (تقفز بصمت بدونها)
+app.js:1222 · tile-shell.mjs:235 · :252 · :341
+getComputedStyle(el).paddingLeft → el.clientLeft أو paddingInlineStart
+
+// 3. هندسة JS — تحتاج helper واحد
+// logicalFromRect(rect, axis) → left في LTR، right في RTL
+// تُستخدم في: workspace-library, browser-pane, link-hint, browser-annotations
+
+// 4. بوابة تمنع الانحدار — راجع quality.html
+// eslint no-restricted-properties + no-restricted-syntax على *.css و src/renderer/*.mjs</code></pre>
+      </details>
+    </section>
+
+    <!-- ====================================================== a11y -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>إمكانية الوصول: القياس يكشف نمطًا لا يَرشِّي</h2>
+        <p>
+          في نفس الملفات، بعض العناصر تُبنى بعناية كاملة (ثلاثة أسطر صحيحة) وبعضها بلا شيء —
+          والفرق بين الحالتين أربع وعشرون سطرًا. النتيجة أن التنقّل الأساسي في رصيف Workspace غير مرئي للوحة المفاتيح
+          بينما القوائم الثانوية تحته مرئية.
+        </p>
+      </div>
+
+      <div class="grid g4" style="margin-block-end:18px">
+        <div class="kpi" style="--kpi-accent:var(--sev-critical)">
+          <span class="kpi-val">10:1</span>
+          <span class="kpi-label">مستمع يُضاف مقابل مُزال</span>
+          <span class="kpi-sub">110 <code>addEventListener</code> · 11 <code>removeEventListener</code></span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-critical)">
+          <span class="kpi-val">2<small>من 17</small></span>
+          <span class="kpi-label">أوراق لها حصر تركيز</span>
+          <span class="kpi-sub"><code>wireHelpDialog</code> مستدعًى من موقعين فقط</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-high)">
+          <span class="kpi-val">40</span>
+          <span class="kpi-label">عنصر بنقرة بلا زر</span>
+          <span class="kpi-sub"><code>div</code>/<code>span</code> بلا role أو tabindex أو keydown — في 11 ملفًا</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-high)">
+          <span class="kpi-val">1</span>
+          <span class="kpi-label"><code>aria-live</code> في التطبيق كله</span>
+          <span class="kpi-sub">بينما <code>toast()</code> يُنادى ~90 مرة</span>
+        </div>
+      </div>
+
+      <div class="callout callout--warn">
+        <h4><i class="dot" style="background:var(--sev-high)"></i> أسوأ ثلاث حالات — لأنها ليست غيابات</h4>
+        <p>
+          <strong>١) ثلاثة عناصر <code>role="button" tabindex="0"</code> بلا <code>keydown</code></strong>
+          (<code>launcher.mjs:811, 206</code>): مستخدم لوحة المفاتيح يصل بالـ Tab، يسمع «زر»، يضغط Enter،
+          ولا يحدث شيء — <strong>مخالفة صريحة لـ WCAG 2.1.1</strong>، وهي أسوأ من إغفال السمة.
+          <br>
+          <strong>٢) رصيف المكتبة كاملًا بالفأرة فقط</strong> (<code>workspace-library.mjs:924-999, 1030</code>):
+          كل صف وكيل وكل مجموعة وكل صف خدمة. وثلاثة أسطر فوقها (<code>:967-975</code>)
+          البطاقات تحصل على <code>tabindex="0" role="button"</code> ومعالج Enter/Space. نفس الملف، نفس الترويسة، بطريقتين.
+          <br>
+          <strong>٣) <code>toast</code> بلا <code>aria-live</code></strong> (<code>app.js:1399</code>):
+          قناة التغذية الراجعة الوحيدة للتطبيق، و~90 نداءً فيها — كل فشل حفظ وكل نتيجة تثبيت
+          وكل تأكيد حذف صامت تمامًا لقارئ الشاشة. سطر واحد في <code>buildShell</code> يصلحها.
+        </p>
+      </div>
+
+      <div class="grid g2" style="margin-block-start:18px">
+        <div class="card">
+          <h3>إصلاح واحد يصلح ٤٣ عنصرًا</h3>
+          <p class="card-note">
+            كل حالات الوصول المفقودة تقريبًا لها نفس الشكل، والنموذج الصحيح مكتوب بالفعل داخل
+            المشروع: <code>workspace-library.mjs:252-255</code> فيه <code>onkeydown</code> كامل
+            لزر <code>plus</code>. استخرجه كـ <code>activateOnKey(el, run)</code> وطبّقه على
+            المواضع الأربعة. <strong>لا يحتاج قرارًا معماريًا — يحتاج فقط عدم تكرار خطأ مرتين في نفس الملف.</strong>
+          </p>
+        </div>
+        <div class="card">
+          <h3>النقطة الوحيدة في التطبيق بلا فحص null</h3>
+          <p class="card-note">
+            <code>settings-panes.mjs:74-97</code>: <code>const title = q('.title', modal); title.id = …</code>.
+            ورقة بلا <code>.title</code> ترمي داخل <code>renderOverlay</code> ولا تُركَّب أبدًا.
+           Ironically هو المكان الوحيد الذي يحاول الحماية. الحل: انقله إلى <code>overlay()</code>
+            (نتيجة U9) وأعطِ <code>overlay()</code> عنوانًا مخفيًا بصريًا موجودًا دائمًا.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== contrast -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>التباين: ٨٧ موضعًا تحت عتبة AA</h2>
+        <p>محسوبة على خلفية كل سمة. القيمة الأسوأ <strong>1.91:1</strong> — النص يجب أن يكون 4.5:1 على الأقل.</p>
+      </div>
+      <div id="chart-contrast"></div>
+      <div class="callout callout--info" style="margin-block-start:16px">
+        <p class="card-note">
+          <code>--faint</code> لا يقود نصًا فقط — بل يقود كل <code>::placeholder</code>
+          (<code>paper.css:134</code>, <code>:2277</code>, <code>:1459</code>, <code>:1475</code>).
+          فصندوق بحث فارغ وصندوق دردشة فارغ كلاهما غير مقروء تقريبًا.
+          و<code>theme-graphite.css:17-19</code> يوضّح الصواب لم تُصلَح إلا في graphite وحده.
+        </p>
+      </div>
+    </section>
+
+    <!-- =============================================== interface findings -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>نتائج الواجهة — ٥١</h2>
+        <p>النتائج الحرجة أولًا.</p>
+      </div>
+      <div class="filters" style="position:static">
+        <div class="fbtns" role="group" aria-label="الخطورة">
+          <button class="fbtn" data-kind="sev" data-filter="critical" aria-pressed="false">حرج</button>
+          <button class="fbtn" data-kind="sev" data-filter="high" aria-pressed="false">عالٍ</button>
+          <button class="fbtn" data-kind="sev" data-filter="medium" aria-pressed="false">متوسط</button>
+          <button class="fbtn" data-kind="sev" data-filter="low" aria-pressed="false">منخفض</button>
+        </div>
+      </div>
+      <div id="finding-list" data-scope="interface" style="display:grid;gap:11px"></div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <span>الواجهة تحوي ٥١ من ٩٠ نتيجة — أكثر من الأمان والمنطق مجتمعَين.</span>
+  <span>الرسوم SVG مبنية يدويًا · بلا مكتبات · بلا شبكة</span>
+</footer>
+
+<script src="data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  var A = window.AUDIT, U = window.AUDIT_UI, m = A.metrics, c = A.charts;
+
+  // RTL gap chart
+  document.getElementById('chart-rtl').appendChild(
+    U.bars(
+      [
+        { label: 'تصريحات CSS فيزيائية', value: 99, color: '#a4161a', sub: 'في 9 ملفات CSS' },
+        { label: 'تصريحات JS فيزيائية', value: 23, color: '#b4530a', sub: 'في 14 ملف JS' },
+        { label: 'خصائص CSS منطقية', value: 1, color: '#4a6b52', sub: 'الهدف (يجب أن يوجد)' },
+        { label: 'سمات dir="rtl"', value: 1, color: '#4a6b52', sub: 'الهدف' },
+        { label: 'خطوط عربية', value: 1, color: '#4a6b52', sub: 'الهدف' },
+      ],
+      { w: 600, labelW: 175, max: 100, label: 'فجوة اتجاه الكتابة من اليمين لليسار' }
+    )
+  );
+
+  // fonts table
+  var fb = document.getElementById('fonts-body');
+  m.fonts.forEach(function (f) {
+    var tr = document.createElement('tr');
+    tr.className = 'row-fail';
+    tr.innerHTML =
+      '<td><strong>' + U.esc(f.family) + '</strong></td>' +
+      '<td class="mono">' + U.esc(f.weight) + '</td>' +
+      '<td class="mono">' + U.esc(f.file) + '</td>' +
+      '<td><span class="badge badge--critical"><i class="dot"></i>لا</span></td>';
+    fb.appendChild(tr);
+  });
+
+  // contrast heat table
+  document.getElementById('chart-contrast').appendChild(
+    U.contrastTable(m.contrast.tokens, m.contrast.themes, m.contrast.threshold)
+  );
+
+  // findings list — interface only
+  U.mountDomain("interface");
+})();
+</script>
+</body>
+</html>

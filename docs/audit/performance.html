@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الأداء — تقرير تدقيق KingAgent</title>
+<meta name="description" content="أداء KingAgent: 2000 تخطيط قسري لكل ضغطة مفتاح، حلقة MutationObserver، و22 معالجًا بلا معالجة أخطاء.">
+<link rel="stylesheet" href="audit.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#fffdf6" stroke="#2f2b26" stroke-width="2.5"/>
+        <rect x="7" y="7" width="12" height="11" rx="2" fill="#ef6461"/>
+        <rect x="21" y="7" width="12" height="7" rx="2" fill="#8ab4c4"/>
+        <rect x="7" y="20" width="8" height="13" rx="2" fill="#c9a87c"/>
+        <rect x="17" y="16" width="16" height="17" rx="2" fill="#2f2b26"/>
+      </svg>
+      <span class="brand-txt"><b>KingAgent</b><span>تقرير التدقيق 2026</span></span>
+    </a>
+    <nav class="nav" aria-label="صفحات التقرير">
+      <a href="index.html">نظرة عامة</a>
+      <a href="findings.html">كل النتائج</a>
+      <a href="interface.html">الواجهة</a>
+      <a href="security.html">الأمان</a>
+      <a href="performance.html" aria-current="page">الأداء</a>
+      <a href="quality.html">الجودة</a>
+      <a href="fixplan.html">خطة الإصلاح</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <h1 class="hero-title">الأداء: <em>أربعة مسارات</em> تحرق الإطار</h1>
+    <p class="hero-sub">
+      المشروع يعرف نمط التجميع بـ <code>requestAnimationFrame</code> ويطبّقه في مواضع صحيحة
+      (<code>markFit</code>/<code>drainFits</code>، و<code>browser-pane.schedule</code>).
+      المشكلة أن أربعة مواضع أخرى تكسر نفس القاعدة على مسارات التفاعل اليومية: الكتابة، السحب،
+      التصفية، والتحريك. اثنان منها إصلاحهما <strong>كلمة واحدة</strong>.
+    </p>
+    <div class="hero-meta">
+      <span><code>rAF</code> <b>10</b> استدعاءات</span>
+      <span><code>cancelAnimationFrame</code> <b>0</b></span>
+      <span>مواضع غير مقيّدة <b>5</b></span>
+      <span>معالجات بلا <code>catch</code> <b>22</b></span>
+    </div>
+  </section>
+
+  <div class="wrap">
+
+    <!-- ======================================================= the four -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>المسارات الأربعة، مرتّبة حسب الكلفة</h2>
+      </div>
+
+      <div class="grid g2">
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-critical)">
+          <h3><span class="badge badge--critical">U5</span> حاشية المحرر — ٢٠٠٠ تخطيط لكل ضغطة مفتاح</h3>
+          <p class="card-note">
+            <code>tile-content.mjs:352</code>:
+            <code>gutter.innerHTML = Array.from(rows, (r,i) =&gt; \`&lt;div style="height:${r.getBoundingClientRect().height}px"&gt;\`)</code>
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            <code>getBoundingClientRect()</code> <em>داخل دالة Mapper</em> — كل نداء يُفرغ التخطيط المعلّق.
+            و<code>sync()</code> تُستدعى من <code>input</code> (<strong>كل ضغطة مفتاح</strong>),
+            ومن <code>ResizeObserver</code>، ومن <code>applyMode()</code>.
+          </p>
+          <div class="f-fix" style="margin-block-start:12px">
+            <p class="card-note" style="margin:0">
+              <strong>لا تقس الصفوف إطلاقًا.</strong> ضع عدّاد CSS على مرآة لعدد الأسطر — لا تحتاج
+              قياسًا البة. إن أصررت على القياس: اقرأ <code>offsetHeight</code> بعد
+              <code>void container.offsetHeight</code> واحدة داخل <code>rAF</code> واحد، ثم خفّف
+              <code>sync()</code> خلف <code>rAF</code> الموجود أصلًا.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-critical)">
+          <h3><span class="badge badge--critical">U6</span> حلقة المراقب مع ميل الزجاج</h3>
+          <p class="card-note">
+            <code>browser-pane.mjs:37</code> — <code>MutationObserver</code> على
+            <code>document.documentElement</code> يراقب <code>style</code>.
+            و<code>app.js:1181-1198</code> <code>initGlassTilt</code> يكتب
+            <code>--rx</code> على <code>.nav-card</code> عند كل <code>rAF</code> أثناء حركة المؤشر.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            <strong>المسار:</strong> حركة مؤشر ← كتابة <code>style</code> ← المراقب يصمد
+            ← <code>schedule()</code> ← <code>layout()</code> يقرأ <code>getClientRects()</code>
+            و <code>getBoundingClientRect()</code> لكل إطار متصفح ثم <code>JSON.stringify</code> للنتيجة كلها.
+            و<code>layout()</code> <em>يكتب</em> أصنافًا أيضًا في السطر 17، فيطلق Observer ثانية.
+          </p>
+          <div class="f-fix" style="margin-block-start:12px">
+            <p class="card-note" style="margin:0">
+              <strong>إصلاح من كلمة واحدة:</strong> احذف <code>'style'</code> و
+              <code>'hidden'</code> من <code>attributeFilter</code>. المراقب موجود لالتقاط تغييرات
+              <code>class</code> التي تحرّك الهندسة — لا لالتقاط كل تغيير نمط في المستند.
+              ثم ضيّق النطاق بدل <code>documentElement</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-high)">
+          <h3><span class="badge badge--high">U19</span> ملاءمة كل بلاطة = تخطيطين متزامنين</h3>
+          <p class="card-note">
+            <code>tile-shell.mjs:721-735</code> — قراءة (<code>proposeDimensions</code>) ← كتابة
+            (<code>term.resize</code>) ← قراءة (<code>getComputedStyle</code> + <code>getBoundingClientRect</code> × ٢)
+            ← كتابة (<code>term.resize</code> ثانية).
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            <code>drainFits</code> (<code>:677-681</code>) يجمّع البلاطات في <code>rAF</code> واحد —
+            وهذا صحيح — لكنه لا يجمّع القراءة والكتابة <em>داخل</em> البلاطة.
+            سحب فوق مكتب بأربعة أطراف = <strong>٨ تخطيطات قسرية لكل إطار</strong>.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            <strong>الحل:</strong> مرّرتان في <code>rAF</code>. الأولى قراءة لكل بلاطة متّسخة،
+            الثانية كتابة. <code>markFit</code>/<code>drainFits</code> أصلًا هو الوصل الصحيح تمامًا.
+          </p>
+        </div>
+
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-high)">
+          <h3><span class="badge badge--high">U12 / U13</span> إعادة البناء عند كل حرف</h3>
+          <p class="card-note">
+            <strong>مرشّح المكتبة</strong> (<code>workspace-library.mjs:979</code>):
+            <code>refreshRail</code> يفرّغ <code>c.innerHTML</code> ويعيد بناء ١٣٩ عنصرًا لكل ضغطة مفتاح —
+            ثم يستعيد التركيز ومؤشر الإدراج يدويًا.
+            <br><br>
+            <strong>اختيار الوكيل ⌘K</strong> (<code>launcher.mjs:773, 906</code>):
+            <code>input.oninput</code> يستدعي <code>renderOverlay()</code> الذي <em>يهدم النافذة
+           entire ويعيد بناءها</em>، ثم refocus عبر <code>setTimeout(…, 30)</code>.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            <strong>الحل المشترك:</strong> حرّك حقل البحث خارج الحاوية المعاد بناؤها (يبقى حيًّا)،
+            ورشّح الصفوف في المكان بـ <code>row.hidden = !match</code>. أعد البناء فقط حين تتغير
+            <em>مجموعة</em> العناصر نفسها.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== metrics -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>القياس: عدم التوازن بين ما يُضاف وما يُزال</h2>
+        <p>
+          المعرفة بمشكلة الإلغاء ليست ناقصة في هذا المشروع — هي
+          <em>مكتوبة في تعليق</em>: <code>workflows/engine.js:12-15</code> يقول
+          «الإلغاء حقيقي: <code>cancel()</code> لا يبلّغ بنجاح لم يحققه». لكن
+          <code>cancelAnimationFrame</code> = صفر، و<code>removeEventListener</code> = ١١ مقابل ١١٠ إضافات.
+        </p>
+      </div>
+      <div class="chart-title">القياس غير المتوازن</div>
+      <div id="chart-leaks"></div>
+      <p class="card-note" style="margin-block-start:14px">
+        العمود البرتقالي هو ما يجب أن يُلغى. عندما يكون صفرًا بينما أخضره 110، فالتسريبات
+        ليست سوء حظ — هي نتيجة تصميم: دوال التفكيك موجودة في ثلاثة ملفات فقط من ثمانية عشر.
+      </p>
+    </section>
+
+    <!-- ========================================================= rAF -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>النمط الصحيح موجود — غير مُطبَّق في أربعة مواضع</h2>
+      </div>
+      <div class="grid g2">
+        <div class="card card--tint">
+          <h3><span class="badge badge--ok">صحيح</span> مزلاج الإطار</h3>
+          <p class="card-note">
+            <code>tile-shell.mjs:671-676</code> (<code>markFit</code>) و
+            <code>browser-pane.mjs:7</code> (<code>frame</code>) — يجمّعان العمل في
+            <code>rAF</code> واحد ويقفلان themselves. هذا هو النمط.
+            <code>app.js:1188</code> (<code>initGlassTilt</code>) يعرضه أيضًا.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--high">غير مقيّد</span> خمسة مواضع على مسارات التفاعل</h3>
+          <p class="card-note">
+            <code>app.js:1115</code> (<code>resize</code> يقرأ قسرين لكل حدث) ·
+            <code>app.js:1207</code> (<code>setTimeout(…, 60)</code> بلا إلغاء سابق) ·
+            <code>tile-shell.mjs:246-262</code> (<code>mousemove</code> بلا rAF) ·
+            <code>tile-content.mjs:418</code> (<code>sync</code> على كل <code>input</code>) ·
+            <code>browser-pane.mjs:37</code> (حلقة المراقب أعلاه).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================== main-thread -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>تجميد خيط الرئيسية: عملية واحدة تكفي لتجميد كل شيء</h2>
+        <p>في تطبيق جوهره بلاطات PTY حيّة، أي عمل متزامن على خيط Electron الرئيسي يُجمّد التدفّق بصريًا.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-high)">
+          <h3><span class="badge badge--high">25 ثانية</span> استعلام Keychain متزامن</h3>
+          <p class="card-note">
+            <code>browser-profiles.js:288</code>: <code>execFileSync('security', …, {timeout: 25000})</code>
+            داخل <code>mutateProfile</code> — أي <strong>متزامن على خيط Electron الرئيسي</strong>.
+            نافذة Keychain لا يرد عليها المستخدم تُجمّد كل نافذة وكل حلقة قراءة PTY.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            ملاحظة: باقي الملف منضبط — <code>fs-actions.js:15</code> يحمل تعليقًا صريحًا
+            <em>لماذا</em> النسخة متزامنة. هذا استثناء لا قاعدة، وهذا بالضبط ما يجعله قابلًا للإصلاح.
+          </p>
+        </div>
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-medium)">
+          <h3><span class="badge badge--medium">ملايين</span> JSON.parse بلا سقف</h3>
+          <p class="card-note">
+            <code>usage.js:232</code> يقرأ <code>~/.claude.json</code> عبر
+            <code>readJsonFile</code> <em>بلا سقف حجم</em>. الوحدة تملك حارسًا
+            (<code>readJson</code> يتخطّى ٦٤ كيلوبايت فأكثر) و<code>claudeRows</code> يستخدمه —
+            لكن دالة بعدها بثلاثين سطرًا تتجاوزه.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            حراسة موجودة في موضع واحد ومعطّلة في موضع آخر. الملف يبلغ عشرات ومئات الميغابايت
+            في استخدام Claude Code الحقيقي.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================== unhandled errors -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>٢٢ معالجًا بلا <code>catch</code> — الواجهة تتجمّد في حالة "جاري…"</h2>
+        <p>
+          ٢٤٩ موضع <code>await</code> مقابل ٣١ <code>catch</code>. هذا ليس تسريب استثناءات غير معالجة فحسب —
+          كل واحدة منها تترك عنصر واجهة في حالة معطّلة لا مخرج منها.
+        </p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>أمثلة محسوسة: مرتّبة حسب أثرها على المستخدم، لا حسب الملف.</caption>
+          <thead><tr><th>الموقع</th><th>ما يبقى عالقًا عند الرفض</th><th>الرمز</th></tr></thead>
+          <tbody>
+            <tr class="row-fail"><td class="mono">launcher.mjs:345</td><td>ورقة إزالة الوكيل تبقى على <em>“Working out what this would delete…”</em> للأبد</td><td><span class="badge badge--critical"><i class="dot"></i>محرج UX</span></td></tr>
+            <tr class="row-fail"><td class="mono">acp-pane.mjs:333</td><td>البلاطة لا تتصل <em>ولا تشرح لماذا</em> — IIFE بلا <code>catch</code> خارجي</td><td><span class="badge badge--critical"><i class="dot"></i>بلاطة ميتة</span></td></tr>
+            <tr class="row-fail"><td class="mono">settings-panes.mjs:237-243</td><td>زر تنزيل النموذج <code>disabled</code> + مستمع IPC تسريب <em>للأبد</em></td><td><span class="badge badge--high"><i class="dot"></i>عالٍ</span></td></tr>
+            <tr class="row-fail"><td class="mono">mcp-setup.mjs:187,203,250,277,302</td><td>الملف كله: <strong>5</strong> <code>await api.*</code> و<strong>صفر</strong> <code>.catch</code></td><td><span class="badge badge--high"><i class="dot"></i>عالٍ</span></td></tr>
+            <tr class="row-fail"><td class="mono">tile-content.mjs:686-696</td><td>زر الحذف يبقى مُسلّحًا على <em>“Really move to Trash?”</em> — لا تراجع ممكن</td><td><span class="badge badge--high"><i class="dot"></i>عالٍ</span></td></tr>
+            <tr class="row-fail"><td class="mono">panel-lifecycle.mjs:261</td><td>بلاطة <strong>غير قابلة للإغلاق</strong> — لا <code>catch</code>، والنقر يكرّر</td><td><span class="badge badge--high"><i class="dot"></i>عالٍ</span></td></tr>
+            <tr class="row-fail"><td class="mono">settings-panes.mjs:31</td><td>تبويب المفاتيح عالق على <em>“Looking for your keys…”</em></td><td><span class="badge badge--medium"><i class="dot"></i>متوسط</span></td></tr>
+            <tr class="row-fail"><td class="mono">workspace-library.mjs:764-778</td><td><code>macLoading</code> عالق <code>true</code> — الوكلاء تحت <code>~/.claude</code> لا يظهرون <em>forever</em></td><td><span class="badge badge--high"><i class="dot"></i>عالٍ</span></td></tr>
+            <tr class="row-fail"><td class="mono">browser-pane.mjs:87</td><td>Enter في شريط العنوان يفشل بصمت</td><td><span class="badge badge--medium"><i class="dot"></i>متوسط</span></td></tr>
+            <tr class="row-fail"><td class="mono">app.js:532-655</td><td><code>boot()</code> بلا <code>catch</code> — فشل الإقلاع = <strong>نافذة بيضاء صامتة</strong></td><td><span class="badge badge--critical"><i class="dot"></i>محرج UX</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout--good" style="margin-block-start:16px">
+        <h4><i class="dot" style="background:var(--sev-ok)"></i> إصلاحان نظاميان بسطر واحد يغطيان ٢٢ حالة</h4>
+        <p>
+          <code>workspace-library.mjs:460</code> — <code>row.onclick = (e) =&gt; { …; it.run(e); }</code>.
+          لفّها: <code>Promise.resolve(it.run(e)).catch(err =&gt; toast(String(err?.message || err)))</code>.
+          هذا يغطي <em>كل</em> إجراءات قائمة السياق (تكرار، نقل، فتح في نافذة).
+          <br>
+          <code>launcher.mjs:1136</code> — <code>act.run();</code>. نفس اللف لكل صفوف Quick Start.
+          <br>
+          <strong>بعدهما يبقى عشرون موضعًا — لكن النمط يتوقف عن الانتشار.</strong>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================== memory leaks -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>تسرّبات الذاكرة: |<em>العملية الرئيسية</em> والـ renderer كلاهما</h2>
+        <p>قابلة للقياس، وقابلة للإصلاح. النمط نفسه في الطرفين.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>في العملية الرئيسية</h3>
+          <p class="card-note">
+            <code>titleWatch</code> (<code>main.js:1635</code>) — خريطة بلا سقف، والمعالج لا يتحقق
+            من وجود الجلسة، وكل مدخل يُشغّل <code>statSync</code> + قراءة ٩٦ كيلوبايت
+            <strong>كل ٤ ثوانٍ إلى ما لا نهاية</strong> (S12).<br>
+            <code>claimed</code> (<code>agent-resume.js:278</code>) — إضافة بلا حذف، بينما
+            <code>pending</code> يُنظَّف في أربعة مواضع (S14).<br>
+            <code>pendingAuth</code> (<code>agent-platform.js:969</code>) — تُسترد بمهلة ٦٠ ثانية فقط (S15).
+          </p>
+        </div>
+        <div class="card">
+          <h3>في الـ renderer</h3>
+          <p class="card-note">
+            <code>acp-composer.mjs:137</code> — مستمع <code>document</code> واحد لكل بلاطة
+            دردشة، لا يُزال أبدًا، وإغلاقه يثبّت شجرة DOM منفصلة (U3).<br>
+            <code>session-sources.mjs:155</code> — <code>setInterval(2000)</code> يبقى حيًّا بعد
+            إغلاق اللوحة، و<code>unref?.()</code> <em>سطر لا يفعل شيئًا</em> في Chromium
+            — وهو دليل أن الكود كُتب متوقعًا Node (U4).<br>
+            و<code>session-sources.mjs</code> كله ١٦٠ سطرًا مستورد من <strong>لا شيء</strong> (U24).
+          </p>
+        </div>
+      </div>
+      <p class="card-note" style="margin-block-start:14px">
+        <strong>التباين المهم:</strong> هذا التطبيق <em>يعرف</em> نمط التشذيب.
+        <code>research/engine.js:64</code> يفرض <code>MAX_RETAINED_TASKS = 25</code> بحلقة إخراج صريحة،
+        و<code>harness-orchestrator/messages.js:139</code> يحدّ صندوق الرسائل عند ٥٠٠،
+        و<code>policy/manager.js:232</code> يحدّ حلقة التدقيق عند ٢٠٠.
+        <strong>النمط معروف ولم يُطبَّق على دفاتر المنسّق نفسها.</strong>
+      </p>
+    </section>
+
+    <!-- ================================================== performance f. -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>نتائج الأداء وسلامة الحالة</h2>
+        <p>النتيجة مشتركة بين الأداء والصحة: <code>cancelAnimationFrame</code> = صفر بينما
+           <code>requestAnimationFrame</code> = ١٠.</p>
+      </div>
+      <div class="filters" style="position:static">
+        <div class="fbtns" role="group" aria-label="الخطورة">
+          <button class="fbtn" data-kind="sev" data-filter="critical" aria-pressed="false">حرج</button>
+          <button class="fbtn" data-kind="sev" data-filter="high" aria-pressed="false">عالٍ</button>
+          <button class="fbtn" data-kind="sev" data-filter="medium" aria-pressed="false">متوسط</button>
+        </div>
+      </div>
+      <div id="finding-list" data-scope="perf" style="display:grid;gap:11px"></div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <span>الأداء قِيس بالقراءة، لا بالبروفايل.</span>
+  <span>الأنماط المشار إليها في <code>src/renderer/</code> و <code>src/main/</code></span>
+</footer>
+
+<script src="data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  var U = window.AUDIT_UI;
+
+  document.getElementById('chart-leaks').appendChild(
+    U.bars(
+      [
+        { label: 'مستمعات مُضافة', value: 110, color: '#a4161a', sub: 'addEventListener' },
+        { label: 'مستمعات مُزالة', value: 11, color: '#4a6b52', sub: 'removeEventListener — في 3 ملفات فقط' },
+        { label: 'مُطلَبات rAF', value: 10, color: '#8a6100' },
+        { label: 'إلغاءات rAF', value: 1, color: '#4a6b52', sub: 'cancelAnimationFrame = 0 فعليًا' },
+        { label: 'مواضع await', value: 249, color: '#b4530a' },
+        { label: 'مواضع catch', value: 31, color: '#4a6b52' },
+        { label: 'تأكيدات native confirm', value: 5, color: '#a4161a', sub: 'تجمّد متزامن' },
+        { label: 'معالجات عالقة بلا catch', value: 22, color: '#a4161a' },
+      ],
+      { w: 640, labelW: 210, max: 260, label: 'قياس عدم التوازن' }
+    )
+  );
+
+  // performance-relevant findings only — a curated cross-domain subset, so the
+  // id list lives beside the report data rather than in three copies of the
+  // same toggle wiring
+  U.mountIds([
+    'U1','U3','U4','U5','U6','U7','U8','U9','U12','U13','U14','U19','U20','U24','U26',
+    'U27','U28','U29','U30','U31','U32','U33','U34','U35','U36','U37','U38','U39','U40','U41',
+    'U42','U45','U46','U47','S9','S16','S17','S18','S20','S21','S22','C3','C4','C8','C11',
+  ]);
+})();
+</script>
+</body>
+</html>

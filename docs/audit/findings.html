@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>كل النتائج — تقرير تدقيق KingAgent</title>
+<meta name="description" content="قائمة قابلة للتصفية بـ 90 نتيجة: حرج، عالٍ، متوسط، منخفض — عبر الأمان والواجهة والمنطق.">
+<link rel="stylesheet" href="audit.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#fffdf6" stroke="#2f2b26" stroke-width="2.5"/>
+        <rect x="7" y="7" width="12" height="11" rx="2" fill="#ef6461"/>
+        <rect x="21" y="7" width="12" height="7" rx="2" fill="#8ab4c4"/>
+        <rect x="7" y="20" width="8" height="13" rx="2" fill="#c9a87c"/>
+        <rect x="17" y="16" width="16" height="17" rx="2" fill="#2f2b26"/>
+      </svg>
+      <span class="brand-txt"><b>KingAgent</b><span>تقرير التدقيق 2026</span></span>
+    </a>
+    <nav class="nav" aria-label="صفحات التقرير">
+      <a href="index.html">نظرة عامة</a>
+      <a href="findings.html" aria-current="page">كل النتائج</a>
+      <a href="interface.html">الواجهة</a>
+      <a href="security.html">الأمان</a>
+      <a href="performance.html">الأداء</a>
+      <a href="quality.html">الجودة</a>
+      <a href="fixplan.html">خطة الإصلاح</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <h1 class="hero-title">كل <em>النتائج</em>، قابلة للتصفية</h1>
+    <p class="hero-sub">
+      ٩٠ نتيجة، كل واحدة منها بموقع ملف وسطر ونص إصلاح. اضغط أيّ عنوان لتفتح الأثر والإصلاح.
+      ترتيبها بالخطورة لا بالترتيب الأبجدي — لأن ترتيبًا أبجديًا يُخفي أن ثلاثًا منها تسمح بتنفيذ أوامر.
+    </p>
+  </section>
+
+  <div class="wrap">
+
+    <section class="section">
+      <div class="grid g4" id="sev-summary" style="margin-block-end:20px"></div>
+    </section>
+
+    <section class="section">
+      <div class="filters" id="finding-filters" role="search" aria-label="تصفية النتائج">
+        <label class="sr-only" for="q">ابحث في النتائج</label>
+        <input type="search" id="q" placeholder="ابحث بالعنوان أو الملف أو رقم السطر… (اضغط /)" autocomplete="off">
+        <div class="fbtns" role="group" aria-label="الخطورة">
+          <button class="fbtn" data-kind="sev" data-filter="critical" aria-pressed="false">حرج</button>
+          <button class="fbtn" data-kind="sev" data-filter="high" aria-pressed="false">عالٍ</button>
+          <button class="fbtn" data-kind="sev" data-filter="medium" aria-pressed="false">متوسط</button>
+          <button class="fbtn" data-kind="sev" data-filter="low" aria-pressed="false">منخفض</button>
+        </div>
+        <div class="fbtns" role="group" aria-label="الطبقة">
+          <button class="fbtn" data-kind="dom" data-filter="security" aria-pressed="false">أمان</button>
+          <button class="fbtn" data-kind="dom" data-filter="interface" aria-pressed="false">واجهة</button>
+          <button class="fbtn" data-kind="dom" data-filter="core" aria-pressed="false">منطق</button>
+        </div>
+        <button class="fbtn" id="open-all" type="button">فتح الكل</button>
+        <span class="fcount" id="finding-count" aria-live="polite">90 نتيجة</span>
+      </div>
+
+      <div id="finding-list" style="display:grid;gap:11px"></div>
+      <p class="empty" id="finding-empty" hidden>لا نتيجة تطابق التصفية.</p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <span>كل نتيجة موثّقة بـ <code>ملف:سطر</code> — افتح الملف وتحقّق.</span>
+  <span>الأرقام في <code>docs/audit/data.js</code></span>
+</footer>
+
+<script src="data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  var A = window.AUDIT, U = window.AUDIT_UI, c = A.charts;
+  var box = document.getElementById('sev-summary');
+  U.SEV_ORDER.forEach(function (k) {
+    var n = c.totals[k];
+    var el = document.createElement('div');
+    el.className = 'kpi';
+    el.style.setProperty('--kpi-accent', U.SEV_COLORS[k]);
+    el.innerHTML =
+      '<span class="kpi-val">' + U.num(n) + '</span>' +
+      '<span class="kpi-label"><span class="badge badge--' + k + '"><i class="dot"></i>' + U.SEV_AR[k] + '</span></span>' +
+      '<span class="kpi-sub">' + Math.round((n / c.totals.all) * 100) + '% من الإجمالي</span>';
+    box.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>

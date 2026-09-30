@@ -110,6 +110,30 @@ export default [
     },
   },
   {
+    // The audit report's own page scripts (docs/audit/data.js, audit.js) run in
+    // a plain browser document — no bundler, no Node. globals.browser is what
+    // they actually see; without this every document.getElementById files a
+    // no-undef, which is how a report about disciplined tooling ends up
+    // breaking the gate it is citing.
+    files: ['docs/audit/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      ecmaVersion: 2024,
+      globals: globals.browser,
+    },
+  },
+  {
+    // The report's render script is ES modules under Electron's main process,
+    // same shape as docs/media/render-social-card.mjs which the entry above
+    // already covers.
+    files: ['docs/audit/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      ecmaVersion: 2024,
+      globals: globals.node,
+    },
+  },
+  {
     // a handful of tests are CommonJS (.cjs) or plain .js helpers, still Node.
     files: ['tests/**/*.cjs', 'tests/**/*.js'],
     languageOptions: {

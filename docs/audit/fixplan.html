@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>خطة الإصلاح والتطوير — تقرير تدقيق KingAgent</title>
+<meta name="description" content="خطة إصلاح KingAgent في 13 دفعة مرتّبة بالأثر، و8 اقتراحات تطويرbeyond الإصلاح.">
+<link rel="stylesheet" href="audit.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#fffdf6" stroke="#2f2b26" stroke-width="2.5"/>
+        <rect x="7" y="7" width="12" height="11" rx="2" fill="#ef6461"/>
+        <rect x="21" y="7" width="12" height="7" rx="2" fill="#8ab4c4"/>
+        <rect x="7" y="20" width="8" height="13" rx="2" fill="#c9a87c"/>
+        <rect x="17" y="16" width="16" height="17" rx="2" fill="#2f2b26"/>
+      </svg>
+      <span class="brand-txt"><b>KingAgent</b><span>تقرير التدقيق 2026</span></span>
+    </a>
+    <nav class="nav" aria-label="صفحات التقرير">
+      <a href="index.html">نظرة عامة</a>
+      <a href="findings.html">كل النتائج</a>
+      <a href="interface.html">الواجهة</a>
+      <a href="security.html">الأمان</a>
+      <a href="performance.html">الأداء</a>
+      <a href="quality.html">الجودة</a>
+      <a href="fixplan.html" aria-current="page">خطة الإصلاح</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <h1 class="hero-title">خطة الإصلاح: <em>١٣ دفعة</em>، مرتّبة بما تُغلقه لا بما يسهل</h1>
+    <p class="hero-sub">
+      الترتيب هنا مقصود. الدفعة الأولى ليست الأسهل، بل أكبر عدد من النتائج الحرجة
+      مقابل أقل عدد من الملفات. واحرص على دفعة واحدة: <strong>إصلاح U6 هو حذف كلمة واحدة</strong>
+      من <code>attributeFilter</code> ويقفل حلقة إطار كاملة.
+    </p>
+    <div class="hero-meta">
+      <span>النتائج المُغطّاة <b>90 من 90</b></span>
+      <span>الملفات الممسوكة <b>96</b> ملفًا</span>
+      <span>أصغر دفعة <b>ملف واحد</b> · أكبرها <b>23 ملفًا</b></span>
+      <span>الاعتماد على نتائج حسّاسة: <b>لا شيء</b></span>
+    </div>
+  </section>
+
+  <div class="wrap">
+
+    <!-- =========================================================== matrix -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>الجهد مقابل الأثر</h2>
+        <p>المحور الأفقي عدد الملفات الممسوكة، العمودي الرأسي حجم ما يُغلق من التقرير.
+           كل نقطة دفعة واحدة.</p>
+      </div>
+      <div class="card">
+        <div id="chart-matrix"></div>
+        <div class="legend" id="sev-legend"></div>
+      </div>
+      <div class="callout callout--good" style="margin-block-start:16px">
+        <h4><i class="dot" style="background:var(--sev-ok)"></i> الزاويةUpper-left هي أفضل مكان في الصورة</h4>
+        <p>
+          <strong>P4</strong> (تسريبات الـ renderer) و<strong>P5</strong> (مسارات التخطيط)
+          و<strong>P8</strong> (حارس الوعد): <em>الملفات القليلة، الأثر الكبير</em>.
+          <strong>P4 تحديدًا يحذف ملفًا كاملًا</strong> (<code>session-sources.mjs</code>،
+          ١٦٠ سطرًا مستورد من لا شيء) ويضيف <code>dispose()</code> لمسار واحد.
+          إن كان وقتك ضيقًا، هذا أعلى عائد لكل ساعة في التقرير كله.
+        </p>
+      </div>
+    </section>
+
+    <!-- =========================================================== phases -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>الدفعات بالترتيب</h2>
+        <p>اضغط أي دفعة لترى النتائج التي تغلقها.</p>
+      </div>
+      <div class="phases" id="phases"></div>
+    </section>
+
+    <!-- ========================================================== batching -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>النواة الحرجة: كيف تُصلَح فعليًا</h2>
+        <p>ثلاث نتائج حرجة تحتاج أكثر من سطر. هذا ما يقترحه التقرير بالتحديد.</p>
+      </div>
+
+      <div class="grid g3">
+        <div class="card">
+          <h3><span class="badge badge--critical">S1 + S2 + S3</span> إغلاق باب التنفيذ</h3>
+          <p class="card-note">
+            النمط واحد: <code>resolveSpawnProgram</code> يستبدل <em>الأسماء المجرّدة فقط</em>،
+            فأي مسار مطلق يمرّ. الحل: <strong>قائمة سماح صريحة</strong> تُبنى عبر
+            <code>knownBin(id)</code> — وهي القيمة التي في الـ main بالفعل ولا يحتاج الـ renderer
+            أن يخترعها.
+          </p>
+          <pre style="margin-block-start:12px"><code>// قبل: أي مسار يمرّ
+if (!s || !/^[A-Za-z][\w.-]*$/.test(s)) return s;
+
+// بعد: لا مسار مطلق من الـ renderer إطلاقًا
+function allowlistedProgram(id) {
+  const bin = knownBin(id);              // من ذاكرة الـ main
+  if (!bin) throw new Error('unknown agent');
+  return bin;
+}
+// وقبلها: if (!DEMO) return { ok:false }  للقناة التجريبية</code></pre>
+        </div>
+
+        <div class="card">
+          <h3><span class="badge badge--critical">C1 + C9</span> تنشيط الدفاعات الميتة</h3>
+          <p class="card-note">
+           intest اختبارا متحرّكان ولا يُستدعيان. الحل: <strong>انقل الفحص إلى داخل مسار الجلب
+            بحيث لا يمكن تجاوزه</strong>، بدل الاعتماد على أن المزوّد يلتزم بالعقد.
+          </p>
+          <pre style="margin-block-start:12px"><code>// SourceManager.fetchFull — قبل أي مقبس
+const addrs = await dns.lookup(host, {all:true});
+for (const a of addrs) screenResolvedAddress(a, opts);
+// وعلى كل قفزة
+maxRedirects: MAX_REDIRECTS,
+redirect: (from,to) =&gt; screenRedirect(from,to,opts);
+
+// synthesizer.write —Findings
+`FINDINGS:\n${wrapUntrusted(body)}`</code></pre>
+        </div>
+
+        <div class="card">
+          <h3><span class="badge badge--critical">C2</span> ميزانية تُنفَّذ فعلًا</h3>
+          <p class="card-note">
+            الحوكمة مبنية ومختبَرة؛ <code>noteUsage()</code> فقط بلا أي موضع استدعاء إنتاجي.
+            <strong>لا تحتاج بناء نظام ميزانية — تحتاج استدعاء دالة موجودة.</strong>
+          </p>
+          <pre style="margin-block-start:12px"><code>// ai/provider.js — الغلاف الوحيد
+async function generate(req) {
+  const r = await inner(req);
+  governor.noteUsage(req.agentId, {
+    tokens: r.usage.total_tokens,
+    cost: r.usage.total_cost,
+    tasks: 0,
+  });
+  return r;
+}
+// + اختبار: تشغيل 600k توzn
+//   ⇒ sweep() غير فارغ</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================== roadmap -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>اقتراحات التطوير — بعد الإصلاح</h2>
+        <p>
+          ما سبق يصلح ما كسر. هذا ما يجعل المشروع أفضل بعد أن يكون سليمًا.
+          الأولوية ليست بالأرقام — هي بما يجعل <em>الاستخدام اليومي</em> ممكنًا.
+        </p>
+      </div>
+      <div class="roadmap" id="roadmap"></div>
+    </section>
+
+    <!-- ========================================================== the ask -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>ترتيب مقترح لستة أسابيع</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>خطة قابلة للتنفيذ على جدول أسبوعي. لا تتطلب أي منها قرارًا معماريًا جديدًا.</caption>
+          <thead><tr><th>الأسبوع</th><th>الدفعات</th><th>ما يُغلق</th><th>شرط الإنجاز</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>١</strong></td>
+              <td class="mono">P4 · P5 · P13</td>
+              <td>تسريبات، مسارات تخطيط، كود ميت — <strong>١٣ نتيجة</strong></td>
+              <td>U6: احذف <code>'style'</code> من <code>attributeFilter</code>. <code>session-sources.mjs</code> محذوف.</td>
+            </tr>
+            <tr class="row-warn">
+              <td><strong>٢</strong></td>
+              <td class="mono">P10 · P8</td>
+              <td>Keychain، <code>openExternal</code>، حارس الوعد — <strong>١٢ نتيجة</strong></td>
+              <td>لا استعلام متزامن على خيط الرئيسية. كل <code>await</code> في معالج نقر داخل <code>catch</code>.</td>
+            </tr>
+            <tr class="row-fail">
+              <td><strong>٣–٤</strong></td>
+              <td class="mono">P1</td>
+              <td><strong>كل مسارات تنفيذ الـ renderer</strong> — <strong>٧ نتائج حرجة</strong></td>
+              <td>لا <code>spawn</code> ولا <code>rm -rf</code> بمسار من الـ renderer. <code>trustedRoot</code> على كل معالج مسار.</td>
+            </tr>
+            <tr>
+              <td><strong>٤–٥</strong></td>
+              <td class="mono">P6 · P7</td>
+              <td>وصول لوحة المفاتيح، حواريات، حصر تركيز — <strong>١٠ نتائج</strong></td>
+              <td>كل ورقة لها <code>role="dialog"</code> وحصر تركيز. لا استدعاء <code>confirm()</code> أصلي.</td>
+            </tr>
+            <tr class="row-fail">
+              <td><strong>٥–٦</strong></td>
+              <td class="mono">P2</td>
+              <td><strong>العربية و RTL</strong> — <strong>٥ نتائج حرجة</strong></td>
+              <td><code>dir="rtl"</code> معمول. خط عربي مرفق. <strong>بوابة lint ترفض الانحدار.</strong></td>
+            </tr>
+            <tr class="row-fail">
+              <td><strong>متوازٍ</strong></td>
+              <td class="mono">P3 · P9</td>
+              <td>الدفاعات الميتة، مهلة المزوّد، إلغاء حقيقي — <strong>٦ نتائج حرجة</strong></td>
+              <td>اختبار يحتجز: تشغيل ٦٠٠ ألف توكن ⇒ <code>sweep()</code> غير فارغ.</td>
+            </tr>
+            <tr>
+              <td><strong>متوازٍ</strong></td>
+              <td class="mono">P11 · P12</td>
+              <td>تباين، حركة، رموز design، سوم في المنسّق — <strong>١٠ نتائج</strong></td>
+              <td>كل رمز نصّي ≥ ٤٫٥:١ في كل سمة. <code>_tasks</code> له سقف.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="card-note" style="margin-block-start:14px">
+        <strong>ملاحظة على الجدولة:</strong> الدفعتان P1 و P2 هما الأثقل (٣٢ ملفًا) لكنهما أيضًا
+        الوحيدتان اللتان تلمسان <em>سلوكًا مرئيًا</em> — أي أنها تُحدث فرقًا مرئيًا الآن. إن كان الوقت ضيقًا،
+        نفّذ الأسبوع ١ كاملًا (يضع الأساس الصحيح) ثم قفز إلى P1 قبل P2.
+      </p>
+    </section>
+
+    <!-- ======================================================== reproduce -->
+    <section class="section" id="reproduce">
+      <div class="sec-head">
+        <h2>أعد إنتاج أي رقم في هذا التقرير</h2>
+        <p>لا حاجة أن تصدّق التقرير. كل رقم مصدره أمر واحد.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>الأرقام المقيسة</h3>
+          <pre><code>git checkout 457cc45
+
+npm test                # 2216 · 0 fail
+npm run lint            # 0 error
+npm run test:coverage   # البوابة + coverage-summary.json
+npm audit               # 5 ثغرات
+
+# RTL: هذه الأرقام سببها صفر لا شيء
+rg -c 'dir\s*=' src/renderer            # 0
+rg -c 'margin-inline|padding-inline|inset-inline' src/renderer  # 0
+rg -c 'margin-left|margin-right|padding-left' src/renderer     # 99
+rg -c "font-family.*(Cairo|Tajawal|Naskh)" src/renderer      # 0
+
+# الدفاعات الميتة: التعريف موجود، الاستدعاء غائب
+rg -n 'screenResolvedAddress|screenRedirect|wrapUntrusted' src/ tests/
+#   ⇒ تعريف + export + تعليقات + اختبارات · صفر استدعاء إنتاجي
+
+# الميزانية غير القابلة للإنفاذ
+rg -n '\.noteUsage\(' src/     # ⇒ صفر
+rg -n 'budget' src/core/agents/watchdog.js   # ⇒ 5 رموز لا يمكن بلوغها</code></pre>
+        </div>
+        <div class="card">
+          <h3>توليد التقرير نفسه</h3>
+          <p class="card-note">
+            كل الأرقام في <code>docs/audit/data.js</code> — مصدر واحد، فلا يمكن أن
+            يتناقض رقم بين صفحتين. الرسوم كلها SVG مبنية يدويًا: لا مكتبة، ولا شبكة،
+            ولا خطوة بناء. الصفحة تُفتح من القرص مباشرة.
+          </p>
+          <pre style="margin-block-start:12px"><code># إعادة بناء لقطات التقرير
+node docs/audit/render-audit-shots.mjs
+
+# ينتج:
+#   docs/audit/shots/00-overview.png
+#   docs/audit/shots/01-findings.png
+#   ... لكل صفحة
+
+# لم Electron لا Chrome بلا رأس؟
+# لأن البطاقة تستخدم backdrop-filter
+# —-tools البعيدة تسقطه بصمت
+# فتختفي الزجاجية من الصورة.</code></pre>
+          <div class="callout callout--info" style="margin-block-start:14px">
+            <p class="card-note">
+              نفس المنطق المطبَّق في <code>docs/media/render-social-card.mjs</code>:
+              <strong>لا نضيف تبعية لمجرد التقاط صورة</strong>. المتصفح موجود بالفعل في المستودع.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <span>خطة الإصلاح تغطي ٩٠ من ٩٠ نتيجة.</span>
+  <span>لا تتطلب أي دفعة إعادة كتابة لـ <code>core</code> أو تغيير قرار معماري قائم.</span>
+</footer>
+
+<script src="data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  var A = window.AUDIT, U = window.AUDIT_UI, c = A.charts;
+  var byId = {};
+  A.findings.forEach(function (f) { byId[f.id] = f; });
+
+  document.getElementById('chart-matrix').appendChild(
+    U.scatter(c.fixMatrix, { w: 680, h: 400, label: 'مصفوفة الجهد والأثر' })
+  );
+
+  var ph = document.getElementById('phases');
+  c.fixMatrix.forEach(function (p) {
+    var n = p.findings.length;
+    var el = document.createElement('article');
+    el.className = 'phase';
+    el.dataset.sev = p.sev;
+    el.innerHTML =
+      '<div class="phase-bar">' + U.esc(p.id) + '</div>' +
+      '<div class="phase-in">' +
+      '<h4>' + U.esc(p.title) + '</h4>' +
+      '<p class="card-note">يغلق <strong>' + n + '</strong> ' +
+      (n === 1 ? 'نتيجة' : (n === 2 ? 'نتيجتين' : 'نتيجة')) + ' · ' + U.num(p.files) + ' ملفًا</p>' +
+      '<div class="phase-meta">' +
+      '<span class="badge badge--' + p.sev + '"><i class="dot"></i>خطورة الدفعة</span>' +
+      '<span class="pill">جهد ' + p.effort + '/5</span>' +
+      '<span class="pill">أثر ' + p.impact + '/10</span>' +
+      '<span class="pill">' + p.findings.join(' · ') + '</span>' +
+      '</div></div>';
+    ph.appendChild(el);
+  });
+
+  var rm = document.getElementById('roadmap');
+  c.roadmap.forEach(function (r) {
+    var el = document.createElement('article');
+    el.className = 'road';
+    el.innerHTML =
+      '<span class="road-h">' + U.esc(r.horizon) + '</span>' +
+      '<h4>' + U.esc(r.title) + '</h4>' +
+      '<p>' + U.esc(r.body) + '</p>' +
+      '<div class="road-foot">' +
+      '<span class="pill">جهد ' + U.esc(r.effort) + '</span>' +
+      '<span class="pill">' + U.esc(r.payoff) + '</span>' +
+      '</div>';
+    rm.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>

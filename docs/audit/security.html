@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الأمان — تقرير تدقيق KingAgent</title>
+<meta name="description" content="أمن KingAgent: ثلاثة مسارات تنفيذ بلا قائمة سماح، كتابة وقراءة عشوائية للملفات، و5 ثغرات تبعيات قابلة للإصلاح.">
+<link rel="stylesheet" href="audit.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#fffdf6" stroke="#2f2b26" stroke-width="2.5"/>
+        <rect x="7" y="7" width="12" height="11" rx="2" fill="#ef6461"/>
+        <rect x="21" y="7" width="12" height="7" rx="2" fill="#8ab4c4"/>
+        <rect x="7" y="20" width="8" height="13" rx="2" fill="#c9a87c"/>
+        <rect x="17" y="16" width="16" height="17" rx="2" fill="#2f2b26"/>
+      </svg>
+      <span class="brand-txt"><b>KingAgent</b><span>تقرير التدقيق 2026</span></span>
+    </a>
+    <nav class="nav" aria-label="صفحات التقرير">
+      <a href="index.html">نظرة عامة</a>
+      <a href="findings.html">كل النتائج</a>
+      <a href="interface.html">الواجهة</a>
+      <a href="security.html" aria-current="page">الأمان</a>
+      <a href="performance.html">الأداء</a>
+      <a href="quality.html">الجودة</a>
+      <a href="fixplan.html">خطة الإصلاح</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <h1 class="hero-title">الأمان: القاعدة موجودة، <em>التطبيق انتقائي</em></h1>
+    <p class="hero-sub">
+      هذا ليس مشروعًا غير آمن. هذا مشروع يعرف القاعدة الصحيحة ووثّقها — ثم طبّقها على
+      <code>fs:*</code> فقط بينما تسع معالجات أخرى تأخذ مسارات من الـ renderer بلا فحص.
+      النتائج الحرجة الثلاث كلها من هذا النوع: ليست غياب وعي، بل غياب تعميم.
+    </p>
+    <div class="hero-meta">
+      <span>نتائج الأمان <b>26</b></span>
+      <span>حرج <b>3</b> · عالٍ <b>7</b></span>
+      <span>ثغرات تبعيات <b>5</b> (٣ عالية · ٢ متوسطة)</span>
+      <span>كلها قابلة للإصلاح بـ <code>npm audit fix</code></span>
+    </div>
+  </section>
+
+  <div class="wrap">
+
+    <section class="section">
+      <div class="callout callout--danger">
+        <h4><i class="dot" style="background:var(--sev-critical)"></i> النمط المشترك: القاعدة مكتوبة، مطبّقة جزئيًا</h4>
+        <p>
+          <code>main.js:1324-1330</code> يقول نصًّا: «الـ renderer ليس حدّ ثقة… حراسة
+          <code>fs-actions</code> قوية بقدر الجذر الذي يُعطى لها». ثم يستبدل الجذر بـ
+          <code>trustedRoot(e)</code> على <code>fs:*</code> فقط.
+          <code>file:save</code> على بعد ١٤٠ سطرًا يكتب أي ملف في النظام بلا أي فحص.
+          <strong>الإصلاح ليس إضافة مفهوم جديد — هو تطبيق القاعدة على كل معالج يأخذ مسارًا.</strong>
+        </p>
+      </div>
+    </section>
+
+    <!-- ====================================================== the three -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>الثلاثة الحرجة: كل واحدها تنفيذ أوامر أو حذف</h2>
+        <p>النمط نفسه ثلاث مرات: مُدخل من الـ renderer يصل إلى <code>spawn</code> أو
+           <code>rm -rf</code> بلا تحقق.</p>
+      </div>
+
+      <div class="grid g3">
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-critical)">
+          <h3><span class="badge badge--critical">S1</span> تنفيذ أي أمر</h3>
+          <p class="card-note">
+            <code>acp-live.js:15-31</code> — يشغّل أي <code>command</code> يرسله الـ renderer.
+            <code>resolveSpawnProgram</code> يستبدل <em>الأسماء المجرّدة فقط</em>، فأي مسار مطلق يمرّ كما هو.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            <strong>التصريح الأخطر في التقرير:</strong> ترويسة الملف تقول
+            <em>“PROTOTYPE (demo mode only)”</em> — ولا شيء يربطها بوضع العرض التجريبي،
+            وهي موصولة دائمًا في <code>main.js:627</code>. التعليق يقول «غير مكتمل» والكود يقول «يعمل».
+          </p>
+        </div>
+
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-critical)">
+          <h3><span class="badge badge--critical">S2</span> تنفيذ حر عبر الطرفية</h3>
+          <p class="card-note">
+            <code>main.js:1488</code>: <code>file = program</code> بلا تحقق إطلاقًا.
+            و<code>main.js:1608</code>: سلسلة <code>command</code> تُكتب حرفيًا في صدفة تسجيل الدخول
+            بعد ٢٠٠ مللي ثانية.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            تطبيق طرفي <em>يجب</em> able لتشغيل أوامر — فهذه ليست ثغرة قابلة للإزالة.
+            هي قابلة للإصلاح بجعل الـ renderer غير قابل للانتحال، وهو ما تفعله S4 و S11.
+          </p>
+        </div>
+
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-critical)">
+          <h3><span class="badge badge--critical">S3</span> حذف متكرر لأي شيء</h3>
+          <p class="card-note">
+            <code>agent-remove.js:54-61</code> — <code>binPath</code> من الـ renderer،
+            والحراسة الوحيدة تتحقق من «مطلق وتحت <code>$HOME</code>».
+            ثم <code>fsp.rm(p, { recursive: true, force: true })</code>.
+          </p>
+          <p class="card-note" style="margin-block-start:10px">
+            <code>agentsRemove('claude', homedir + '/Documents')</code> يمرّ بكل الفحوص.
+            <strong>وترويسة الملف تصرّح بالقاعدة الصحيحة</strong> — «أبدًا مجلدًا يمكن أن يحمل عمل المستخدم»
+            — ثم لا تفرضها.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== trust model -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>خريطة سطح الثقة: أين يُطبَّق <code>trustedRoot</code> وأين لا</h2>
+        <p>هذه الصورة هي الإصلاح. أخضر = محمي، أحمر = يأخذ مسارًا من الـ renderer بلا فحص جذر.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>كل معالج IPC في العملية الرئيسية يأخذ مسارًا من الـ renderer. والخلايا الخضراء محمية.</caption>
+          <thead>
+            <tr>
+              <th>المعالج</th>
+              <th>الموقع</th>
+              <th>العملية</th>
+              <th>فحص الجذر</th>
+              <th>النتيجة</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>fs:*</code></td><td class="mono">main.js:1331-1337</td><td>قراءة/كتابة</td><td><span class="badge badge--ok"><i class="dot"></i>مطبَّق</span></td><td>—</td></tr>
+            <tr class="row-fail"><td><code>file:save</code></td><td class="mono">main.js:1181-1184</td><td>كتابة</td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S4</td></tr>
+            <tr class="row-fail"><td><code>file:raw</code></td><td class="mono">main.js:1153-1162</td><td>قراءة</td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S5</td></tr>
+            <tr class="row-fail"><td><code>file:read</code></td><td class="mono">main.js:1300-1312</td><td>قراءة</td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S5</td></tr>
+            <tr class="row-fail"><td><code>dir:watch</code></td><td class="mono">main.js:1356-1364</td><td>مراقبة recursive</td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S11</td></tr>
+            <tr class="row-fail"><td><code>pointer:write</code></td><td class="mono">main.js:1276-1287</td><td>كتابة AGENTS.md</td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S11</td></tr>
+            <tr class="row-fail"><td><code>library:*</code></td><td class="mono">main.js:1215-1262</td><td>قراءة</td><td><span class="badge badge--high"><i class="dot"></i>جزئي</span></td><td>S11</td></tr>
+            <tr class="row-fail"><td><code>services:connect</code></td><td class="mono">main.js:877-891</td><td><code>spawn node</code></td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S7</td></tr>
+            <tr class="row-fail"><td><code>services:connectCustom</code></td><td class="mono">main.js:932-935</td><td>قراءة + تنفيذ لاحق</td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S8</td></tr>
+            <tr class="row-fail"><td><code>acp:start</code></td><td class="mono">main.js:627</td><td><code>spawn</code></td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S1</td></tr>
+            <tr class="row-fail"><td><code>term:create</code> harness</td><td class="mono">main.js:1488</td><td><code>spawn</code></td><td><span class="badge badge--critical"><i class="dot"></i>غائب</span></td><td>S2</td></tr>
+            <tr class="row-fail"><td><code>agents:remove</code></td><td class="mono">main.js:830-831</td><td><code>rm -rf</code></td><td><span class="badge badge--high"><i class="dot"></i>جزئي</span></td><td>S3</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="card-note" style="margin-block-start:12px">
+       سبعة معالجات من اثني عشر تأخذ مسارًا بلا فحص. <strong>الخلاصة:اعمالية واحدة
+        (<code>trustedRoot</code> على <code>fs:*</code>) تغطي ١٢٪ فقط من السطح.</strong>
+      </p>
+    </section>
+
+    <!-- ==================================================== electron CVE -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>ثغرة Electron تُبطل حجّة العزل في المشروع</h2>
+      </div>
+      <div class="callout callout--danger">
+        <h4><i class="dot" style="background:var(--sev-critical)"></i> GHSA-j84w-jfhq-vhvj (7.4) — على النقطة تمامًا على النقطة</h4>
+        <p>
+          التعليق في <code>main.js:68-79</code> يبررChoices أمان <code>kingagent-doc</code> صراحةً:
+          «العزل الذي يهم هو جدار الأصلية والصندوق الرملي، لا [CSP]». والجدار هنا هو بالضبط
+          ما يقول هذا الإعلان أنه غير قائم في <code>43.3.0</code>.
+        </p>
+        <p style="margin-block-start:10px">
+          المشروع يسجّل <code>kingagent-doc</code> كـ <code>standard</code> بـ
+          <code>corsEnabled: false</code> (<code>main.js:65</code>) ويقدّم بايتات ملفات محلية عبر
+          <code>protocol.handle</code> (<code>main.js:82-95</code>)، ويعمل بـ
+          <code>sandbox: true</code> و preload على كل نافذة ووسم متصفح.
+        </p>
+        <p style="margin-block-start:10px">
+          <strong>الإصلاح من مسارين مستقلين:</strong> (١) <code>npm audit fix</code> أو التثبيت على
+          <code>^43.5.0</code>. (٢) <strong>لا تعتمد على جدار الأصلية كضابط أول</strong> —
+          <code>connect-src 'none'</code> الموجود فعلًا هو الضابط الحامل، وأعد التحقق من الافتراض
+          على النسخة المرقّاة.
+        </p>
+      </div>
+    </section>
+
+    <!-- =========================================================== deps -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>التبعيات: خمس ثغرات، الخمس قابلة للإصلاح</h2>
+        <p><code>npm audit</code> على <code>457cc45</code>. لا واحدة منها تستلزم إعادة معمارية.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>‏<code>fixAvailable: true</code> لجميعها. <code>brace-expansion</code> و <code>undici</code> و <code>ip-address</code> و <code>fast-uri</code> كلها غير مباشرة.</caption>
+          <thead>
+            <tr><th>الحزمة</th><th>الخطورة</th><th>المثبّت</th><th>الإعلان</th><th>ملاحظة</th></tr>
+          </thead>
+          <tbody id="deps-body"></tbody>
+        </table>
+      </div>
+      <div class="callout callout--warn" style="margin-block-start:16px">
+        <h4><i class="dot" style="background:var(--sev-high)"></i> تحذير: لا تُنفّذ <code>audit fix</code> ب(aesراف</h4>
+        <p>
+          ملف <code>package.json</code> يحمل تعليقًا طويلًا يشرح لماذا
+          <code>transformers</code> و <code>onnxruntime-node</code> مثبّتان بدقّة: ترقية
+          transformers 3 → 4 تبدّل المُجزّئ وقصّة wasm. و<code>npm audit fix</code>
+          يرقّي التبعيات. اقرأ ما سيتغيّر قبل الموافقة — هذا الملف مكتوب بعناية Gunn من purpose.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================== what passes -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>ما يمرّ التدقيق الأمني</h2>
+        <p>مستويات لا يمكن لأداة فحصها. مُحقَّق من الكود، لا مُفترَض.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card card--tint">
+          <h3><span class="badge badge--ok">مُتحقَّق</span> حقن SQL</h3>
+          <p class="card-note">
+            لا ينطبق على التطبيق، لكن كل SQL موجود مُعاملَس (parameterized):
+            <code>agent-resume.js:208, 211, 238, 243</code> تستعمل <code>?</code>.
+            <strong>لا يوجد أي استعلام نصّي مؤلّف.</strong>
+          </p>
+        </div>
+        <div class="card card--tint">
+          <h3><span class="badge badge--ok">مُتحقَّق</span> XSS</h3>
+          <p class="card-note">
+            <code>esc()</code> تهرّب <code>&amp; &lt; &gt; "</code>، وكل استيفاء <code>innerHTML</code>
+            متتبَّع يستخدمه داخل سمات بعلامات اقتباس مزدوجة. و<code>docHrefTarget</code>
+            (<code>md.mjs:43-60</code>) يرفض مخططات URL غير المعروفة، والمعالجات لا تنتقل على
+            <code>href</code> خام.
+          </p>
+        </div>
+        <div class="card card--tint">
+          <h3><span class="badge badge--ok">مُتحقَّق</span> الأسرار على القرص</h3>
+          <p class="card-note">
+            <code>settings.js:33-59</code> — كل مفتاح مشفّر بـ <code>safeStorage</code>،
+            و<code>settings:get</code> يخفي قبل الإرجاع. <code>agent-status.js</code> لا يعيد رمزًا.
+            ولا سرّ يُكتب إلى الطرفية إطلاقًا؛ تسجيل PTY خلف مفتاح <code>KINGAGENT_PTY_LOG</code>
+            ويكتب المعرّف والأبعاد فقط.
+          </p>
+        </div>
+        <div class="card card--tint">
+          <h3><span class="badge badge--ok">مُتحقَّق</span> عمر PTYs</h3>
+          <p class="card-note">
+            <code>main.js:443-450</code> يستدعي <code>reapSessions</code> عند <code>closed</code>،
+            و<code>main.js:567</code> عند <code>before-quit</code>.
+            <em>ثغرة واحدة هنا:</em> عمليات ACP في <code>acp-live.js</code> ليست ضمن هذا
+            (<code>reapSessions</code> لا يعرفها) — وهي S21.
+          </p>
+        </div>
+        <div class="card card--tint">
+          <h3><span class="badge badge--ok">مُتحقَّق</span> TLS على الخارج</h3>
+          <p class="card-note">
+            كل الروابط الصادرة مثبّتة <code>https://</code> بلا استثناء:
+            <code>update-check.js:74</code>، <code>stt.js:111,137</code>،
+            <code>usage.js:257,298,334,344,350</code>، <code>stt-model.js:60</code>.
+            و<code>allowNetworkedSources</code> افتراضيًا <code>false</code>
+            (<code>settings.js:136</code>) — ويُطبَّق عند البوابة لا في طبقة الإعدادات فقط.
+          </p>
+        </div>
+        <div class="card card--tint">
+          <h3><span class="badge badge--ok">مُتحقَّق</span> سطح MCP المحلي</h3>
+          <p class="card-note">
+            <code>browser-mcp.js:188-212</code> يرفض <code>Origin</code>، يثبّت
+            <code>Host</code> على <code>127.0.0.1</code>، مفتاح مسار ١٩٢ بت، جسم طلب محدود
+            بـ ١٢٨ كيلوبايت، <code>requestTimeout = 30000</code>. واجهة CDP تمنع
+            <code>DOM.setFileInputFiles</code> و <code>Page.setDownloadBehavior</code>.
+            <strong>هذا هو النموذج.</strong>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================== security findings -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>نتائج الأمان — ٢٦</h2>
+      </div>
+      <div class="filters" style="position:static">
+        <div class="fbtns" role="group" aria-label="الخطورة">
+          <button class="fbtn" data-kind="sev" data-filter="critical" aria-pressed="false">حرج</button>
+          <button class="fbtn" data-kind="sev" data-filter="high" aria-pressed="false">عالٍ</button>
+          <button class="fbtn" data-kind="sev" data-filter="medium" aria-pressed="false">متوسط</button>
+          <button class="fbtn" data-kind="sev" data-filter="low" aria-pressed="false">منخفض</button>
+        </div>
+      </div>
+      <div id="finding-list" data-scope="security" style="display:grid;gap:11px"></div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <span>كل نتيجة موثّقة بـ <code>ملف:سطر</code> في <code>src/main/</code>.</span>
+  <span>التبعية مُختبَرة على <code>457cc45</code> · ٥ ثغرات قابلة للإصلاح</span>
+</footer>
+
+<script src="data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  var A = window.AUDIT, U = window.AUDIT_UI, m = A.metrics;
+  var db = document.getElementById('deps-body');
+  m.deps.forEach(function (d) {
+    var tr = document.createElement('tr');
+    if (d.severity === 'high') tr.className = 'row-fail'; else tr.className = 'row-warn';
+    tr.innerHTML =
+      '<td><code>' + U.esc(d.name) + '</code>' + (d.direct ? ' <span class="badge badge--high">مباشرة</span>' : '') + '</td>' +
+      '<td><span class="badge badge--' + U.esc(d.severity) + '"><i class="dot"></i>' + (d.severity === 'high' ? 'عالية' : 'متوسطة') + '</span></td>' +
+      '<td class="num mono">' + U.esc(d.installed) + '</td>' +
+      '<td class="mono" style="font-size:12px">' + U.esc(d.advisory) + '</td>' +
+      '<td class="card-note">' + U.esc(d.note) + '</td>';
+    db.appendChild(tr);
+  });
+
+  U.mountDomain("security");
+})();
+</script>
+</body>
+</html>

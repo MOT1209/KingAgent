@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تقرير تدقيق KingAgent — نظرة عامة</title>
+<meta name="description" content="تدقيق كامل لكود KingAgent: 90 نتيجة عبر الأمان والواجهة والمنطق، مع خطة إصلاح مرتّبة بالأثر والجهد.">
+<link rel="stylesheet" href="audit.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#fffdf6" stroke="#2f2b26" stroke-width="2.5"/>
+        <rect x="7" y="7" width="12" height="11" rx="2" fill="#ef6461"/>
+        <rect x="21" y="7" width="12" height="7" rx="2" fill="#8ab4c4"/>
+        <rect x="7" y="20" width="8" height="13" rx="2" fill="#c9a87c"/>
+        <rect x="17" y="16" width="16" height="17" rx="2" fill="#2f2b26"/>
+      </svg>
+      <span class="brand-txt">
+        <b>KingAgent</b>
+        <span>تقرير التدقيق <span id="audit-year">2026</span></span>
+      </span>
+    </a>
+    <nav class="nav" aria-label="صفحات التقرير">
+      <a href="index.html" aria-current="page">نظرة عامة</a>
+      <a href="findings.html">كل النتائج</a>
+      <a href="interface.html">الواجهة</a>
+      <a href="security.html">الأمان</a>
+      <a href="performance.html">الأداء</a>
+      <a href="quality.html">الجودة</a>
+      <a href="fixplan.html">خطة الإصلاح</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero">
+    <h1 class="hero-title">المشروع نظيف من حيث <em>الاختبارات</em>، ومعرّض من حيث الحدود.</h1>
+    <p class="hero-sub">
+      هذا التقرير نتيجة قراءة الكود لا تشغيله. كل رقم هنا مقيس، وكل نتيجة لها موقع ملف وسطر.
+      الخلاصة في سطر واحد: البوابات الآلية تمرّ كلها — ٢٢١٦ اختبارًا ناجحًا، صفر أخطاء lint، تغطية ٨٦٪ —
+      ومع ذلك الواجهة لا تدعم العربية إطلاقًا، وثلاثة مسارات تنفيذ في العملية الرئيسية بلا قائمة سماح،
+      وأربع دفاعات أمنية مكتوبة ومختبَرة ولا يمكن أن تعمل.
+    </p>
+    <div class="hero-meta">
+      <span>الإصدار <b>v0.5.6</b></span>
+      <span>الالتزام <b>457cc45</b></span>
+      <span>تاريخ القياس <b>2026-09-30</b></span>
+      <span>المساحة <b>63,074</b> سطرًا في <b>381</b> ملفًا</span>
+    </div>
+  </section>
+
+  <div class="wrap">
+
+    <!-- ==================================================== the headline -->
+    <section class="section">
+      <div class="callout callout--danger">
+        <h4><i class="dot" style="background:var(--sev-critical)"></i> الخلاصة في ثلاث جمل</h4>
+        <p>
+          الاختبارات ليست دليلًا على أن المشروع سليم — هي دليل على أن ما تغطيه الاختبارات سليم.
+          اثنا عشر ملفًا في العملية الرئيسية بتغطية صفر، و<strong>ملفّان منها يحملان نتائج حرجة في هذا التقرير</strong>.
+          وفي المقابل، حين يكون هناك اختبار فالجودة جيدة؛ المشكلة أن الاختبارات لا تغطي
+          <em>طبقة الثقة</em>: من يقدر على استدعاء ماذا، ومن يقدر على قراءة أي ملف، وأين تُنفّذ الميزانية.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================ KPIs -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>الأرقام التي تقرّر الأولوية</h2>
+        <p>الأربعة الأولى تصف حالة المشروع الآن. الأربعة التالية تصف ما لا تستطيع البوابات رؤيته.</p>
+      </div>
+
+      <div class="grid g4">
+        <div class="kpi" style="--kpi-accent:var(--sev-ok)">
+          <span class="kpi-val">2,216<small>اختبار</small></span>
+          <span class="kpi-label">كلها تمرّ</span>
+          <span class="kpi-sub">صفر فشل · ١٤ متخطّى · ١٢١ ثانية</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-ok)">
+          <span class="kpi-val">0<small>أخطاء lint</small></span>
+          <span class="kpi-label">eslint نظيف تمامًا</span>
+          <span class="kpi-sub">وهذا أيضًا يخفي المشكلة: القواعد الحالية لا ترى نصف ما في هذا التقرير</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-ok)">
+          <span class="kpi-val">86<small>%</small></span>
+          <span class="kpi-label">تغطية الأسطر</span>
+          <span class="kpi-sub">البوابة ٧٠٪ · <code>core</code> ٩٢٫٥٪ · <code>main</code> ٦٥٫٧٪</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-ok)">
+          <span class="kpi-val">1<small>متغيّر عام</small></span>
+          <span class="kpi-label">في 28,613 سطرًا</span>
+          <span class="kpi-sub">انضباط معماري نادر في هذا الحجم — يُبنى عليه كل شيء آخر</span>
+        </div>
+
+        <div class="kpi" style="--kpi-accent:var(--sev-critical)">
+          <span class="kpi-val">90</span>
+          <span class="kpi-label">نتيجة في هذا التقرير</span>
+          <span class="kpi-sub">١١ حرج · ٢٩ عالٍ · ٣٣ متوسط · ١٧ منخفض</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-critical)">
+          <span class="kpi-val">0</span>
+          <span class="kpi-label">دعم للعربية في الواجهة</span>
+          <span class="kpi-sub">لا <code>dir</code> · لا خط عربي · ١٢٢ تصريحًا فيزيائيًا معطّلًا للعكس</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-critical)">
+          <span class="kpi-val">4</span>
+          <span class="kpi-label">دفاعات مكتوبة لا تعمل</span>
+          <span class="kpi-sub">موثّقة، مُختبَرة، ومفحوصة بـ grep — بلا أي موضع استدعاء إنتاجي</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-high)">
+          <span class="kpi-val">12</span>
+          <span class="kpi-label">ملفًا بتغطية صفر</span>
+          <span class="kpi-sub">منها <code>main.js</code> (١٨١٣ سطرًا) و <code>browser-views.js</code> (٦٦٩)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= severity -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>توزيع النتائج</h2>
+        <p>٩٠ نتيجة موزّعة على ثلاث طبقات. الواجهة هي الأكبر عددًا لأن دعم العربية غائب تمامًا لا جزئيًا.</p>
+      </div>
+
+      <div class="grid split-2-1">
+        <div class="card">
+          <div class="chart-title">النتائج حسب الطبقة والخطورة</div>
+          <div id="chart-severity"></div>
+          <div class="legend" id="sev-legend"></div>
+        </div>
+        <div class="card card--glass">
+          <div class="chart-title">الإجمالي</div>
+          <div id="chart-donut" style="display:flex;justify-content:center"></div>
+          <p class="card-note" style="text-align:center;margin-block-start:10px">
+            ١١ نتيجة حرجة. ثلاث منها في تنفيذ أوامر، واثنتان منها في طبقة المنطق، وستّ في الواجهة.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================== what is good -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>ما هو مبني جيدًا فعلًا</h2>
+        <p>تقرير لا يذكر ما هو سليم لا يمكن الوثوق بما يصفه من عيوب. وهذه ليست مجاملات — كل بند هنا تحقّقت منه بالقراءة.</p>
+      </div>
+
+      <div class="grid g3">
+        <div class="card">
+          <h3><span class="badge badge--ok"><i class="dot"></i>مُتحقَّق</span> حدود الثقة مكتوبة بوضوح</h3>
+          <p class="card-note">
+            <code>main.js:1324-1330</code> يشرح القاعدة صراحةً: «الـ renderer ليس حدّ ثقة، وحراسة
+            <code>fs-actions</code> قوية بقدر الجذر الذي يُعطى لها» — ثم يطبّقها على <code>fs:*</code>.
+            المشكلة ليست غياب القاعدة، بل أنها طُبّقت على معالجات بعينها دون تعميم.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--ok"><i class="dot"></i>مُتحقَّق</span> الأسرار مشفّرة ولا تُسرَّب</h3>
+          <p class="card-note">
+            <code>settings.js:33-59</code> يشفّر <code>openaiKey</code> و <code>elevenKey</code> و
+            <code>sttKey</code> وكل مفاتيح البيئة عبر <code>safeStorage</code>، و
+            <code>settings:get</code> يخفيها قبل الإرجاع. و<code>agent-status.js</code> لا يعيد رمزًا أبدًا —
+            قيم منطقية فقط. هذا صحيح تمامًا.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--ok"><i class="dot"></i>مُتحقَّق</span> خادم MCP مقيّد كما ينبغي</h3>
+          <p class="card-note">
+            <code>browser-mcp.js:188-212</code> يرفض ترويسة <code>Origin</code>، ويثبّت
+            <code>Host</code> على <code>127.0.0.1</code>، ويستخدم مفتاح مسار ١٩٢ بت،
+            ويحدّ جسم الطلب بـ ١٢٨ كيلوبايت. هذا نموذج يحتذى به لبقية سطح الشبكة.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--ok"><i class="dot"></i>مُتحقَّق</span> الإصدار مُثبَّت عن قصد</h3>
+          <p class="card-note">
+            <code>package.json</code> يحمل تعليقات تشرح لماذا <code>transformers</code> و
+            <code>onnxruntime-node</code> مثبّتان بدقّة لا بنطاق مفتوح، ولماذا
+            <code>sharp</code> مثبّت فوق ما يطلبه النطاق. هذا نضج نادر في ملف تبعيات.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--ok"><i class="dot"></i>مُتحقَّق</span> انضباط معماري مُقاس</h3>
+          <p class="card-note">
+            متغيّر عام واحد قابل للتعديل في ٢٨٬٦١٣ سطرًا من <code>core</code> (عدّاد معرّفات).
+            و<code>phase5-architecture.test.mjs</code> يمنع عودة جزيرة منسّقات مكرّرة — وقد نجح فعلًا.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="badge badge--ok"><i class="dot"></i>مُتحقَّق</span> تطهير المسارات في المهارات محكم</h3>
+          <p class="card-note">
+            <code>LocalSkillSource</code> يطبّق فحص المسار النسبي <em>و</em> فحص <code>isInside</code>
+            <em>و</em> إعادة فحص <code>realpath</code> للروابط الرمزية <em>و</em> سقف ٥١٢ كيلوبايت.
+            لا حقن أوامر، ولا تحليل YAML، ولا تلوّث نماذج أولية.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================== ghost defence -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>الفئة الأخطر: دفاعات لا يمكن أن تعمل</h2>
+        <p>
+          هذه النتائج لا تظهر في أي أداة. دالة مُعرَّفة، مُصدَّرة، مُختبَرة، وموثّقة في تعليق —
+          ولا شيء في الإنتاج يناديها. الكود <em>يقرأ</em> كأنه آمن، وهذا أخطر من غياب الحماية.
+        </p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>دوال حماية مُختبَرة وبلا أي موضع استدعاء إنتاجي. التحقّق بالبحث الكامل عبر <code>src/</code>.</caption>
+          <thead>
+            <tr>
+              <th>الدالة</th>
+              <th>الموقع</th>
+              <th>مختبَرة</th>
+              <th>مُستدعاة</th>
+              <th>ما تحمي منه</th>
+            </tr>
+          </thead>
+          <tbody id="ghost-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- =========================================================== how to -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>كيف تقرأ هذا التقرير</h2>
+      </div>
+      <div class="grid g3">
+        <div class="card card--tint">
+          <h3>إذا كان وقتك دقيقة واحدة</h3>
+          <p class="card-note">اقرأ <a href="security.html">الأمان</a> ثم <a href="interface.html">الواجهة</a>.
+            هاتان الصفحتان تحويان ٧٧ من ٩٠ نتيجة، وأربعًا من كل خمس نتائج حرجة.</p>
+        </div>
+        <div class="card card--tint">
+          <h3>إذا كنت ستبني على هذا المشروع</h3>
+          <p class="card-note">ابدأ بـ <a href="quality.html">الجودة</a>: افهم أين التغطية غائبة ولماذا.
+            ثم <a href="fixplan.html">خطة الإصلاح</a> لترى ما يُبنى فوقه.</p>
+        </div>
+        <div class="card card--tint">
+          <h3>إذا كنت تريد أن تتحقق بنفسك</h3>
+          <p class="card-note">كل نتيجة تحمل <code>ملف:سطر</code>. لا حاجة أن تصدّق هذا التقرير —
+            افتح الملف. و<a href="fixplan.html#reproduce">صفحة إعادة الإنتاج</a> فيها الأوامر.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <span>تقرير تدقيق KingAgent · <code id="f-commit">457cc45</code> · v<span id="f-version">0.5.6</span></span>
+  <span>الأرقام في <code>docs/audit/data.js</code> · الرسوم SVG مبنية يدويًا بلا مكتبات</span>
+  <span>قيست في <span id="f-date">2026-09-30</span></span>
+</footer>
+
+<script src="data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  var A = window.AUDIT, U = window.AUDIT_UI, m = A.metrics, c = A.charts;
+
+  document.getElementById('f-commit').textContent = m.commit;
+  document.getElementById('f-version').textContent = m.version;
+  document.getElementById('f-date').textContent = m.measuredOn;
+
+  document.getElementById('chart-severity').appendChild(
+    U.stackedCols(
+      c.severityByDomain.slice().reverse(),
+      U.SEV_ORDER.map(function (k) { return { key: k, label: U.SEV_AR[k], color: U.SEV_COLORS[k] }; }),
+      { label: 'توزيع النتائج حسب الطبقة والخطورة', w: 640, h: 300 }
+    )
+  );
+
+  document.getElementById('chart-donut').appendChild(
+    U.donut(
+      U.SEV_ORDER.map(function (k) {
+        return { label: U.SEV_AR[k], value: c.totals[k], color: U.SEV_COLORS[k] };
+      }),
+      { centerTop: 'نتيجة', size: 250, label: 'توزيع النتائج حسب الخطورة' }
+    )
+  );
+
+  var body = document.getElementById('ghost-body');
+  c.ghostDefences.forEach(function (g) {
+    var called = g.called === true;
+    var tr = document.createElement('tr');
+    if (!called) tr.className = 'row-fail';
+    tr.innerHTML =
+      '<td><code>' + U.esc(g.name) + '</code></td>' +
+      '<td class="mono">' + U.esc(g.file) + '</td>' +
+      '<td><span class="badge badge--ok"><i class="dot"></i>نعم</span></td>' +
+      '<td>' + (called
+        ? '<span class="badge badge--medium"><i class="dot"></i>جزئي</span>'
+        : '<span class="badge badge--critical"><i class="dot"></i>لا</span>') + '</td>' +
+      '<td>' + U.esc(g.protects) + '</td>';
+    body.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>

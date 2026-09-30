@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الجودة والاختبارات — تقرير تدقيق KingAgent</title>
+<meta name="description" content="جودة KingAgent: 2216 اختبارًا ناجحًا و86% تغطية، لكن 12 ملفًا صفر تغطية يحتجز النتائج الحرجة — ولماذا يمرّ lint نظيفًا.">
+<link rel="stylesheet" href="audit.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#fffdf6" stroke="#2f2b26" stroke-width="2.5"/>
+        <rect x="7" y="7" width="12" height="11" rx="2" fill="#ef6461"/>
+        <rect x="21" y="7" width="12" height="7" rx="2" fill="#8ab4c4"/>
+        <rect x="7" y="20" width="8" height="13" rx="2" fill="#c9a87c"/>
+        <rect x="17" y="16" width="16" height="17" rx="2" fill="#2f2b26"/>
+      </svg>
+      <span class="brand-txt"><b>KingAgent</b><span>تقرير التدقيق 2026</span></span>
+    </a>
+    <nav class="nav" aria-label="صفحات التقرير">
+      <a href="index.html">نظرة عامة</a>
+      <a href="findings.html">كل النتائج</a>
+      <a href="interface.html">الواجهة</a>
+      <a href="security.html">الأمان</a>
+      <a href="performance.html">الأداء</a>
+      <a href="quality.html" aria-current="page">الجودة</a>
+      <a href="fixplan.html">خطة الإصلاح</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <h1 class="hero-title">البوابات كلها خضراء. <em>والمشروع يحتاج إصلاحًا</em></h1>
+    <p class="hero-sub">
+      ٢٢١٦ اختبارًا ناجحًا. صفر أخطاء lint. تغطية ٨٦٪ مقابل بوابة ٧٠٪. هذه أرقام ممتازة،
+      وكلها صادقة — وكلها في نفس الوقت لا ترى واحدة من النتائج الحرجة الإحدى عشرة في هذا التقرير.
+      هذا التقرير عن <em>عمى الأدوات</em>، لا عن ضعفها.
+    </p>
+    <div class="hero-meta">
+      <span>اختبارات <b>2,216</b> (١٨٥ ملفًا)</span>
+      <span>ناجح <b>2,202</b> · فاشل <b>0</b> · متخطّى <b>14</b></span>
+      <span>eslint <b>0</b> أخطاء</span>
+      <span>تغطية <b>85.97%</b> أسطر</span>
+    </div>
+  </section>
+
+  <div class="wrap">
+
+    <!-- ======================================================== the gate -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>حالة البوابات كما هي</h2>
+        <p>مقيسة على <code>457cc45</code> بـ <code>npm test</code> و <code>npm run lint</code> و
+           <code>npm run test:coverage</code>.</p>
+      </div>
+
+      <div class="grid g4">
+        <div class="kpi" style="--kpi-accent:var(--sev-ok)">
+          <span class="kpi-val">0</span>
+          <span class="kpi-label">اختبارات فاشلة</span>
+          <span class="kpi-sub">من ٢٢١٦ · ١٢١ ثانية · ١٤ متخطّى (تحتاج صلاحيات symlink)</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-ok)">
+          <span class="kpi-val">0</span>
+          <span class="kpi-label">أخطاء lint</span>
+          <span class="kpi-sub">eslint 10.10 · <code>eslint.config.mjs</code></span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-ok)">
+          <span class="kpi-val">85.97<small>%</small></span>
+          <span class="kpi-label">تغطية الأسطر</span>
+          <span class="kpi-sub">٥٢٬٨٩٦ سطرًا في ٣١٢ ملفًا مُقاسًا</span>
+        </div>
+        <div class="kpi" style="--kpi-accent:var(--sev-high)">
+          <span class="kpi-val">12</span>
+          <span class="kpi-label">ملفًا بتغطية صفر</span>
+          <span class="kpi-sub">في <code>src/main/</code> تحديدًا</span>
+        </div>
+      </div>
+
+      <div class="chart-title" style="margin-block-start:26px">التغطية الفعلية مقابل بوابة الحد الأدنى</div>
+      <div id="chart-cov"></div>
+      <p class="card-note" style="margin-block-start:12px">
+        كل المقاييس تمر. الخط المنقّط هو بوابة <code>check-coverage</code> في
+        <code>package.json</code>. الفراغ بين <code>core</code> (٩٢٫٥٪) و
+        <code>main</code> (٦٥٫٧٪) هو الفجوة الحقيقية — وليست الرقم الإجمالي.
+      </p>
+    </section>
+
+    <!-- ================================================= the 12 files -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>الاثنا عشر ملفًا التي لا يراها أي اختبار</h2>
+        <p>
+          <code>all: true</code> في إعداد c8 يعني أن c8 <em>يحسب</em> هذه الملفات — لكنها تظهر
+          عند ٠٪ لأن لا شيء <em>يستدعيها</em>. وهذا هو الثمن: الملفان الأولان في القائمة
+          يحملان وحدهما أربع نتائج حرجة وأربعًا عالية من هذا التقرير.
+        </p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>تغطية صفر في <code>src/main/</code>. العمود الأخير يقول ماذا تحمل هذه الملفات.</caption>
+          <thead><tr><th>الملف</th><th class="num">الأسطر</th><th>ماذا يحمل</th></tr></thead>
+          <tbody id="zc-body"></tbody>
+        </table>
+      </div>
+      <div class="callout callout--danger" style="margin-block-start:16px">
+        <h4><i class="dot" style="background:var(--sev-critical)"></i> القراءة الصريحة</h4>
+        <p>
+          <code>main.js</code> — ١٨١٣ سطرًا، ويحتوي <code>file:save</code> و <code>file:read</code>
+          و <code>acp:start</code> و <code>agents:remove</code> و <code>term:create</code>.
+          خمس نتائج من أصل إحدى عشرة حرج. <strong>صفر تغطية.</strong>
+          <br><br>
+          هذا ليس عيبًا في c8 ولا في الاختبارات — هذه ببساطة <em>طبقة تكامل</em> لم تُختبر بعد.
+          والمشروع يملك بالفعل نمط الإصلاح: <code>docs/architecture.md</code> يصف
+          استخراج الوحدات الذي نجح في الـ renderer (<code>app.js</code> انقسم إلى
+          <code>tile-shell</code> و <code>tile-content</code> و <code>workspace-library</code>).
+          <strong>نفس النمط، مطبَّق على <code>main.js</code>، يجعله قابلًا للاختبار.</strong>
+        </p>
+      </div>
+    </section>
+
+    <!-- =================================================== why lint clean -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>لماذا يمرّ lint نظيفًا مع ٩٠ نتيجة؟</h2>
+        <p>القواعد الحالية تجيب عن سؤال <em>الصياغة</em>. الأسئلة التيProduce هذه النتائج ليست فيESLint أصلًا.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>خمس قواعد جديدة تغطي أعلى ٣٠ نتيجة. كل واحدة قابلة للتشغيل الليلة.</caption>
+          <thead><tr><th>القاعدة</th><th>ما تراه</th><th>النتائج التي تمنع تكرارها</th><th class="num">العدد</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>no-restricted-properties</code></td>
+              <td>خصائص فيزيائية في <code>*.css</code> و <code>*.mjs</code></td>
+              <td class="mono">U2 · U25 · U34</td>
+              <td class="num">122</td>
+            </tr>
+            <tr>
+              <td><code>no-restricted-syntax</code></td>
+              <td><code>addEventListener</code> بلا <code>removeEventListener</code> في نفس الملف</td>
+              <td class="mono">U3 · U4 · U24</td>
+              <td class="num">99</td>
+            </tr>
+            <tr>
+              <td><code>no-restricted-syntax</code></td>
+              <td><code>await</code> داخل معالج نقر بلا <code>catch</code> أو <code>.catch</code></td>
+              <td class="mono">U20 · U8 · U33</td>
+              <td class="num">218</td>
+            </tr>
+            <tr>
+              <td><code>no-restricted-syntax</code></td>
+              <td><code>spawn</code>/<code>exec</code> وسيطه من <code>event.sender</code> بلا قائمة سماح</td>
+              <td class="mono">S1 · S2 · S3 · S7</td>
+              <td class="num">9</td>
+            </tr>
+            <tr>
+              <td><code>require-await-free</code></td>
+              <td>عنصر تفاعلي بلا <code>role</code> ولا <code>tabindex</code> ولا <code>keydown</code></td>
+              <td class="mono">U15–U18 · U44–U46</td>
+              <td class="num">43</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="card-note" style="margin-block-start:14px">
+        <strong>الملاحظة الحقيقية عن الأرقام:</strong> ١٢٢ + ٩٩ + ٢١٨ + ٩ + ٤٣ = ٤٩١ موضعًا.
+        هذا ليس «بعض التحسينات» — إنه <strong>نمط متكرر يمكن منعه آليًا اليوم</strong>.
+        وأغلب النتائج في هذا التقرير كانت قابلة للالتقاط آليًا وقت كتابتها.
+      </p>
+    </section>
+
+    <!-- ================================================ core test gaps -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>طبقة المنطق: ٢٣٨ ملفًا، ١٢٦ منها مغطّى مباشرة</h2>
+        <p>
+          ٥٣٪ تغطية مباشرة. لكن ١٣ اختبارًا يستدعي <code>src/core/index.js</code> فيحمّل
+          الشجرة كلها transitively — فـ«بلا استدعاء مباشر» يعني <em>دخان بناء فقط</em>، لا صفر تغطية.
+        </p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <caption>الفجوات التي تهم، مرتّبة بحسب ما يعتمد عليها التقرير.</caption>
+          <thead><tr><th>الملف / النظام</th><th>الأسطر</th><th>لماذا يهم</th><th class="num">اختبار مباشر</th></tr></thead>
+          <tbody>
+            <tr class="row-fail">
+              <td><code>skills/runtime/SkillExecutor.js</code></td>
+              <td class="num">311</td>
+              <td><strong>المكوّن الذي ينفّذ المهارة فعليًا.</strong> لا يوجد اختبار واحد يبنيه.</td>
+              <td class="num">0</td>
+            </tr>
+            <tr class="row-fail">
+              <td><code>policy/{manager,evaluator}.js</code></td>
+              <td class="num">880</td>
+              <td><strong>محرك الحوكمة كله</strong> — نقطة الاعتماد الوحيدة للنتائج C1 و C2 و C9. بلا اختبار وحدة مباشر.</td>
+              <td class="num">0</td>
+            </tr>
+            <tr class="row-fail">
+              <td><code>skills/sources/{GitHubSkillSource, SkillsShSource}.js</code></td>
+              <td class="num">429</td>
+              <td><strong>مصدرا المهارات البعيدان، غير الموثوقَين.</strong> المصدران المحلي والمدمج مختبَران مباشرة؛ البعيدان لا.</td>
+              <td class="num">0</td>
+            </tr>
+            <tr class="row-fail">
+              <td><code>runtime/runtime.js</code> + <code>task-manager.js</code></td>
+              <td class="num">~300</td>
+              <td>محل عطل <code>cancel()</code> (C4) — لا اختبار يثبت أن الحلقة توقفت فعلًا.</td>
+              <td class="num">5</td>
+            </tr>
+            <tr class="row-warn">
+              <td><code>orchestrator/*.js</code> (5 ملفات)</td>
+              <td class="num">1,039</td>
+              <td>مغطّاة عبر البرميل فقط. <code>Scheduler.prune()</code> و <code>_awaitTask</code> timeout غير مختبرين مباشرة.</td>
+              <td class="num">0</td>
+            </tr>
+            <tr class="row-warn">
+              <td><code>harness-orchestrator/*.js</code> (8 ملفات)</td>
+              <td class="num">2,260</td>
+              <td>المنسّق الثاني. عطل <code>cancel()</code> في C5 يقع في منطقته بلا اختبار.</td>
+              <td class="num">0</td>
+            </tr>
+            <tr class="row-warn">
+              <td><code>sandbox/*.js</code> (6 ملفات)</td>
+              <td class="num">1,079</td>
+              <td>بلا استدعاء مباشر على الإطلاق.</td>
+              <td class="num">0</td>
+            </tr>
+            <tr class="row-warn">
+              <td><code>research/retrieval/parallelRetriever.js</code></td>
+              <td class="num">—</td>
+              <td>مسار الجلب المتوازي — بالضبط المكان الذي يعيش فيه خطأ الانتشار (fan-out).</td>
+              <td class="num">0</td>
+            </tr>
+            <tr class="row-warn">
+              <td><code>memory/*</code> + <code>context/*</code></td>
+              <td class="num">1,495</td>
+              <td>ترميز الذاكرة وموازنة السياق — النواة الحتمية لكل موجّه. مغطّاة عبر التكامل فقط.</td>
+              <td class="num">5</td>
+            </tr>
+            <tr class="row-warn">
+              <td><code>schema/validate.js</code></td>
+              <td class="num">54</td>
+              <td><strong>حدّ الثقة لكل بيان مهارة.</strong> ٥٤ سطرًا، بلا اختبار.</td>
+              <td class="num">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- =============================================== doc vs reality -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>ثلاث حالات «الكود يقول غير ما يقوله التعليق»</h2>
+        <p>هذه الأخطر: تعليقات تصف حالة غير موجودة تجعل القارئ يتوقف عن الفحص.</p>
+      </div>
+      <div class="grid g3">
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-critical)">
+          <h3>«نموذج تجريبي فقط»</h3>
+          <p class="card-note">
+            <code>acp-live.js:1</code> ترويسة الملف: <em>“PROTOTYPE (demo mode only)”</em>.
+            لا شيء في الكود يفحص وضع العرض التجريبي، والمعالج موصول دائمًا في
+            <code>main.js:627</code>. <strong>القارئ المتعجّل يقفل الملف على أنه معطَّل.</strong>
+            (<strong>S1</strong>)
+          </p>
+        </div>
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-critical)">
+          <h3>«لا تحذف مجلدًا يحمل عمل المستخدم»</h3>
+          <p class="card-note">
+            <code>agent-remove.js</code> ترويسة سطر ٢ القاعدة صراحةً. الدالة بعدها بثلاثين سطرًا
+            تنفّذ <code>rm -rf</code> على أي مسار تحت <code>$HOME</code> يمرّ فحص «مطلق وتحت المنزل».
+            <strong>القاعدة مكتوبة ولم تُنفَّذ.</strong> (<strong>S3</strong>)
+          </p>
+        </div>
+        <div class="card" style="border-inline-start-width:6px;border-inline-start-color:var(--sev-medium)">
+          <h3>«وحدة ميتة» بنية كود حيّة</h3>
+          <p class="card-note">
+            <code>panel-lifecycle.mjs:280</code>: <code>&amp;&amp; !p.dirty &amp;&amp; false</code>.
+            الشرط دائمًا خطأ، لكنه <em>يقرأ</em> كنيّة غير مكتملة. المصلح القادم سيصلحه
+            فيغيّر سلوكًا لم يطلبه أحد. (<strong>U21</strong>)
+          </p>
+        </div>
+      </div>
+      <div class="callout callout--warn" style="margin-block-start:16px">
+        <p class="card-note">
+          <strong>القاعدة المقترحة:</strong> أي تعليق يصف حالة تخطيطية أو نية غير منفَّذة يحتاج
+          علامة <code>TODO</code> صريحة أو <em>يحذف</em>. البحث في <code>src/main/</code>
+          أعطى <strong>صفر</strong> <code>TODO</code>/<code>FIXME</code>/<code>HACK</code> —
+          أي أن «غير المكتمل» في هذا المشروع يُقال في صوت واثق لا في علامة تحذير. هذا ما يجعل
+          الحالات الثلاث أعلاهخطرة.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================== what's tested -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>ما يُختبر جيدًا فعلًا</h2>
+        <p>التغطية العالية ليست زينة — هناك قرارات تصميم تشرحها.</p>
+      </div>
+      <div class="grid g3">
+        <div class="card card--tint">
+          <h3>اختبار معماري يمنع الانحدار</h3>
+          <p class="card-note">
+            <code>phase5-architecture.test.mjs:105-137</code> لا يثبت وجود منسّقين فحسب — بل
+            يثبت أن <em>مجموعتَي methods</em> في المنسّقين متمايزتان. و yacht الكتاب يصف
+            جزرتها المكرّرة <code>orchestrator/{coordinator,handoff,locks,messages}.js</code>
+            التي كُتب أصلًا لقتلها. <strong>تحقّقت: الجزيرة genuinely gone.</strong>
+          </p>
+        </div>
+        <div class="card card--tint">
+          <h3>اختبارات تشرح «لماذا» لا «ماذا»</h3>
+          <p class="card-note">
+            أسماء مثل <em>“unknown and expired feed values cannot look like live allowance”</em>
+            و <em>“a shell that hangs and returns empty still yields a usable PATH”</em> و
+            <em>“Codex quotas are not counted twice”</em>. هذه اختبارات تُكتب بعد حادث، وهي
+            الفئة التي تصمد. <strong>جودة الاختبارات هنا عالية فعلًا.</strong>
+          </p>
+        </div>
+        <div class="card card--tint">
+          <h3>تغطية قابلة للتنفيذ</h3>
+          <p class="card-note">
+            <code>research-hardening.test.mjs</code> يختبر <code>screenResolvedAddress</code>
+            و <code>screenRedirect</code>. الاختبارات موجودة وسليمة — <strong>المشكلة الوحيدة
+            أن الدوال نفسها ليست موصولة بمسار الإنتاج</strong>. هذه أرخص نتيجة في التقرير لإصلاحها.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================== the coverage -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>توزيع التغطية على النطاق</h2>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <div class="chart-title">حسب الطبقة</div>
+          <div id="chart-dom"></div>
+        </div>
+        <div class="card">
+          <div class="chart-title">ما يقيسه c8 وما لا يقيسه</div>
+          <p class="card-note">
+            <code>package.json</code> يشرح النطاقين في تعليق، والفصل قرار سليم:
+            <code>test:coverage</code> بوابة على <code>src/main</code> و <code>src/core</code>
+            لأنهما يعملان تحت node؛ و <code>test:coverage:renderer</code> تقرير فقط لأن
+            معظم الـ renderer يحتاج DOM.
+          </p>
+          <p class="card-note" style="margin-block-start:12px">
+            <strong>لكن النتيجة العملية أن الـ renderer — ١٩٬٣٨٥ سطرًا، أكبر من أي طبقة أخرى،
+            و٢٦ من أصل الـ ٩٠ نتيجة — غير مقيس كميّة إطلاقًا.</strong>
+            ملاحظة <code>c8</code> نفسها ذكية: «<code>app.js</code> يحتاج نافذة Electron».
+            هذا صحيح، وهو أيضًا <em>السبب</em> الذي يجعل خللًا في الـ renderer يمرّ إلى الإنتاج.
+          </p>
+          <pre style="margin-block-start:14px"><code>npm test              # 2216 اختبارًا
+npm run lint          # نظيف
+npm run test:coverage # البوابة: main + core
+npm run test:coverage:renderer   # تقرير فقط — بلا بوابة</code></pre>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <span>كل رقم في هذه الصفحة مُقاس بـ npm على <code>457cc45</code>.</span>
+  <span>الفرق بين «اجتاز» و«مغطّى» هو موضوع هذه الصفحة بالكامل.</span>
+</footer>
+
+<script src="data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  var A = window.AUDIT, U = window.AUDIT_UI, m = A.metrics;
+
+  document.getElementById('chart-cov').appendChild(
+    U.bullets(
+      A.charts.coverageTrend.map(function (r) {
+        return { label: r.label, actual: r.actual, gate: r.gate };
+      }),
+      { w: 640, labelW: 88, label: 'التغطية مقابل بوابة الحد الأدنى' }
+    )
+  );
+
+  document.getElementById('chart-dom').appendChild(
+    U.bars(
+      [
+        { label: 'core — 237 ملفًا', value: 92.5, color: '#4a6b52', display: '92.5%', sub: '40,030 سطرًا' },
+        { label: 'main — 75 ملفًا', value: 65.7, color: '#b4530a', display: '65.7%', sub: '12,866 سطرًا' },
+        { label: 'renderer — غير مقيس', value: 1, color: '#a4161a', display: '—', sub: '19,385 سطرًا · تقرير فقط بلا بوابة' },
+      ],
+      { w: 560, labelW: 190, max: 100, label: 'التغطية حسب الطبقة' }
+    )
+  );
+
+  var zb = document.getElementById('zc-body');
+  m.zeroCoverage.forEach(function (z) {
+    var tr = document.createElement('tr');
+    if (/CRITICAL|HIGH/.test(z.holds)) tr.className = 'row-fail';
+    tr.innerHTML =
+      '<td><code>src/main/' + U.esc(z.file) + '</code></td>' +
+      '<td class="num">' + U.num(z.lines) + '</td>' +
+      '<td class="card-note">' + U.esc(z.holds) + '</td>';
+    zb.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>
