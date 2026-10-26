@@ -165,10 +165,10 @@ function mountConversationView({ api, document: injected = null } = {}) {
 
   const style = doc.createElement('style');
   style.textContent = `
-    .ka-conversation-toggle { position: fixed; right: 14px; bottom: 92px; z-index: 9000;
+    .ka-conversation-toggle { position: fixed; inset-inline-end: 14px; bottom: 92px; z-index: 9000;
       font: 12px/1 system-ui, sans-serif; padding: 8px 12px; border: 1px solid rgba(127,127,127,.4);
       border-radius: 999px; background: rgba(20,20,30,.85); color: #dfe3ff; cursor: pointer; }
-    .ka-conversation { position: fixed; right: 14px; bottom: 130px; z-index: 9001;
+    .ka-conversation { position: fixed; inset-inline-end: 14px; bottom: 130px; z-index: 9001;
       width: 420px; max-height: 64vh; display: flex; flex-direction: column;
       background: rgba(16,18,26,.96); border: 1px solid rgba(127,127,127,.35); border-radius: 12px;
       color: #dbe0ff; font: 12px/1.5 system-ui, sans-serif; box-shadow: 0 18px 60px rgba(0,0,0,.5); }

@@ -41,7 +41,7 @@ export function connectCatalogHtml({ catalog, connectedIds, esc }) {
   const cat = catalogServices(catalog);
   return `<div class="picker-input"><span class="prompt-mark">⚡</span>
     <span style="font-weight:700">Connect MCP</span>
-    <span style="margin-left:auto;font-size:11px;color:var(--muted)">pick one to start</span></div>
+    <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">pick one to start</span></div>
     ${cat.length ? '' : '<div class="rail-empty" style="padding:14px">Loading the catalog…</div>'}
     <div class="svc-grid">${cat.map((s) => `
       <div class="svc-card${connectedIds.has(s.id) ? ' connected' : ''}" data-id="${esc(s.id)}" tabindex="0">

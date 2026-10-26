@@ -213,6 +213,22 @@ function setView(name, persistIt = true) {
 function applyViewAttrs() {
   document.querySelectorAll('#viewsw .view-choice').forEach((b) => { const active = b.dataset.view === S.view; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
 }
+// Which edge the interface reads from. Persisted like the view: localStorage
+// for frame one of this window (theme-boot.js reads it before first paint),
+// settings.json so every window agrees. lang follows so the browser shapes and
+// hyphenates for the script the layout was mirrored for.
+const DIR_KEY = 'kingagent-dir';
+function currentDirection() { return document.documentElement.dir === 'rtl' ? 'rtl' : 'ltr'; }
+function setDirection(name, persistIt = true) {
+  const dir = name === 'rtl' ? 'rtl' : 'ltr';
+  document.documentElement.dir = dir;
+  document.documentElement.lang = dir === 'rtl' ? 'ar' : 'en';
+  if (persistIt && !S.demo && !S.review) {
+    try { localStorage.setItem(DIR_KEY, dir); } catch (_) {}
+    if (api.settingsSet) Promise.resolve(api.settingsSet({ direction: dir })).catch(() => toast('Direction changed, but could not be saved for next launch.'));
+  }
+  if (els.grid) renderAll();
+}
 let themeSaveVersion = 0;
 function setTheme(name, persistIt = true) {
   name = normalizeTheme(name);
@@ -330,7 +346,7 @@ const settingsPanes = createSettingsPanes({ api, state: S, toast, esc, helpIcon,
   // refreshSttInfo/setSttInfo/transcribeBlob are thunks: they now live in
   // tile-content.mjs, constructed last, same reasoning as elsewhere.
   refreshSttInfo: (...a) => refreshSttInfo(...a), setSttInfo: (...a) => setSttInfo(...a), transcribeBlob: (...a) => transcribeBlob(...a),
-  setTheme, currentTheme, getThemeOptions: () => THEME_OPTIONS,
+  setTheme, currentTheme, getThemeOptions: () => THEME_OPTIONS, setDirection, currentDirection,
   browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl });
 const { openSettings, renderSettings, wireHelpDialog } = settingsPanes;
 const launcher = createLauncher({ api, state: S, tiles: tileEls, browsers, toast, overlay, closeOverlay, renderOverlay, rememberHelpFocus,
@@ -553,6 +569,8 @@ function dropPathOnPanel(p, path, isDir) {
   if (b.collapsed) S.railCollapsed = true;
   setTheme(b.themeArg || b.theme || DEFAULT_THEME, false);
   if (!S.review) { try { localStorage.setItem(THEME_KEY, currentTheme()); } catch (_) {} }
+  setDirection(b.dirArg || b.direction || 'ltr', false);
+  if (!S.review && !b.dirArg) { try { localStorage.setItem(DIR_KEY, currentDirection()); } catch (_) {} }
   // The view you left the app in. localStorage is this window's memory,
   // settings.json the shared one; a --scene may force one for a screenshot.
   let view = null; if (!S.demo) { try { view = localStorage.getItem(VIEW_KEY); } catch (_) {} }
@@ -1219,7 +1237,7 @@ function syncDeskColumns() {
   if (!els.grid) return;
   const cs = getComputedStyle(els.grid);
   const inner = els.grid.clientWidth
-    - parseFloat(cs.paddingLeft || '0') - parseFloat(cs.paddingRight || '0');
+    - parseFloat(cs.paddingInlineStart || '0') - parseFloat(cs.paddingInlineEnd || '0');
   const cols = deskColumns(inner);
   if (syncDeskColumns.last === cols) return;
   syncDeskColumns.last = cols;

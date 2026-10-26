@@ -124,9 +124,9 @@ body[data-theme="glass"] a { color: #3763c9; }
    ========================================================================= */
 
 body[data-glass] {
-  --gl-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-  --gl-mono: 'SF Mono', ui-monospace, Menlo, monospace;
-  --gl-dot: 'Doto', 'SF Mono', ui-monospace, monospace;
+  --gl-sans: -apple-system, 'KA Arabic', BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  --gl-mono: 'SF Mono', 'KA Arabic', ui-monospace, Menlo, monospace;
+  --gl-dot: 'Doto', 'KA Arabic', 'SF Mono', ui-monospace, monospace;
   --gl-pop: cubic-bezier(0.22, 1.28, 0.36, 1);
   /* the sheet's corner, named once: the overlay scrim has to trace the same
      curve or it reads as a square dropped on a rounded workbench. 0 since the
@@ -148,7 +148,7 @@ body[data-glass] .svc-card, body[data-glass] .svc-custom, body[data-glass] .ctx-
 .pix-i { display: none; }
 body[data-glass] .pix-i { display: inline-flex; align-items: center; }
 body[data-glass] .uni-i { display: none; }
-body[data-glass] .btn .pix-i { margin-right: 5px; }
+body[data-glass] .btn .pix-i { margin-right: 5px; } /* physical: the icon sits inside the English label, which reads left to right on either desk */
 .pix-glyph { width: 11px; height: 11px; }
 .pix-glyph path { fill: currentColor; shape-rendering: crispEdges; }
 
@@ -182,7 +182,7 @@ body[data-glass] .card-lbl,
 body[data-glass] .ab-name,
 body[data-glass] .board-title,
 body[data-glass] .sv-bigok-t { font-family: var(--gl-dot); font-weight: 800; }
-body[data-glass] .say--user { font-family: var(--gl-sans); font-size: 13px; line-height: 1.6; border-left-color: var(--gl-accent); }
+body[data-glass] .say--user { font-family: var(--gl-sans); font-size: 13px; line-height: 1.6; border-inline-start-color: var(--gl-accent); }
 
 body[data-glass] .brand-name { font-size: 19px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
 body[data-glass] .brand-sub { font-family: var(--gl-dot); font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; align-self: flex-end; padding-bottom: 4px; }
@@ -198,7 +198,7 @@ body[data-glass] .brand-sub { font-family: var(--gl-dot); font-weight: 800; font
    the wordmark's grid. The number that matters is the one your eye reports. */
 body[data-glass] .brand-ver {
   font-family: var(--gl-dot); font-weight: 800; letter-spacing: 0.18em;
-  left: 0; top: calc(100% - 1px);
+  inset-inline-start: 0; top: calc(100% - 1px);
 }
 /* Glass is the one theme where --faint fails: #b4b5be on its pale aurora is
    1.5:1, which is not quiet, it is absent. One rung up puts it at 2.5:1 —
@@ -284,7 +284,7 @@ body[data-glass] .nav-card.attn { border-color: var(--amber-line); box-shadow: v
 body[data-glass] .tile.drop-hint, body[data-glass] .tile.file-hint { outline-color: var(--gl-accent); }
 /* glass rounds its tiles 22px, so the corner mark tucks inside the curve — the
    hit area is unchanged, still straddling the true corner */
-body[data-glass] .tile-grip::before { right: 17px; bottom: 17px; }
+body[data-glass] .tile-grip::before { inset-inline-end: 17px; bottom: 17px; }
 /* the resize slot speaks the same accent as every other drop target on glass */
 body[data-glass] .desk-slot { border-color: var(--gl-accent); background: rgba(245, 165, 36, 0.06); }
 body[data-glass] .desk-slot .ds-size { background: var(--gl-pane); border-color: var(--gl-rim); border-radius: 7px; }
@@ -407,7 +407,7 @@ body[data-glass] .btn--go:hover {
 body[data-glass] .btn--amber, body[data-glass] .btn--red { box-shadow: var(--gl-slab), 0 6px 18px rgb(var(--gl-sh) / 0.1); border-radius: 999px; }
 
 /* ---- rail --------------------------------------------------------------------- */
-body[data-glass] .rail { border-right: none; background: none; }
+body[data-glass] .rail { border-inline-end: none; background: none; }
 /* the segmented pill needs outer margins (paper spaced with padding we replaced),
    and the scroller needs headroom so a lifted card never clips under the header */
 body[data-glass] .rail-tabs { margin: 6px 16px 8px; }
@@ -445,7 +445,7 @@ body[data-glass] .lib-group {
   background: var(--gl-pane-modal);
   -webkit-backdrop-filter: blur(14px) saturate(1.5);
   backdrop-filter: blur(14px) saturate(1.5);
-  padding-left: 14px; padding-right: 14px; margin-left: -14px; margin-right: -14px;
+  padding-inline-start: 14px; padding-inline-end: 14px; margin-inline-start: -14px; margin-inline-end: -14px;
 }
 
 /* segmented progress ticks (paper's solid bars go dotted, Nothing-style) */
@@ -496,7 +496,7 @@ body[data-glass] .term-body { padding: 0; }
 /* same breathing room as the other themes, but on .xterm rather than the body:
    the glass panes bleed their blur to the tile edge, so padding the body would
    punch a hard-edged frame out of it */
-body[data-glass] .term-body .xterm { padding: 12px 14px 12px 12px; }
+body[data-glass] .term-body .xterm { padding-block: 12px; padding-inline: 12px 14px; }
 body[data-glass] .ed-gutter { color: var(--faint); background: none; }
 body[data-glass] .ed-stack, body[data-glass] .ql-lines { background: none; }
 body[data-glass] .editor--md .ed-area { caret-color: var(--gl-accent); }
@@ -541,7 +541,7 @@ body[data-glass] .md-read h2 { font-size: 1.154em; font-weight: 700; }   /* 15/1
 body[data-glass] .md-read h3 { font-size: 1.038em; font-weight: 600; }   /* 13.5/13 */
 body[data-glass] .md-read code { background: var(--gl-pane); border-color: var(--gl-rim-dim); border-radius: 6px; font-family: var(--gl-mono); }
 body[data-glass] .md-read .md-pre { background: var(--gl-well); border-color: var(--gl-well-line); border-radius: 12px; }
-body[data-glass] .md-read blockquote { border-left-color: var(--gl-accent); }
+body[data-glass] .md-read blockquote { border-inline-start-color: var(--gl-accent); }
 
 /* approvals + steps */
 body[data-glass] .approval, body[data-glass] .stopped {
@@ -609,7 +609,7 @@ body[data-glass] .picker-row { border-bottom-color: var(--dash); border-radius: 
    row it belongs to, and the dotted rules go — glass separates by fill, not by
    line. The last-row rule in paper.css is the one thing that must survive, so
    the block still ends cleanly against the next agent. */
-body[data-glass] .tool-list { border-radius: 12px; border-bottom: 0; background: var(--gl-pane-dim); margin: 0 0 4px 42px; padding-left: 10px; }
+body[data-glass] .tool-list { border-radius: 12px; border-bottom: 0; background: var(--gl-pane-dim); margin-block: 0 4px; margin-inline: 42px 0; padding-inline-start: 10px; }
 body[data-glass] .tool-row { border-bottom: 0; border-radius: 9px; }
 body[data-glass] .picker-foot { border-top: 1px solid var(--dash); }
 body[data-glass] .text-input { box-shadow: none; border-radius: 12px; background: var(--gl-pane-dim); }
@@ -685,7 +685,7 @@ body[data-glass] .qs-box {
   border-radius: 24px; overflow: hidden;
   box-shadow: var(--gl-slab), 0 40px 110px rgb(var(--gl-sh) / 0.32);
 }
-body[data-glass] .qs-head { padding: 16px 44px 14px 20px; border-bottom: 1px solid var(--dash); }
+body[data-glass] .qs-head { padding-block: 16px 14px; padding-inline: 20px 44px; border-bottom: 1px solid var(--dash); }
 /* the foot drops paper's --paper-3 wash: on a translucent modal a second fill
    reads as a seam, and .modal-foot carries none either */
 body[data-glass] .qs-foot { padding: 12px 20px; border-top: 1px solid var(--dash); background: none; }

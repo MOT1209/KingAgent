@@ -6,6 +6,7 @@ import { SHELF_GROUPS, MAC_GROUP_KEYS, CLI_ORDER, shelfOf, cliKey, serviceShelf,
 import { receiversOf } from './receivers.mjs';
 import { shortAge } from './rel-time.mjs';
 import { chipHtml, iconKeyFor, treeIcon, pixIcon } from './icons.mjs';
+import { isRtl, alignStart, alignEnd } from './dir-axis.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -72,7 +73,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     // its descendants (overflow backstop for ⌘+ zoom), and renderHeader() rebuilds
     // topbar-center's innerHTML, which would silently eat the pop.
     const anchor = els.topbarCenter.getBoundingClientRect();
-    pop.style.left = (anchor.left + anchor.width / 2) + 'px';
+    pop.style.left = (anchor.left + anchor.width / 2) + 'px'; // physical: centred on the anchor
     pop.style.top = (anchor.top + 46) + 'px';
     document.body.appendChild(pop);
     const reopen = () => { const p = q('.projects-pop'); if (p) p.remove(); toggleProjectsPop(); };
@@ -115,8 +116,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const pop = q('.theme-pop'), zone = q('#theme-zone');
     if (!pop || !zone) return;
     const anchor = zone.getBoundingClientRect();
-    const right = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, window.innerWidth - anchor.right));
-    pop.style.right = right + 'px';
+    pop.style.left = alignEnd(anchor, pop.offsetWidth, window.innerWidth, isRtl()) + 'px'; // physical: computed from a rect
     pop.style.top = (anchor.bottom + 8) + 'px';
     pop.style.maxHeight = Math.max(80, window.innerHeight - anchor.bottom - 16) + 'px';
     pop.style.overflowY = 'auto';
@@ -248,10 +248,10 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       { label: 'New file…', run: () => openFsName('file', newTargetDir()) },
       { label: 'New folder…', run: () => openFsName('folder', newTargetDir()) },
     ]);
-    plus.onclick = (e) => { e.stopPropagation(); const r = plus.getBoundingClientRect(); openNewMenu(r.left, r.bottom + 4); };
+    plus.onclick = (e) => { e.stopPropagation(); const r = plus.getBoundingClientRect(); openNewMenu(r, r.bottom + 4); };
     plus.onkeydown = (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      e.preventDefault(); const r = plus.getBoundingClientRect(); openNewMenu(r.left, r.bottom + 4);
+      e.preventDefault(); const r = plus.getBoundingClientRect(); openNewMenu(r, r.bottom + 4);
     };
     head.appendChild(pathSpan); head.appendChild(plus); head.appendChild(toggle); wrap.appendChild(head);
     head.oncontextmenu = (e) => {
@@ -290,7 +290,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       const row = document.createElement('div'); row.className = 'tree-row';
       if (n.path === S.treeSel) row.classList.add('sel');
       if (S.treeFresh.has(n.path)) row.classList.add('landed');
-      row.style.paddingLeft = (6 + depth * 13) + 'px';
+      row.style.paddingInlineStart = (6 + depth * 13) + 'px';
       row.style.setProperty('--d', String(depth));
       row.dataset.path = n.path; row.dataset.kind = n.kind; row.dataset.dir = dir;
       const isOpen = S.expanded.has(n.path);
@@ -462,7 +462,10 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     }
     document.body.appendChild(m);
     const r = m.getBoundingClientRect();
-    m.style.left = Math.min(x, window.innerWidth - r.width - 8) + 'px';
+    // x is a pointer position, or the rect of the button the menu drops from —
+    // then it lines up with that button's start edge, whichever side that is.
+    const left = typeof x === 'object' ? alignStart(x, r.width, window.innerWidth, isRtl()) : Math.min(x, window.innerWidth - r.width - 8);
+    m.style.left = left + 'px'; // physical: computed from a pointer or a rect
     m.style.top = Math.min(y, window.innerHeight - r.height - 8) + 'px';
     setTimeout(() => {
       window.addEventListener('click', hideMenu, { once: true });

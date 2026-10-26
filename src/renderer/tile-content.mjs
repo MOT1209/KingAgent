@@ -838,7 +838,7 @@ export function createTileContent({
     if (p.kind === 'acp') {
       const t = tileEls.get(p.id); if (!t || !t.aiInput) return;
       t.aiInput.value += (t.aiInput.value && !t.aiInput.value.endsWith(' ') ? ' ' : '') + text;
-      t.aiInput.dispatchEvent(new Event('input'));
+      t.aiInput.dispatchEvent(new Event('input', { bubbles: true }));
       t.aiInput.focus();
       return;
     }

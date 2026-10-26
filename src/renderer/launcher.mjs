@@ -48,7 +48,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     const recents = (S.recents || []).filter((r) => !r.missing);
     const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">＋</span>
       <span style="font-weight:700">Where should ${esc(who)} work?</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--muted)">then your session starts</span></div>
+      <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">then your session starts</span></div>
       ${recents.length
     ? `<div class="ff-lead">a session runs inside a folder. Pick one and ${esc(who)} starts there</div>
         <div class="picker-list" id="ff-list">${recents.map((r, i) => `
@@ -122,7 +122,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     const prevList = q('#lc-list');
     const prevScroll = prevList ? prevList.scrollTop : 0;
     const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">＋</span><span style="font-weight:700">New session</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--muted)">${S.project ? esc(S.project.name) : 'no folder'}</span></div>
+      <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">${S.project ? esc(S.project.name) : 'no folder'}</span></div>
       <div class="picker-list" id="lc-list"></div>`, { top: true });
     const list = q('#lc-list', modal);
     if (prevScroll) requestAnimationFrame(() => { list.scrollTop = prevScroll; });

@@ -102,7 +102,7 @@ body[data-theme="soft"] a { color: #3d6bb3; }
    ========================================================================= */
 
 body[data-soft] {
-  --sf-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  --sf-sans: -apple-system, 'KA Arabic', BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   font-family: var(--sf-sans);
 }
 body[data-soft] .caveat,
@@ -181,7 +181,7 @@ body[data-soft] .action {
 /* ---- lockup ---------------------------------------------------------------- */
 body[data-soft] .brand-name { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
 body[data-soft] .brand-ver {
-  left: 1px; top: calc(100% - 1px);
+  inset-inline-start: 1px; top: calc(100% - 1px);
   font-size: 10px; letter-spacing: 0.14em; color: var(--faint);
 }
 body[data-soft] .brand-sub { align-self: flex-end; padding-bottom: 2px; }
@@ -248,7 +248,7 @@ body[data-soft] #btn-help {
 body[data-soft] #btn-help:hover { box-shadow: var(--sf-press-sm); }
 
 /* ---- rail ------------------------------------------------------------------ */
-body[data-soft] .rail { border-right: 0; }
+body[data-soft] .rail { border-inline-end: 0; }
 body[data-soft] .rail-tabs { gap: 6px; padding: 8px 10px; }
 body[data-soft] .rail-tab {
   border: 0; border-radius: 8px; background: var(--paper); box-shadow: var(--sf-raise-sm);
@@ -275,13 +275,13 @@ body[data-soft] .nav-card .code {
 }
 
 /* Indent the pill, not the label. --d is set on each row in renderTreeLevel;
-   paper/glass ignore it and keep the inline padding-left indent. */
+   paper/glass ignore it and keep the inline padding-inline-start indent. */
 body[data-soft] .tree-row {
   --d: 0;
   border-bottom: 0; border-radius: var(--sf-r-sm);
   box-shadow: var(--sf-card-sm);
-  margin: 5px 6px 5px calc(6px + var(--d) * 14px);
-  padding-left: 8px !important;
+  margin-block: 5px; margin-inline: calc(6px + var(--d) * 14px) 6px;
+  padding-inline-start: 8px !important;
 }
 body[data-soft] .tree-row[data-kind="file"] {
   box-shadow: var(--sf-raise-sm); border-radius: 8px;
@@ -432,7 +432,7 @@ body[data-soft] .picker-row .code {
   border: 0; border-radius: var(--sf-r-chip); background: var(--paper);
   box-shadow: var(--sf-raise-sm);
 }
-body[data-soft] .tool-list { border: 0; border-radius: var(--sf-r-sm); margin: 0 0 4px 42px; box-shadow: var(--sf-press); }
+body[data-soft] .tool-list { border: 0; border-radius: var(--sf-r-sm); margin-block: 0 4px; margin-inline: 42px 0; box-shadow: var(--sf-press); }
 body[data-soft] .tool-row { border: 0; border-radius: 9px; }
 body[data-soft] .ni-where {
   border: 0; border-radius: 10px; background: var(--paper); box-shadow: var(--sf-press-sm);
@@ -539,7 +539,7 @@ body[data-soft] .cw-think {
 body[data-soft] .cw-think:hover { box-shadow: var(--sf-press-sm); }
 body[data-soft] .cw-think-body,
 body[data-soft] .cw-hint {
-  border-left: 0; border-radius: var(--sf-r-sm); background: var(--paper);
+  border-inline-start: 0; border-radius: var(--sf-r-sm); background: var(--paper);
   box-shadow: var(--sf-press-sm); padding: 8px 12px; margin-top: 4px;
 }
 body[data-soft] .cw-file,
@@ -611,7 +611,7 @@ body[data-soft] .cw-md th, body[data-soft] .cw-md td { border: 0; border-bottom:
 body[data-soft] .cw-md tr:last-child td { border-bottom: 0; }
 body[data-soft] .cw-md th, body[data-soft] .cw-md tr:nth-child(even) td { background: transparent; }
 body[data-soft] .cw-md blockquote {
-  border-left: 0; background: var(--paper); border-radius: var(--sf-r-sm);
+  border-inline-start: 0; background: var(--paper); border-radius: var(--sf-r-sm);
   box-shadow: var(--sf-press-sm); padding: 8px 12px;
 }
 body[data-soft] .cw-md hr { border: 0; height: 4px; border-radius: 2px; box-shadow: var(--sf-press-sm); }

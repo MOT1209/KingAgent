@@ -12,6 +12,45 @@ always the newest one below.
 
 ## [Unreleased]
 
+### Added
+
+- Arabic support, batch P2 of the audit fix plan in `docs/audit/`. The
+  interface strings are still English. What changed:
+  - **Arabic text renders correctly everywhere.** IBM Plex Sans Arabic
+    (regular and bold, Arabic subset, OFL) is bundled and listed second in
+    every font stack. Its `unicode-range` limits it to Arabic code points, so
+    Latin text is unchanged and the file only loads once Arabic appears. Chat
+    messages, documents, the block editor, prose fields and file/session names
+    each take their direction from their own text: an Arabic reply reads right
+    to left on a left-to-right desk. Code, paths and terminals stay left to
+    right.
+  - **Settings → Look → Layout direction** mirrors the whole desk (sidebar,
+    rows, the resize grip, the split divider, popovers). It is stored in
+    settings.json as `direction` and applied before first paint.
+    `--dir=rtl` forces it for screenshots.
+  - **Every horizontal rule is now logical.** About 150 physical declarations
+    across the stylesheets were converted (`margin-inline-*`, `inset-inline-*`,
+    tokenised alignment), along with the JS that measured from a fixed edge:
+    tree indent, tile resize, split-divider drag, and popovers anchored to a
+    button, which now go through `src/renderer/dir-axis.mjs`. The few lines
+    that are genuinely physical (page coordinates, the Windows caption-button
+    inset, the terminal's edge) say so with a `physical:` comment.
+    `tests/rtl-logical.test.mjs` fails on any new physical property without
+    that comment, on a font stack that cannot draw Arabic, and on a missing
+    `lang`/`dir`.
+  - With left to right selected, the demo screenshot is pixel-identical to the
+    one taken before this change.
+- The Agent Platform and research panel styles moved out of injected
+  `<style>` blocks into `agent-platform.css` and `research-panel.css`, so the
+  checks above cover them (U25). Their colours are unchanged: both are a dark
+  sheet that looks the same on every theme by design. The skills pane's
+  hard-coded red is now the `--red-body` token.
+
+### Fixed
+
+- Dictating into a tile's AI input now sends a bubbling `input` event, like
+  the other three dictation paths, so delegated listeners see it (U34).
+
 ### Security
 
 First batch from the audit in `docs/audit/` (fix plan P1): every IPC handler

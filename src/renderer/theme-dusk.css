@@ -102,7 +102,7 @@ body[data-dusk] .cw-md th, body[data-dusk] .cw-md td { border: 0; border-bottom:
 body[data-dusk] .cw-md tr:last-child td { border-bottom: 0; }
 body[data-dusk] .cw-md th, body[data-dusk] .cw-md tr:nth-child(even) td { background: transparent; }
 body[data-dusk] .cw-md blockquote {
-  border-left: 0; background: var(--paper); border-radius: var(--sf-r-sm);
+  border-inline-start: 0; background: var(--paper); border-radius: var(--sf-r-sm);
   box-shadow: var(--sf-press-sm); padding: 8px 12px;
 }
 body[data-dusk] .cw-md hr { border: 0; height: 4px; border-radius: 2px; box-shadow: var(--sf-press-sm); }

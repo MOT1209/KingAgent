@@ -1,6 +1,6 @@
 /* Settings → Usage. Tokens only; parent links this file after merge. */
 .usage-settings {
-  font-family: 'Courier Prime', ui-monospace, monospace;
+  font-family: 'Courier Prime', 'KA Arabic', ui-monospace, monospace;
   font-size: 12px;
   line-height: 1.5;
   color: var(--ink);
@@ -28,13 +28,13 @@
 .usage-card-head strong {
   flex: 1 1 auto;
   min-width: 0;
-  font-family: Caveat, cursive;
+  font-family: Caveat, 'KA Arabic', cursive;
   font-size: 18px;
   font-weight: 600;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.usage-value { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.usage-value { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: var(--align-end); }
 .usage-stale { color: var(--muted); }
 .usage-bar { height: 4px; background: var(--dash); margin: 8px 0; overflow: hidden; }
 .usage-bar > span { display: block; height: 100%; background: var(--green); }
@@ -61,8 +61,8 @@
 .usage-unavailable { margin-top: 18px; font-size: 11px; }
 .usage-unavailable > summary { cursor: pointer; padding: 5px 0; color: var(--muted); overflow-wrap: anywhere; }
 .usage-unavailable > summary:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.usage-advanced pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; max-width: 100%; font-family: 'Courier Prime', ui-monospace, monospace; }
+.usage-advanced pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; max-width: 100%; font-family: 'Courier Prime', 'KA Arabic', ui-monospace, monospace; }
 @media (max-width: 480px) {
   .usage-card-head, .usage-window-head { flex-wrap: wrap; }
-  .usage-value { margin-left: auto; }
+  .usage-value { margin-inline-start: auto; }
 }

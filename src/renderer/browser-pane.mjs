@@ -1,6 +1,7 @@
 import { createBrowserAnnotations } from './browser-annotations.mjs';
 import { browserSettingsHtml, wireBrowserSettings } from './browser-settings.mjs';
 import { createBrowserOverlays } from './browser-overlays.mjs';
+import { isRtl, alignEnd } from './dir-axis.mjs';
 // Native page content; all chrome remains the same DOM tile as other files.
 export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFile, isSession, pin, focus, refresh, save,
   show, dialog, close, closePanel, toast, selection, settings, dictation, insertAnnotation, sessions, panelIcon, tileMenu, showMenu, openOutside }) {
@@ -134,7 +135,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     }
     for (const [label, run] of actions) { const b = document.createElement('button'); b.type='button'; b.setAttribute('role','menuitem'); b.textContent=label; b.onclick=()=>{closeMenu();run();}; menu.appendChild(b); }
     document.body.appendChild(menu); const r=anchor.getBoundingClientRect();
-    menu.style.left=Math.max(8,Math.min(r.right-menu.offsetWidth,innerWidth-menu.offsetWidth-8))+'px'; menu.style.top=Math.max(8,Math.min(r.bottom+4,innerHeight-menu.offsetHeight-8))+'px';
+    menu.style.left=alignEnd(r,menu.offsetWidth,innerWidth,isRtl())+'px'; menu.style.top=Math.max(8,Math.min(r.bottom+4,innerHeight-menu.offsetHeight-8))+'px'; // physical: left is computed from a rect
     menu.onkeydown=e=>{ const buttons=[...menu.querySelectorAll('button')]; let i=buttons.indexOf(document.activeElement); if(e.key==='Escape'){closeMenu();anchor.focus();} else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();buttons[(i+(e.key==='ArrowDown'?1:buttons.length-1))%buttons.length].focus();} };
     menu.querySelector('button').focus(); schedule();
   }

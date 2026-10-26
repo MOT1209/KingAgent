@@ -9,7 +9,7 @@ import { GROK_API_KEY } from './grok-auth.mjs';
 // browser-pane.mjs), Usage (delegates to usage-pane.mjs), Updates, About.
 export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overlay, closeOverlay, renderOverlay,
   rememberHelpFocus, getHelpFocusKey, refreshSttInfo, setSttInfo, transcribeBlob, setTheme, currentTheme, getThemeOptions,
-  browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
+  setDirection, currentDirection, browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
   const S = state;
 
   const SET_SECTIONS = [
@@ -277,12 +277,23 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   }
 
   // ---- Look ------------------------------------------------------------------
+  // Direction mirrors the layout, not the words: the strings stay English, and
+  // chat, documents and file names find their own direction either way.
+  const DIRECTION_OPTIONS = [
+    { id: 'ltr', name: 'Left to right', desc: 'the sidebar and every row start on the left' },
+    { id: 'rtl', name: 'Right to left', desc: 'mirrored for Arabic: the sidebar and every row start on the right' },
+  ];
   function lookPaneHtml() {
     return `<div class="field-label">appearance</div>` + getThemeOptions().map((t) =>
       `<button class="theme-opt set-opt${currentTheme() === t.id ? ' picked' : ''}" data-theme-id="${t.id}" aria-pressed="${currentTheme() === t.id}">
         <span class="theme-dot"></span>
         <span class="set-opt-col"><span class="theme-name">${esc(t.name)}</span>
-          <span class="set-opt-desc">${esc(t.desc)}</span></span></button>`).join('');
+          <span class="set-opt-desc">${esc(t.desc)}</span></span></button>`).join('')
+      + `<div class="field-label">layout direction</div>` + DIRECTION_OPTIONS.map((d) =>
+      `<button class="theme-opt set-opt${currentDirection() === d.id ? ' picked' : ''}" data-dir-id="${d.id}" aria-pressed="${currentDirection() === d.id}">
+        <span class="theme-dot"></span>
+        <span class="set-opt-col"><span class="theme-name">${esc(d.name)}</span>
+          <span class="set-opt-desc">${esc(d.desc)}</span></span></button>`).join('');
   }
   function wireLookPane(modal) {
     modal.querySelectorAll('[data-theme-id]').forEach((b) => {
@@ -291,6 +302,14 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
         setTheme(theme);
         // setTheme rebuilds Settings; keep keyboard navigation on the new row.
         q(`.set-opt[data-theme-id="${theme}"]`)?.focus({ preventScroll: true });
+      };
+    });
+    modal.querySelectorAll('[data-dir-id]').forEach((b) => {
+      b.onclick = () => {
+        const dir = b.dataset.dirId;
+        setDirection(dir);
+        // Like setTheme, setDirection re-renders Settings; keep focus on the row.
+        q(`.set-opt[data-dir-id="${dir}"]`)?.focus({ preventScroll: true });
       };
     });
   }

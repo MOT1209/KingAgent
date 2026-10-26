@@ -29,7 +29,7 @@
 .usage-window-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 12px; }
 .usage-window-label { min-width: 0; overflow-wrap: anywhere; }
 .usage-window-label small { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
-.usage-value { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.usage-value { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: var(--align-end); }
 .usage-bar { height: 4px; background: var(--dash); margin: 8px 0; overflow: hidden; }
 .usage-bar > span { display: block; height: 100%; background: var(--green); }
 .usage-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 5px; font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
@@ -41,7 +41,7 @@
 .usage-setup pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; max-width: 100%; }
 @media (max-width: 480px) {
   .usage-window-head { flex-wrap: wrap; }
-  .usage-value { margin-left: auto; }
+  .usage-value { margin-inline-start: auto; }
 }
 
 @media (max-width:620px) { .modal--settings .set-nav .rail-tab { flex:0 0 auto; max-width:100%; } }

@@ -23,73 +23,7 @@ function mountAgentPlatform() {
   const api = window.kingagent && window.kingagent.agentPlatform;
   if (!api) return null; // platform not installed in this build
 
-  const style = document.createElement('style');
-  style.textContent = `
-    .agent-platform-toggle { position: fixed; right: 14px; bottom: 14px; z-index: 9000;
-      font: 12px/1 system-ui, sans-serif; padding: 8px 12px; border: 1px solid rgba(127,127,127,.4);
-      border-radius: 999px; background: rgba(20,20,30,.85); color: #dfe3ff; cursor: pointer; }
-    .agent-platform-panel { position: fixed; right: 14px; bottom: 52px; z-index: 9001;
-      width: 380px; max-height: 60vh; display: flex; flex-direction: column;
-      background: rgba(16,18,26,.96); border: 1px solid rgba(127,127,127,.35); border-radius: 12px;
-      color: #dbe0ff; font: 12px/1.5 system-ui, sans-serif; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
-    .agent-platform-panel header { padding: 10px 14px; border-bottom: 1px solid rgba(127,127,127,.25);
-      display: flex; justify-content: space-between; align-items: center; }
-    .agent-platform-panel h1 { margin: 0; font-size: 13px; font-weight: 600; }
-    .agent-platform-close { border: 0; background: transparent; color: #9aa; cursor: pointer; font-size: 14px; }
-    .agent-platform-scroll { overflow-y: auto; padding: 10px 14px; }
-    .agent-platform-panel section + section { margin-top: 14px; }
-    .agent-platform-panel h2 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #9aa3c4; }
-    .agent-platform-panel .row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
-    .agent-platform-panel .muted { color: #8b93b8; }
-    .agent-platform-panel .chip { border-radius: 999px; background: rgba(127,127,160,.16); padding: 1px 8px; font-size: 11px; }
-    .agent-platform-panel input[type=text], .agent-platform-panel select {
-      width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 8px;
-      border: 1px solid rgba(127,127,160,.4); background: #10131c; color: #dfe3ff; margin: 4px 0; }
-    .agent-platform-panel button.primary { width: 100%; padding: 7px; border: 0; border-radius: 8px;
-      background: #4c5cff; color: #fff; cursor: pointer; margin-top: 6px; }
-    .agent-platform-panel .events { font-size: 11px; font-family: ui-monospace, monospace; }
-    .agent-platform-panel .events div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .agent-platform-panel .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-      background: #5f677f; margin-right: 6px; }
-    .agent-platform-panel .status-completed { background: #3ddc84; }
-    .agent-platform-panel .status-failed, .agent-platform-panel .status-cancelled { background: #ff5f6d; }
-    .agent-platform-panel .status-executing, .agent-platform-panel .status-analyzing,
-    .agent-platform-panel .status-planning, .agent-platform-panel .status-queued,
-    .agent-platform-panel .status-working { background: #ffcf5c; }
-    .agent-platform-panel .progress { font-size: 11px; line-height: 1.7; }
-    .agent-platform-panel .progress div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .agent-platform-panel .progress .done { color: #7fe0a6; }
-    .agent-platform-panel .progress .failed { color: #ff8a94; }
-    .agent-platform-panel .progress .running { color: #ffcf5c; }
-    .agent-platform-panel .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-    .agent-platform-panel .approval { border: 1px solid rgba(255,207,92,.5); border-radius: 8px;
-      padding: 6px 8px; margin-top: 6px; }
-    .agent-platform-panel .approval .actions { display: flex; gap: 6px; margin-top: 6px; }
-    .agent-platform-panel .approval button { flex: 1; padding: 4px; border: 0; border-radius: 6px; cursor: pointer; }
-    .agent-platform-panel .approval .yes { background: #3ddc84; color: #04210f; }
-    .agent-platform-panel .approval .no { background: #ff5f6d; color: #2a0206; }
-    /* The organization view (§41/§42). Depth is indentation, so lineage reads
-       without a graph widget; the tone is a colour per lifecycle state rather
-       than a second vocabulary. */
-    .agent-platform-panel .org-row { display: flex; align-items: center; gap: 6px; width: 100%;
-      border: 0; background: transparent; color: inherit; text-align: left; padding: 3px 6px;
-      border-radius: 6px; cursor: pointer; font: inherit; }
-    .agent-platform-panel .org-row:hover { background: rgba(127,127,160,.14); }
-    .agent-platform-panel .org-row[aria-current='true'] { background: rgba(76,92,255,.28); }
-    .agent-platform-panel .org-row .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .agent-platform-panel .tone-done { background: #3ddc84; }
-    .agent-platform-panel .tone-failed { background: #ff5f6d; }
-    .agent-platform-panel .tone-working { background: #ffcf5c; }
-    .agent-platform-panel .tone-waiting { background: #ffa45c; }
-    .agent-platform-panel .tone-paused { background: #9aa3c4; }
-    .agent-platform-panel .org-detail { border: 1px solid rgba(127,127,160,.35); border-radius: 8px;
-      padding: 6px 8px; margin-top: 6px; }
-    .agent-platform-panel .org-detail dl { margin: 0; display: grid;
-      grid-template-columns: auto 1fr; gap: 2px 8px; }
-    .agent-platform-panel .org-detail dt { color: #8b93b8; }
-    .agent-platform-panel .org-detail dd { margin: 0; overflow-wrap: anywhere; }
-  `;
-  document.head.appendChild(style);
+  // Styles: agent-platform.css, linked from index.html.
 
   const root = document.createElement('div');
   root.className = 'agent-platform-toggle';
@@ -134,7 +68,7 @@ function mountAgentPlatform() {
     const tree = buildOrgTree(agents);
     const orgHtml = orgRows(tree)
       .map((r) => `<button type="button" class="org-row" data-agent-id="${escapeHtml(r.id)}"
-        ${r.id === selectedAgent ? 'aria-current="true"' : ''} style="padding-left:${6 + r.depth * 14}px">
+        ${r.id === selectedAgent ? 'aria-current="true"' : ''} style="padding-inline-start:${6 + r.depth * 14}px">
         <span class="status-dot tone-${escapeHtml(r.tone)}"></span>
         <span class="grow">${r.system ? '★ ' : ''}${escapeHtml(r.name)}</span>
         <span class="chip muted">${escapeHtml(r.statusLabel)}</span>
