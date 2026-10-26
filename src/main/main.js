@@ -19,7 +19,8 @@ const { startSeedGate } = require('./seed-gate');
 const { readLiveSession, liveSessionChanged } = require('./session-registry');
 const backgroundSessions = require('./background-sessions');
 const { stripInheritedClaude } = require('./session-env');
-const { detectAgents, agentStatus, findOnDisk } = require('./agents-detect');
+const { detectAgents, agentStatus, findOnDisk, shortHome: shortHomeOf } = require('./agents-detect');
+const { allowedFile, bundleDirOk, installDirOk, httpHref } = require('./ipc-trust');
 const { handles: opensHere, chooseTarget } = require('./open-with');
 const { planRemoval, removeAgent } = require('./agent-remove');
 const { KNOWN_SERVICES, serviceById } = require('./services-catalog');
@@ -405,6 +406,14 @@ function snapshotWindows() {
   }, 300);
 }
 
+// Every web link leaves through here: parsed, scheme-checked and re-serialised
+// by httpHref, so what reaches openExternal is never the raw string.
+function openHttp(url, opts) {
+  const href = httpHref(url, opts);
+  if (href) shell.openExternal(href);
+  return !!href;
+}
+
 // This window is KingAgent and nothing may replace it. Rendered content — a doc's
 // markdown, anything an agent writes — can carry a link, and a bare <a href>
 // would otherwise navigate the whole app away with no way back. Web links are
@@ -413,10 +422,10 @@ function lockNavigation(wc) {
   wc.on('will-navigate', (e, url) => {
     if (url === wc.getURL()) return;
     e.preventDefault();
-    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    openHttp(url);
   });
   wc.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    openHttp(url);
     return { action: 'deny' };
   });
 }
@@ -682,7 +691,7 @@ ipcMain.handle('usage:read', async (e) => {
 
 wireAcpLive(ipcMain);
 ipcMain.handle('link:open', (_e, url) => {
-  if (/^https?:\/\//.test(String(url))) shell.openExternal(String(url));
+  openHttp(url);
   return { ok: true };
 });
 
@@ -814,9 +823,7 @@ ipcMain.handle('update:status', async () => {
 // Only https — the url arrives from a network response, and shell.openExternal
 // will happily run other schemes.
 ipcMain.handle('update:open', (_e, url) => {
-  const ok = /^https:\/\//i.test(String(url || ''));
-  if (ok) shell.openExternal(String(url));
-  return { ok };
+  return { ok: openHttp(url, { httpsOnly: true }) };
 });
 
 // Download the update the user just accepted, and tell every window how it is
@@ -884,10 +891,13 @@ ipcMain.handle('agents:detect', async () => {
 // parser only receives a boolean, never the secret (agent-status.js).
 ipcMain.handle('agents:status', (_e, { id } = {}) => agentStatus(id, { envKeys: storedEnvKeys() }));
 // Removal is planned before it is done, so the confirm can name real paths.
-ipcMain.handle('agents:removalPlan', (_e, { id, binPath } = {}) =>
-  planRemoval({ id, binPath, home: os.homedir() }));
-ipcMain.handle('agents:remove', (_e, { id, binPath } = {}) =>
-  removeAgent({ id, binPath, home: os.homedir() }));
+// The program's path is the one the last agents:detect scan found, never one
+// the renderer sends: this is the only verb here that deletes, and the
+// renderer is not a trust boundary (see trustedRoot below).
+ipcMain.handle('agents:removalPlan', (_e, { id } = {}) =>
+  planRemoval({ id, binPath: knownBin(id), home: os.homedir() }));
+ipcMain.handle('agents:remove', (_e, { id } = {}) =>
+  removeAgent({ id, binPath: knownBin(id), home: os.homedir() }));
 
 // ---- IPC: connect-a-service -------------------------------------------------
 // The catalog goes to the renderer without its entry-builder functions.
@@ -915,7 +925,7 @@ async function deliverConnections({ scope, projectPath, agentIds }) {
   return runPlan({ plan, execCmd: claudeExec });
 }
 // What a delivery looked like, in the words the connect-done sheet shows.
-function shortHome(p) { return String(p || '').replace(os.homedir(), '~'); }
+function shortHome(p) { return shortHomeOf(p, os.homedir()); }
 function deliveredNames(results) {
   return results.filter((r) => r.ok).map((r) => (r.via === 'cli' ? r.agent + ' (its own CLI)' : shortHome(r.wrote)));
 }
@@ -936,7 +946,13 @@ ipcMain.handle('services:list', (_e, { projectPath, agentIds } = {}) => {
 ipcMain.handle('services:connect', async (_e, { id, values, scope, agentIds, projectPath }) => {
   const s = serviceById(id);
   if (!s) return { ok: false, error: 'unknown service' };
-  if (values && values.installDir) values.installDir = values.installDir.replace(/^~/, os.homedir());
+  // installDir becomes the path node runs, so it must be the checkout the
+  // install tile made under ~/.kingagent/connectors, not whatever the form sent.
+  if (values && values.installDir !== undefined) {
+    const dir = installDirOk(values.installDir, os.homedir(), fs.existsSync);
+    if (!dir) return { ok: false, error: 'It is not installed yet — run Install first, then Connect.' };
+    values.installDir = dir;
+  }
   try {
     const entry = s.entry(values);
     const up = upsertMaster({ scope, projectPath, homeDir: os.homedir(), id, entry });
@@ -989,9 +1005,13 @@ ipcMain.handle('services:connectCustom', async (_e, { name, address, values, bun
   try {
     let entry;
     if (bundleDir) {
-      const parsed = parseManifest(fs.readFileSync(path.join(bundleDir, 'manifest.json'), 'utf8'));
+      // Only a folder services:pickBundle unpacked: its path is written into
+      // every agent's settings as the program to run.
+      const dir = bundleDirOk(bundleDir, os.homedir());
+      if (!dir) return { ok: false, error: 'Choose the bundle again — that folder is not one KingAgent unpacked.' };
+      const parsed = parseManifest(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
       if (!parsed.ok) return parsed;
-      entry = buildEntry({ manifest: parsed.manifest, dir: bundleDir, values: values || {} });
+      entry = buildEntry({ manifest: parsed.manifest, dir, values: values || {} });
     } else if (/^https?:\/\//i.test(String(address || '').trim())) {
       entry = { url: String(address).trim() };
     } else {
@@ -1053,7 +1073,7 @@ ipcMain.handle('services:disconnect', async (_e, { id, projectPath }) => {
 // the most clickable thing in a session. Still nothing else — no file://, no
 // custom schemes, so a link in output can never launch an app.
 ipcMain.handle('url:open', (_e, url) => {
-  if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
+  openHttp(url);
 });
 
 // Theme lives in settings.json so the window background matches on next launch.
@@ -1209,7 +1229,16 @@ ipcMain.handle('dir:list', (_e, arg) => {
   // all begin `if (!children) return`.
   return listDirectory(dir, all);
 });
-ipcMain.handle('file:raw', (_e, file) => {
+// The editor's three verbs take a full path from the renderer, so each is held
+// to the places the editor has a reason to be — the window's folder, the
+// Library's locations, the agents' own settings (ipc-trust.js). A path outside
+// them gets an answer the panel shows as a card instead of an editor.
+const OUTSIDE_EDITABLE = 'outside this project — open it from Finder or Explorer';
+function editableFile(e, file) {
+  return allowedFile({ file, projectPath: trustedRoot(e), homeDir: os.homedir() });
+}
+ipcMain.handle('file:raw', (e, file) => {
+  if (!editableFile(e, file)) return { ok: false, error: OUTSIDE_EDITABLE };
   try {
     const stat = fs.statSync(file);
     if (stat.isDirectory()) return { ok: false, error: 'is a directory' };
@@ -1237,7 +1266,8 @@ function fileSync() {
 async function savedHash(text) {
   try { const { hashText } = await fileSync(); return hashText(text); } catch (_) { return null; }
 }
-ipcMain.handle('file:save', async (_e, { file, text }) => {
+ipcMain.handle('file:save', async (e, { file, text } = {}) => {
+  if (!editableFile(e, file)) return { ok: false, error: OUTSIDE_EDITABLE };
   try { fs.writeFileSync(file, text); } catch (e) { return { ok: false, error: e.message }; }
   return { ok: true, hash: await savedHash(text) };
 });
@@ -1356,7 +1386,8 @@ function projectSkills(dir) {
 function safeReadText(p) { try { return p ? fs.readFileSync(p, 'utf8') : ''; } catch (_) { return ''; } }
 
 // ---- IPC: quick look / files ----------------------------------------------
-ipcMain.handle('file:read', (_e, file) => {
+ipcMain.handle('file:read', (e, file) => {
+  if (!editableFile(e, file)) return { kind: 'text', name: baseName(file), rows: [{ n: 1, t: 'Could not read: ' + OUTSIDE_EDITABLE }] };
   try {
     const stat = fs.statSync(file);
     if (stat.isDirectory()) {

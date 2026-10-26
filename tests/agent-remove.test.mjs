@@ -76,3 +76,25 @@ test('removeAgent reports a delete that failed instead of claiming success', asy
   assert.match(out.error, /EACCES/);
   assert.deepEqual(out.removed, []);
 });
+
+test('a binPath that is not the agent program is refused, even under $HOME', () => {
+  const p = planRemoval({ id: 'claude', binPath: '/Users/dev/Documents', home: HOME });
+  assert.equal(p.mode, 'none');
+  assert.equal(planRemoval({ id: 'opencode', binPath: '/Users/dev/.local/bin/codex', home: HOME }).mode, 'none');
+});
+
+test("Windows' launcher extensions still count as the agent program", () => {
+  assert.equal(planRemoval({ id: 'claude', binPath: '/Users/dev/.local/bin/claude.exe', home: HOME }).mode, 'delete');
+  assert.equal(planRemoval({ id: 'claude', binPath: '/Users/dev/.local/bin/claude.cmd', home: HOME }).mode, 'delete');
+});
+
+test('a program path that turns out to be a folder deletes nothing', async () => {
+  const removed = [];
+  const r = await removeAgent({
+    id: 'claude', binPath: '/Users/dev/tools/claude', home: HOME,
+    rm: async (p) => { removed.push(p); },
+    lstat: async () => ({ isDirectory: () => true }),
+  });
+  assert.equal(r.ok, false);
+  assert.deepEqual(removed, []);
+});

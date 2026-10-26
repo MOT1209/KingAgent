@@ -342,7 +342,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
   function openAgentRemove(agent) {
     S.overlay = { type: 'agent-remove', agent, plan: null, busy: false };
     renderOverlay();
-    api.agentRemovalPlan(agent.id, agent.path).then((plan) => {
+    api.agentRemovalPlan(agent.id).then((plan) => {
       if (S.overlay && S.overlay.type === 'agent-remove') { S.overlay.plan = plan; renderOverlay(); }
     });
   }
@@ -373,7 +373,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     if (go) go.onclick = async () => {
       if (plan.mode === 'uninstall') return runAgentCommand(a, plan.command, `remove ${a.name}`);
       o.busy = true; renderOverlay();
-      const res = await api.agentRemove(a.id, a.path);
+      const res = await api.agentRemove(a.id);
       o.busy = false;
       if (res.ok) { closeOverlay(); refreshAgents(); toast(`${a.name} removed.`); }
       else { renderOverlay(); toast(res.error || `Could not remove ${a.name}.`); }

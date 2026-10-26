@@ -49,7 +49,8 @@ test('agents:status hands stored Keys to grok so an API key counts as signed in'
 
 test('Chat spawn uses the scanned program and the login PATH', () => {
   const acpLive = fs.readFileSync(path.join(root, 'src/main/acp-live.js'), 'utf8');
-  assert.match(acpLive, /resolveSpawnProgram\(command\)/);
+  assert.match(acpLive, /resolveSpawnProgram\(launch\.command\)/);
+  assert.doesNotMatch(acpLive, /'acp:start', async \(e, \{[^}]*\bcommand\b/, 'the renderer names an agent; main picks the program');
   assert.match(acpLive, /userPath\(\)/);
   assert.doesNotMatch(
     acpLive,

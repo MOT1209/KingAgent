@@ -24,6 +24,12 @@ function isSafeRemovePath(p, home) {
   return norm.startsWith(base + path.sep);
 }
 
+// Windows installs the same CLI as claude.exe, claude.cmd or claude.ps1.
+function isProgramFor(agent, binPath) {
+  const base = path.basename(String(binPath || '')).replace(/\.(exe|cmd|bat|ps1)$/i, '');
+  return !!agent.bin && base.toLowerCase() === String(agent.bin).toLowerCase();
+}
+
 function planRemoval({ id, binPath, home }) {
   const agent = agentById(id);
   const lc = agent && agent.lifecycle;
@@ -39,6 +45,12 @@ function planRemoval({ id, binPath, home }) {
   }
 
   if (!binPath) return { mode: 'none', reason: 'It is not installed.' };
+  // The program, not whatever path arrived: a binPath whose name is not the
+  // agent's own program (a folder, a document, someone else's CLI) is refused
+  // before "absolute and under $HOME" can be read as permission to delete it.
+  if (!isProgramFor(agent, binPath)) {
+    return { mode: 'none', reason: `${binPath} is not the ${agent.name} program, so KingAgent will not delete it.` };
+  }
 
   const paths = [binPath, ...(lc.removePaths || []).map((p) => expandHome(p, home))];
   for (const p of paths) {
@@ -51,10 +63,16 @@ function planRemoval({ id, binPath, home }) {
   return { mode: 'delete', paths, describe };
 }
 
-async function removeAgent({ id, binPath, home, rm = (p) => fsp.rm(p, { recursive: true, force: true }) }) {
+async function removeAgent({ id, binPath, home, rm = (p) => fsp.rm(p, { recursive: true, force: true }), lstat = (p) => fsp.lstat(p) }) {
   const plan = planRemoval({ id, binPath, home });
   if (plan.mode === 'uninstall') return { ok: false, removed: [], error: `${id} has its own uninstall command — run it in a tile.` };
   if (plan.mode !== 'delete') return { ok: false, removed: [], error: plan.reason };
+  // rm is recursive, so a program path that turns out to be a folder would take
+  // everything in it. A program is a file or a link to one; a missing one is
+  // left to rm's force.
+  try {
+    if ((await lstat(binPath)).isDirectory()) return { ok: false, removed: [], error: `${binPath} is a folder, not a program — nothing was deleted.` };
+  } catch (_) {}
   const removed = [];
   try {
     for (const p of plan.paths) { await rm(p); removed.push(p); }

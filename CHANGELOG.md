@@ -12,6 +12,38 @@ always the newest one below.
 
 ## [Unreleased]
 
+### Security
+
+First batch from the audit in `docs/audit/` (fix plan P1): every IPC handler
+that ran, deleted, read or wrote a path the renderer chose now checks it against
+something main knows itself.
+
+- `acp:start` no longer takes a program and argv from the renderer. The Chat
+  launch table moved to `src/main/acp-live.js`; the pane sends an agent id and an
+  unknown id spawns nothing (S1). Sends after the window closes no longer throw
+  inside the child's event handlers, a line with no newline is dropped past
+  4 MB, and closing a window ends its ACP children (S20, S21).
+- `agents:remove` and `agents:removalPlan` ignore the renderer's `binPath` and
+  use the path the last scan found. The plan also refuses a path whose name is
+  not the agent's program, and removal refuses a folder. Before this,
+  `~/Documents` passed every check for Claude Code (S3).
+- `file:raw`, `file:save` and `file:read` only accept paths inside the window's
+  folder, the Library's locations (`libraryRoots`, now shared with
+  `deleteItem`), `~/.claude`, `~/.kingagent` and each agent's own settings file.
+  Anything else gets an error, which the panel shows as a card. A test checks
+  that every file the Library lists stays editable (S4, S5).
+- `services:connect` only runs a KIE checkout under `~/.kingagent/connectors/`,
+  and `services:connectCustom` only takes a bundle folder that
+  `services:pickBundle` unpacked under `~/.kingagent/bundles/` (S7, S8).
+- Every `shell.openExternal` call now goes through `httpHref`, which parses the
+  URL and passes on the re-serialised `href` instead of the raw string (S10).
+- `shortHome` in `main.js` turned `/Users/alice-proj` into `~-proj`. It now
+  uses the `agents-detect.js` version, which checks for a full path segment
+  (S23).
+- Not changed: S2 (`term:create` with `harness`/`run`). KingAgent is a terminal,
+  so the renderer can already open a shell and type into it with `term:write`.
+  Limiting `program` would close nothing.
+
 ### Fixed
 
 - The `kingagent-doc://` HTML/browser viewer never rendered anything on
