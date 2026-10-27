@@ -16,8 +16,8 @@ const workspaceLib = fs.readFileSync(path.join(root, 'src/renderer/workspace-lib
 const menu = workspaceLib.slice(workspaceLib.indexOf('function treeMenu('), workspaceLib.indexOf('\n  }', workspaceLib.indexOf('function treeMenu(')));
 
 test('a workspace row offers Add to session and Open in new window', () => {
-  assert.match(menu, /label: 'Add to session'/);
-  assert.match(menu, /label: 'Open in new window'/);
+  assert.match(menu, /label: t\('lib\.addToSession'\)/);
+  assert.match(menu, /label: t\('lib\.openNewWindow'\)/);
 });
 
 test('a file goes to the session as the same text a drag would type', () => {
