@@ -14,6 +14,9 @@ always the newest one below.
 
 ### Added
 
+- `prettier` as a devDependency with a `.prettierrc.json` matching the existing
+  style, and `npm run format -- <files>` to format only the files you name
+  (never the whole repository).
 - Arabic support, batch P2 of the audit fix plan in `docs/audit/`. The
   interface strings are still English. What changed:
   - **Arabic text renders correctly everywhere.** IBM Plex Sans Arabic
