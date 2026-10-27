@@ -48,6 +48,9 @@ always the newest one below.
 
 ### Changed
 
+- Removed `mountOrgView` (and its two tests) from `agent-org.mjs`: it was
+  exported but never mounted, and the Agent Platform panel already draws the
+  organization rows itself. No visual change.
 - The delegation-depth, task-timeout, poll-interval and fan-out limits of the
   three orchestration layers were private literals that had drifted apart. They
   now live in one frozen `ORCHESTRATION_LIMITS` table

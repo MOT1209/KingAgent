@@ -8,8 +8,8 @@
 //
 // This module is the folding, not the drawing. It is pure — same inputs, same
 // outputs, no DOM, no preload — so the whole view can be asserted in plain node,
-// the same trade `agent-activity.mjs` makes. `mountOrgView` at the bottom is the
-// thin DOM adapter and nothing else.
+// the same trade `agent-activity.mjs` makes. The drawing lives in
+// `agent-platform.mjs`.
 //
 // Two properties matter as much as the shape:
 //
@@ -288,41 +288,7 @@ function agentDetail({ agent, tree = null, run = null, lifecycle = null } = {}) 
   };
 }
 
-// The thin DOM adapter. Kept deliberately dumb: it renders rows and calls back
-// with an id. Every decision about *what* to show was made above, where it can
-// be tested.
-function mountOrgView(root, { onSelect = null } = {}) {
-  if (!root || typeof root.replaceChildren !== 'function') return { render: () => {}, destroy: () => {} };
-  const nodes = new Map();
-  let current = { tree: { byId: new Map(), roots: [] }, selected: null };
-
-  function render(state = {}) {
-    const tree = state.tree || current.tree;
-    current = { tree, selected: state.selected || null };
-    const rows = orgRows(tree);
-    nodes.clear();
-    const frag = root.ownerDocument.createDocumentFragment();
-    for (const row of rows) {
-      const el = root.ownerDocument.createElement('button');
-      el.type = 'button';
-      el.className = 'org-row';
-      el.dataset.agentId = row.id;
-      el.dataset.tone = row.tone;
-      el.dataset.status = row.status;
-      el.dataset.depth = String(row.depth);
-      el.textContent = `${'  '.repeat(row.depth)}${row.system ? '★ ' : ''}${row.name} — ${row.statusLabel}`;
-      if (row.id === current.selected) el.setAttribute('aria-current', 'true');
-      el.addEventListener('click', () => { current.selected = row.id; if (onSelect) onSelect(row.id); });
-      nodes.set(row.id, el);
-      frag.appendChild(el);
-    }
-    root.replaceChildren(frag);
-  }
-
-  return { render, destroy: () => { nodes.clear(); root.replaceChildren(); } };
-}
-
 export {
-  buildOrgTree, orgRows, runTimeline, runHeadline, agentDetail, mountOrgView,
+  buildOrgTree, orgRows, runTimeline, runHeadline, agentDetail,
   TONES, TONE_LABELS, toneOf, toneLabel,
 };

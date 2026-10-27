@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildOrgTree, orgRows, runTimeline, runHeadline, agentDetail, mountOrgView,
+  buildOrgTree, orgRows, runTimeline, runHeadline, agentDetail,
   toneOf, toneLabel,
 } from '../src/renderer/agent-org.mjs';
 
@@ -167,47 +167,4 @@ test('agent detail: a lifecycle record wins over the tree status', () => {
   assert.equal(detail.status, 'paused');
   assert.equal(detail.statusLabel, 'Paused');
   assert.equal(agentDetail({}), null);
-});
-
-// --- DOM adapter -----------------------------------------------------------------
-
-function fakeDom() {
-  const make = (tag) => ({
-    tagName: tag, children: [], attributes: {}, dataset: {}, listeners: {},
-    className: '', textContent: '',
-    setAttribute(k, v) { this.attributes[k] = v; },
-    addEventListener(t, fn) { this.listeners[t] = fn; },
-    appendChild(c) { this.children.push(c); },
-    click() { if (this.listeners.click) this.listeners.click(); },
-  });
-  const document = { createElement: make, createDocumentFragment: () => make('fragment') };
-  const root = make('div');
-  root.ownerDocument = document;
-  // `replaceChildren()` with no argument clears the element, which is the real
-  // DOM contract destroy() relies on.
-  root.replaceChildren = (frag) => { root.children = frag ? frag.children.slice() : []; };
-  return { root };
-}
-
-test('org DOM adapter: renders a row per agent and reports the one clicked', () => {
-  const { root } = fakeDom();
-  const picked = [];
-  const view = mountOrgView(root, { onSelect: (id) => picked.push(id) });
-
-  view.render({ tree: buildOrgTree([ahmad, rashid, security]), selected: 'rashid' });
-  assert.equal(root.children.length, 3);
-  assert.equal(root.children[0].dataset.agentId, 'ahmad');
-  assert.equal(root.children[2].dataset.depth, '1');
-  assert.equal(root.children[1].attributes['aria-current'], 'true');
-
-  root.children[2].click();
-  assert.deepEqual(picked, ['agent-sec']);
-  view.destroy();
-  assert.equal(root.children.length, 0);
-});
-
-test('org DOM adapter: no host element is a no-op, not a crash', () => {
-  const view = mountOrgView(null);
-  assert.doesNotThrow(() => view.render({}));
-  assert.doesNotThrow(() => view.destroy());
 });
