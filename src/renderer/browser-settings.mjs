@@ -1,7 +1,8 @@
 // Settings content only: the app owns its modal, navigation and profile flows.
+import { t } from './i18n.mjs';
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export function browserSettingsHtml() {
-  return '<div id="browser-settings-body" class="browser-settings"><p class="bs-note" role="status">Loading browser settings…</p></div>';
+  return `<div id="browser-settings-body" class="browser-settings"><p class="bs-note" role="status">${esc(t('bset.loading'))}</p></div>`;
 }
 
 function permissionRows(profiles) {
@@ -24,29 +25,29 @@ export function browserSettingsContent(status, actions = {}) {
   const sites = permissionRows(profiles);
   const blank = status.newTab === 'dark' || status.newTab === 'light' ? status.newTab : 'system';
   return `<section class="bs-section" aria-labelledby="browser-blank-heading">
-    <h3 class="field-label" id="browser-blank-heading">New tab</h3>
-    <label class="bs-toggle"><input type="radio" name="browser-blank" id="browser-blank-light" value="light"${blank === 'light' ? ' checked' : ''}><span>Light</span></label>
-    <label class="bs-toggle"><input type="radio" name="browser-blank" id="browser-blank-dark" value="dark"${blank === 'dark' ? ' checked' : ''}><span>Dark</span></label>
-    <label class="bs-toggle"><input type="radio" name="browser-blank" id="browser-blank-system" value="system"${blank === 'system' ? ' checked' : ''}><span>System</span></label>
-    <p class="bs-note">System follows KingAgent’s theme, and websites follow it too.</p>
+    <h3 class="field-label" id="browser-blank-heading">${esc(t('bset.newTab'))}</h3>
+    <label class="bs-toggle"><input type="radio" name="browser-blank" id="browser-blank-light" value="light"${blank === 'light' ? ' checked' : ''}><span>${esc(t('bset.light'))}</span></label>
+    <label class="bs-toggle"><input type="radio" name="browser-blank" id="browser-blank-dark" value="dark"${blank === 'dark' ? ' checked' : ''}><span>${esc(t('bset.dark'))}</span></label>
+    <label class="bs-toggle"><input type="radio" name="browser-blank" id="browser-blank-system" value="system"${blank === 'system' ? ' checked' : ''}><span>${esc(t('bset.system'))}</span></label>
+    <p class="bs-note">${esc(t('bset.systemNote'))}</p>
   </section>
   <section class="bs-section" aria-labelledby="browser-download-heading">
-    <h3 class="field-label" id="browser-download-heading">Downloads</h3>
-    <label class="bs-toggle"><input type="radio" name="browser-download" id="browser-download-ask" value="ask"${download === 'ask' ? ' checked' : ''}><span>Ask where to save</span></label>
-    <label class="bs-toggle"><input type="radio" name="browser-download" id="browser-download-auto" value="auto"${download === 'auto' ? ' checked' : ''}><span>Save to Downloads</span></label>
+    <h3 class="field-label" id="browser-download-heading">${esc(t('bset.downloads'))}</h3>
+    <label class="bs-toggle"><input type="radio" name="browser-download" id="browser-download-ask" value="ask"${download === 'ask' ? ' checked' : ''}><span>${esc(t('bset.askSave'))}</span></label>
+    <label class="bs-toggle"><input type="radio" name="browser-download" id="browser-download-auto" value="auto"${download === 'auto' ? ' checked' : ''}><span>${esc(t('bset.saveDownloads'))}</span></label>
   </section>
   <section class="bs-section" aria-labelledby="browser-popup-heading">
-    <h3 class="field-label" id="browser-popup-heading">Popups</h3>
-    <label class="bs-toggle"><input type="radio" name="browser-popups" id="browser-popups-block" value="block"${popup === 'block' ? ' checked' : ''}><span>Block other popups</span></label>
-    <label class="bs-toggle"><input type="radio" name="browser-popups" id="browser-popups-oauth" value="oauth"${popup === 'oauth' ? ' checked' : ''}><span>Allow OAuth-style popups</span></label>
+    <h3 class="field-label" id="browser-popup-heading">${esc(t('bset.popups'))}</h3>
+    <label class="bs-toggle"><input type="radio" name="browser-popups" id="browser-popups-block" value="block"${popup === 'block' ? ' checked' : ''}><span>${esc(t('bset.blockPopups'))}</span></label>
+    <label class="bs-toggle"><input type="radio" name="browser-popups" id="browser-popups-oauth" value="oauth"${popup === 'oauth' ? ' checked' : ''}><span>${esc(t('bset.oauthPopups'))}</span></label>
   </section>
   <section class="bs-section" aria-labelledby="browser-media-heading">
-    <h3 class="field-label" id="browser-media-heading">Site permissions</h3>
-    ${sites.length ? sites.map((row) => `<div class="bs-row"><div class="bs-row-label"><strong>${esc(row.origin)}</strong><small>${esc(row.permission)}</small></div><label class="bs-toggle"><input type="checkbox" data-browser-permission="${esc(row.origin)}" data-permission="${esc(row.permission)}" data-profile="${esc(row.profileId)}"${row.value === 'allow' ? ' checked' : ''}><span>Allow</span></label></div>`).join('') : '<p class="bs-note">No site has asked for anything yet. Camera, microphone and storage requests land here, switched off until you allow them.</p>'}
+    <h3 class="field-label" id="browser-media-heading">${esc(t('bset.sitePerms'))}</h3>
+    ${sites.length ? sites.map((row) => `<div class="bs-row"><div class="bs-row-label"><strong>${esc(row.origin)}</strong><small>${esc(row.permission)}</small></div><label class="bs-toggle"><input type="checkbox" data-browser-permission="${esc(row.origin)}" data-permission="${esc(row.permission)}" data-profile="${esc(row.profileId)}"${row.value === 'allow' ? ' checked' : ''}><span>${esc(t('bset.allow'))}</span></label></div>`).join('') : `<p class="bs-note">${esc(t('bset.noSites'))}</p>`}
   </section>
-  <section class="bs-section" aria-labelledby="browser-profile-heading"><h3 class="field-label" id="browser-profile-heading">Profiles</h3>
-    ${profiles.length ? profiles.map((p) => `<div class="bs-row"><div class="bs-row-label"><strong>${esc(p.name || p.id)}</strong><small>${p.viewCount ? `${p.viewCount} ${p.viewCount === 1 ? 'tab' : 'tabs'}` : 'Browser profile'}</small></div></div>`).join('') : `<p class="bs-note">${status.profileLoadError ? 'Could not load profiles.' : 'Sign into websites in a tab.'}</p>`}
-    <div class="bs-actions">${actions.onProfiles ? '<button class="btn btn--small" data-browser-settings="profiles">Manage profiles…</button>' : ''}${actions.onImportCookies ? '<button class="btn btn--small" data-browser-settings="cookies">Import from Chrome…</button>' : ''}${actions.onClear ? '<button class="btn btn--small" data-browser-settings="clear">Clear browsing data…</button>' : ''}</div>
+  <section class="bs-section" aria-labelledby="browser-profile-heading"><h3 class="field-label" id="browser-profile-heading">${esc(t('bset.profilesHd'))}</h3>
+    ${profiles.length ? profiles.map((p) => `<div class="bs-row"><div class="bs-row-label"><strong>${esc(p.name || p.id)}</strong><small>${p.viewCount ? `${p.viewCount} ${p.viewCount === 1 ? t('bset.tab') : t('bset.tabs')}` : t('bset.profile')}</small></div></div>`).join('') : `<p class="bs-note">${status.profileLoadError ? t('bset.profilesErr') : t('bset.signInHint')}</p>`}
+    <div class="bs-actions">${actions.onProfiles ? `<button class="btn btn--small" data-browser-settings="profiles">${esc(t('browser.profiles'))}</button>` : ''}${actions.onImportCookies ? `<button class="btn btn--small" data-browser-settings="cookies">${esc(t('browser.importChrome'))}</button>` : ''}${actions.onClear ? `<button class="btn btn--small" data-browser-settings="clear">${esc(t('browser.clearData'))}</button>` : ''}</div>
   </section>`;
 }
 
@@ -93,7 +94,7 @@ export async function wireBrowserSettings(modal, options) {
     }
   } catch (_) {
     if (!current()) return;
-    host.innerHTML = '<p class="bs-note" role="alert">Could not load browser settings.</p><button class="btn btn--small">Retry</button>';
+    host.innerHTML = `<p class="bs-note" role="alert">${esc(t('bset.loadErr'))}</p><button class="btn btn--small">${esc(t('usage.retry'))}</button>`;
     host.querySelector('button').onclick = () => wireBrowserSettings(modal, options);
   }
 }
