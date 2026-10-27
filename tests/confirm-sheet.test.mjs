@@ -10,7 +10,7 @@ const files = fs.readdirSync(R).filter((f) => /\.(mjs|js)$/.test(f));
 test('no renderer file calls the blocking window.confirm() (U14)', () => {
   const bad = [];
   for (const f of files) {
-    fs.readFileSync(path.join(R, f), 'utf8').split('\n').forEach((line, i) => {
+    fs.readFileSync(path.join(R, f), 'utf8').split(/\r?\n/).forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
       if (/(^|[^.\w])(window\.)?confirm\(/.test(code)) bad.push(`${f}:${i + 1}  ${line.trim()}`);
     });

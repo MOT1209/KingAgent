@@ -8,6 +8,7 @@ import { shortAge } from './rel-time.mjs';
 import { chipHtml, iconKeyFor, treeIcon, pixIcon } from './icons.mjs';
 import { isRtl, alignStart, alignEnd } from './dir-axis.mjs';
 import { guarded, messageOf } from './guard.mjs';
+import { t } from './i18n.mjs';
 import { activateOnKey } from './a11y.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
@@ -28,7 +29,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const chip = document.createElement('div'); chip.className = 'project-chip';
     chip.innerHTML = p
       ? `<span class="folder-glyph">${treeIcon('', 'dir', true)}</span><span class="name">${esc(p.name)}</span><span class="path">${esc(p.pathShort)}</span><span class="caret">▼</span>`
-      : `<span class="folder-glyph">${treeIcon('', 'dir', false)}</span><span class="name">Open a folder</span><span class="caret">▼</span>`;
+      : `<span class="folder-glyph">${treeIcon('', 'dir', false)}</span><span class="name">${esc(t('topbar.openFolder'))}</span><span class="caret">▼</span>`;
     chip.onclick = (e) => { e.stopPropagation(); toggleProjectsPop(); };
     els.topbarCenter.appendChild(chip);
     // An errand whose command has landed is not a live session — its shell is
@@ -37,7 +38,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const live = S.panels.filter((x) => x.status === 'live' && isSessionPanel(x)
       && !(x.oneShot && x.commandDone)).length;
     const attn = S.panels.filter((x) => x.attention).length;
-    if (live > 0) { els.liveBadge.style.display = ''; els.liveLabel.textContent = attn ? `${attn} needs you` : `${live} live`; els.liveBadge.classList.toggle('attn', attn > 0); }
+    if (live > 0) { els.liveBadge.style.display = ''; els.liveLabel.textContent = attn ? t('live.attention', { n: attn }) : t('live.count', { n: live }); els.liveBadge.classList.toggle('attn', attn > 0); }
     else els.liveBadge.style.display = 'none';
   }
   function projectRowHtml(r) {
@@ -1080,7 +1081,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
   // Claude CLI happened to be installed — from when the app only ran that one
   // agent. It named a single agent on the first screen a new user sees, and said
   // it on a screen where no agent can start: every action here needs a folder.
-  function renderFooter() { els.footerPath.textContent = S.project ? S.project.pathShort : 'no folder open'; }
+  function renderFooter() { els.footerPath.textContent = S.project ? S.project.pathShort : t('footer.noFolder'); }
 
   return {
     renderHeader, renderRail, refreshRail, renderFooter, watchProject, refreshServices,

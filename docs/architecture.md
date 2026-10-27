@@ -289,7 +289,9 @@ any DOM on purpose: `buildOrgTree` folds lineage into a tree (`orgRows` is the
 display order), `runTimeline` narrows a run's timeline to one agent,
 `runHeadline` summarizes a run and `agentDetail` assembles the §42 panel. All
 pure, so the whole view is asserted in plain node
-(`tests/agent-org.test.mjs`); `agent-platform.mjs` draws the rows.
+(`tests/agent-org.test.mjs`); `mountOrgView` is the thin adapter that renders
+rows and calls back with the id that was clicked. Only the mount remains to be
+placed in the shell.
 
 ## Mode of transport
 

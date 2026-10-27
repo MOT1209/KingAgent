@@ -109,12 +109,10 @@ function normalizeView(name) { return VIEWS.includes(name) ? name : 'desk'; }
 // Which edge the interface reads from. The strings stay English either way;
 // rtl mirrors the layout for someone who reads Arabic first. Content (chat,
 // documents, file names) finds its own direction regardless of this.
-const DIRECTIONS = ['ltr', 'rtl'];
-function normalizeDirection(d) { return DIRECTIONS.includes(d) ? d : 'ltr'; }
-// Which language the interface text is in (src/renderer/i18n.mjs). Independent
-// of the direction above. English is the default and the fallback.
 const LANGUAGES = ['en', 'ar'];
 function normalizeLanguage(l) { return LANGUAGES.includes(l) ? l : 'en'; }
+const DIRECTIONS = ['ltr', 'rtl'];
+function normalizeDirection(d) { return DIRECTIONS.includes(d) ? d : 'ltr'; }
 function themeBackground(name) { return THEME_BG[normalizeTheme(name)]; }
 
 // --- research settings (Phase 7 §50) ----------------------------------------

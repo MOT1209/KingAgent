@@ -1159,8 +1159,8 @@ ipcMain.handle('settings:set', (_e, patch) => {
   const clean = {};
   for (const [k, v] of Object.entries(patch || {})) if (WRITABLE_SETTINGS.has(k)) clean[k] = v;
   if (REVIEW) { delete clean.theme; delete clean.view; delete clean.direction; delete clean.language; }
-  if ('direction' in clean) clean.direction = settingsStore.normalizeDirection(clean.direction);
   if ('language' in clean) clean.language = settingsStore.normalizeLanguage(clean.language);
+  if ('direction' in clean) clean.direction = settingsStore.normalizeDirection(clean.direction);
   const res = writeSettings(clean);
   return res.ok ? { ok: true, sttInfo: sttStatus() } : res;
 });
@@ -1251,6 +1251,9 @@ const OUTSIDE_EDITABLE = 'outside this project — open it from Finder or Explor
 function editableFile(e, file) {
   return allowedFile({ file, projectPath: trustedRoot(e), homeDir: os.homedir() });
 }
+// Whether file:raw/save/read would accept this path, so the renderer can say
+// "outside the project" before offering to open something main will refuse.
+ipcMain.handle('file:editable', (e, file) => !!editableFile(e, file));
 ipcMain.handle('file:raw', (e, file) => {
   if (!editableFile(e, file)) return { ok: false, error: OUTSIDE_EDITABLE };
   try {

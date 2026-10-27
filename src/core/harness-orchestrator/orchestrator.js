@@ -23,12 +23,12 @@
 //      permissions" checkable rather than aspirational.
 
 const { randomUUID } = require('node:crypto');
-const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
 const { TYPES } = require('../events/event-bus');
 const { isPlainObject } = require('../schema/validate');
 
 const TRACE_LIMIT = 500;
-const POLL_INTERVAL_MS = ORCHESTRATION_LIMITS.harness.pollMs;
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
+const POLL_INTERVAL_MS = ORCHESTRATION_LIMITS.pollMs.harness;
 
 class OrchestratorError extends Error {
   constructor(message, { code = 'ORCHESTRATOR_ERROR', decision = null } = {}) {
@@ -74,7 +74,7 @@ class Orchestrator {
     this._memory = memory;
     this._harnessRunner = harnessRunner;
     this._evaluate = evaluate;
-    this._config = { taskTimeoutMs: ORCHESTRATION_LIMITS.harness.taskTimeoutMs, ...config };
+    this._config = { taskTimeoutMs: ORCHESTRATION_LIMITS.taskTimeoutMs.harness, ...config };
     this._traces = new Map(); // taskId -> ring of trace entries
   }
 

@@ -32,7 +32,6 @@ const {
 } = require('./delegation');
 const { createMessage, replyTo, createMailbox } = require('./messages');
 const { createHandoff, summarizeHandoff, readyToAccept } = require('./handoff');
-const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
 const { TYPES } = require('../events/event-bus');
 const { isString } = require('../schema/validate');
 
@@ -55,7 +54,8 @@ const TEAM_TEMPLATES = Object.freeze({
   document: [ROLES.WORKER, ROLES.REVIEW],
 });
 
-const MAX_DEPTH = ORCHESTRATION_LIMITS.harness.maxDelegationDepth;
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
+const MAX_DEPTH = ORCHESTRATION_LIMITS.delegationDepth.harness;
 
 class DelegationDeniedError extends Error {
   constructor(message, { reasons = [], delegationId = null } = {}) {

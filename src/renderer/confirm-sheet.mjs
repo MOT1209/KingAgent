@@ -13,7 +13,7 @@
 import { makeDialog } from './dialog.mjs';
 import { t } from './i18n.mjs';
 
-export function askConfirm({ title = t('confirm.title'), message = '', confirmLabel = t('confirm.ok'), cancelLabel = t('confirm.cancel'), danger = false, safe = 'cancel' } = {}) {
+export function askConfirm({ title = 'Are you sure?', message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, safe = 'cancel' } = {}) {
   return new Promise((resolve) => {
     const previous = document.activeElement;
     const wrap = document.createElement('div');
@@ -44,4 +44,10 @@ export function askConfirm({ title = t('confirm.title'), message = '', confirmLa
     document.body.appendChild(wrap);
     modal.querySelector(safe === 'confirm' ? '[data-a="yes"]' : '[data-a="no"]').focus({ preventScroll: true });
   });
+}
+
+// The one question asked in three places: leaving an editor with unsaved edits.
+export function confirmDiscard(name) {
+  return askConfirm({ title: t('confirm.discard.title'), message: t('confirm.discard.body', { name }),
+    confirmLabel: t('confirm.discard.yes'), cancelLabel: t('confirm.discard.no'), danger: true });
 }

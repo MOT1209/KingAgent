@@ -8,18 +8,7 @@
 //
 // This module is the folding, not the drawing. It is pure — same inputs, same
 // outputs, no DOM, no preload — so the whole view can be asserted in plain node,
-// the same trade `agent-activity.mjs` makes. The drawing lives in
-// `agent-platform.mjs`.
-//
-// Two properties matter as much as the shape:
-//
-//   * **Lineage is data, not decoration.** The tree is built from
-//     `metadata.parentAgentId` / `createdBy` that the factory actually wrote, so
-//     what is drawn is what happened.
-//   * **Nothing here reveals reasoning.** The timeline is folded from the run's
-//     own event summaries, which are operational facts (a step, a tool, a file,
-//     an approval) — the same vocabulary `agent-activity.mjs` fixes, and never a
-//     model's deliberation.
+// the same trade `agent-activity.mjs` makes. The drawing lives in agent-platform.mjs.
 
 // How a lifecycle state reads to a person. The core's own states
 // (`core/agents/lifecycle.js`) are precise but not what a person wants to scan

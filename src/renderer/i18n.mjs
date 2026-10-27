@@ -1,48 +1,39 @@
-// Interface translation: a key lookup, nothing more.
+// Interface language.
 //
-//   t('settings.title')                         -> 'Settings' | 'الإعدادات'
-//   t('confirm.discard.message', { name })      -> '{name}' filled in
+// Strings are looked up by key at the moment they are drawn, so a screen
+// rendered after a language change is simply in the new language. The static
+// shell (built once) carries data-i18n attributes and is repainted by
+// applyI18n(). English is the source of truth and the fallback: a key missing
+// from Arabic shows the English text rather than a key, and
+// tests/i18n.test.mjs fails if Arabic lacks a key that English has, so that
+// fallback is a safety net rather than a way to ship half a translation.
 //
-// English is the default and the fallback: a key missing from the active
-// dictionary shows its English text, and a key missing from both shows the key
-// itself, so a gap is visible rather than blank. Only the chrome is translated;
-// commands, file names and agent output never pass through here.
-//
-// Language is independent of layout direction (Settings → Look has both): a
-// person can read Arabic in a left-to-right layout and the reverse.
+// Scope, deliberately: the interface chrome and the main flows (shell, Settings,
+// confirmations). Commands, file names, agent output and the terminal are never
+// translated, and strings in the rest of the app remain English until moved here.
 
-import { en } from './i18n-en.mjs';
-import { ar } from './i18n-ar.mjs';
+import { en } from './locales/en.mjs';
+import { ar } from './locales/ar.mjs';
 
-export const DICTIONARIES = Object.freeze({ en, ar });
-// Names are shown in their own language so a person who cannot read the current
-// one can still find theirs.
-export const LANGUAGES = Object.freeze([
-  { id: 'en', name: 'English' },
-  { id: 'ar', name: 'العربية' },
-]);
-export const DEFAULT_LANGUAGE = 'en';
+const DICTS = { en, ar };
+export const LANGUAGES = Object.freeze(['en', 'ar']);
+let current = 'en';
 
-let current = DEFAULT_LANGUAGE;
-
-export function normalizeLanguage(l) {
-  return Object.prototype.hasOwnProperty.call(DICTIONARIES, l) ? l : DEFAULT_LANGUAGE;
-}
+export function normalizeLanguage(l) { return LANGUAGES.includes(l) ? l : 'en'; }
 export function getLanguage() { return current; }
 export function setLanguage(l) { current = normalizeLanguage(l); return current; }
 
-export function t(key, params) {
-  const raw = DICTIONARIES[current][key] ?? en[key] ?? key;
-  if (!params) return raw;
-  return raw.replace(/\{(\w+)\}/g, (m, name) => (name in params ? String(params[name]) : m));
+// t('key') or t('key', { n: 3 }) for "{n} live". Unknown keys return the key,
+// which makes a typo visible instead of blank.
+export function t(key, vars) {
+  const raw = (DICTS[current] && DICTS[current][key]) ?? en[key] ?? key;
+  return vars ? raw.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : raw;
 }
 
-// Re-translates markup that was built once (the window shell) and so cannot be
-// re-rendered by calling t() again. Elements opt in with data-i18n (text),
-// data-i18n-title and data-i18n-aria.
-export function applyTranslations(root) {
-  if (!root || typeof root.querySelectorAll !== 'function') return;
-  for (const el of root.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
-  for (const el of root.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
-  for (const el of root.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
+// Repaint every [data-i18n] (text), [data-i18n-title] and [data-i18n-aria] in a
+// subtree. The attribute value is the key.
+export function applyI18n(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  root.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  root.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
 }

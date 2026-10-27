@@ -10,8 +10,6 @@
 // the result of a query that could be null and threw inside renderOverlay, so
 // the sheet never mounted).
 
-import { t } from './i18n.mjs';
-
 const FOCUSABLE = 'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]';
 let seq = 0;
 
@@ -25,11 +23,11 @@ export function makeDialog(modal) {
     modal.setAttribute('aria-labelledby', title.id);
   } else {
     // No visible heading: name it from its first line of text, never leave a dialog unnamed.
-    modal.setAttribute('aria-label', (modal.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60) || t('dialog.fallbackName'));
+    modal.setAttribute('aria-label', (modal.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60) || 'Dialog');
   }
   if (modal.tabIndex < 0 || !modal.hasAttribute('tabindex')) modal.tabIndex = -1;
   const close = modal.querySelector('.ov-x');
-  if (close) close.setAttribute('aria-label', t('dialog.close'));
+  if (close) close.setAttribute('aria-label', 'Close dialog');
   modal.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab') return;
     // One pass over what is visible, read lazily: a visibility check per

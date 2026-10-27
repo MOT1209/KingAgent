@@ -4,8 +4,7 @@ import { createTerminalLinkTracking } from './terminal-link-tracking.mjs';
 import { createPanelLifecycle } from './panel-lifecycle.mjs';
 import { createSettingsPanes } from './settings-panes.mjs';
 import { makeDialog } from './dialog.mjs';
-import { askConfirm } from './confirm-sheet.mjs';
-import { t, setLanguage as setUiLanguage, getLanguage, applyTranslations } from './i18n.mjs';
+import { confirmDiscard } from './confirm-sheet.mjs';
 import { createLauncher } from './launcher.mjs';
 import { createWorkspaceLibrary } from './workspace-library.mjs';
 // KingAgent — the agent workbench, by Dainami (renderer, terminal-first).
@@ -23,6 +22,7 @@ import { isFile as isFilePanel, isSession as isSessionPanel, ownerFor, keep as k
 import { createBrowserPane } from './browser-pane.mjs';
 import { createTileShell } from './tile-shell.mjs';
 import { createTileContent } from './tile-content.mjs';
+import { t, setLanguage, getLanguage, applyI18n } from './i18n.mjs';
 
 const api = window.kingagent;
 // The renderer's own view of the OS, straight from the preload bridge (a string
@@ -102,6 +102,10 @@ const XTERM_THEME = {
 
 // ---- themes (paper default · operator dark) --------------------------------
 const THEME_KEY = 'kingagent-theme';
+// The interface language is known before the shell is drawn (localStorage, as
+// for the theme); boot data corrects it once it arrives.
+const LANG_KEY = 'kingagent-lang';
+try { setLanguage(localStorage.getItem(LANG_KEY)); } catch (_) {}
 const XTERM_THEME_OPERATOR = {
   // Transparent over the operator panel; minimumContrastRatio re-inks
   // cream-tuned TUI text for the dark ground.
@@ -225,26 +229,24 @@ function currentDirection() { return document.documentElement.dir === 'rtl' ? 'r
 function setDirection(name, persistIt = true) {
   const dir = name === 'rtl' ? 'rtl' : 'ltr';
   document.documentElement.dir = dir;
-  document.documentElement.lang = (dir === 'rtl' || getLanguage() === 'ar') ? 'ar' : 'en';
+  document.documentElement.lang = getLanguage();
   if (persistIt && !S.demo && !S.review) {
     try { localStorage.setItem(DIR_KEY, dir); } catch (_) {}
     if (api.settingsSet) Promise.resolve(api.settingsSet({ direction: dir })).catch(() => toast('Direction changed, but could not be saved for next launch.'));
   }
   if (els.grid) renderAll();
 }
-// Which language the interface text is in. Independent of direction: Arabic
-// words in a left-to-right layout (and the reverse) are both legitimate. Only
-// the chrome is translated. The window shell is built once, so its strings carry
-// data-i18n and are re-applied here; sheets rebuild through renderOverlay.
-function setLanguage(name, persistIt = true) {
-  const lang = setUiLanguage(name);
-  document.documentElement.lang = (currentDirection() === 'rtl' || lang === 'ar') ? 'ar' : 'en';
-  applyTranslations(document);
-  if (persistIt && !S.demo && !S.review && api.settingsSet) {
-    Promise.resolve(api.settingsSet({ language: lang })).catch(() => toast(t('look.language.saveFailed')));
+// Choosing a language mirrors the layout with it (Arabic reads right to left),
+// which can still be changed on its own afterwards in Settings → Look.
+function setLanguageUi(name, persistIt = true) {
+  const lang = setLanguage(name);
+  if (persistIt && !S.demo && !S.review) {
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    if (api.settingsSet) Promise.resolve(api.settingsSet({ language: lang })).catch(() => toast('Language changed, but could not be saved for next launch.'));
   }
+  applyI18n();
+  setDirection(lang === 'ar' ? 'rtl' : 'ltr', persistIt);
   if (els.grid) renderAll();
-  if (S.overlay) renderOverlay();
 }
 let themeSaveVersion = 0;
 function setTheme(name, persistIt = true) {
@@ -363,7 +365,7 @@ const settingsPanes = createSettingsPanes({ api, state: S, toast, esc, helpIcon,
   // refreshSttInfo/setSttInfo/transcribeBlob are thunks: they now live in
   // tile-content.mjs, constructed last, same reasoning as elsewhere.
   refreshSttInfo: (...a) => refreshSttInfo(...a), setSttInfo: (...a) => setSttInfo(...a), transcribeBlob: (...a) => transcribeBlob(...a),
-  setTheme, currentTheme, getThemeOptions: () => THEME_OPTIONS, setDirection, currentDirection, setLanguage,
+  setTheme, currentTheme, getThemeOptions: () => THEME_OPTIONS, setDirection, currentDirection, setLanguageUi,
   browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl });
 const { openSettings, renderSettings, wireHelpDialog } = settingsPanes;
 const launcher = createLauncher({ api, state: S, tiles: tileEls, browsers, toast, overlay, closeOverlay, renderOverlay, rememberHelpFocus,
@@ -586,9 +588,9 @@ function dropPathOnPanel(p, path, isDir) {
   if (b.collapsed) S.railCollapsed = true;
   setTheme(b.themeArg || b.theme || DEFAULT_THEME, false);
   if (!S.review) { try { localStorage.setItem(THEME_KEY, currentTheme()); } catch (_) {} }
-  setUiLanguage(b.langArg || b.language || 'en');
-  applyTranslations(document); // the shell was built before boot data arrived
-  setDirection(b.dirArg || b.direction || 'ltr', false);
+  setLanguage(b.langArg || b.language || 'en'); applyI18n();
+  if (!S.review && !b.langArg) { try { localStorage.setItem(LANG_KEY, getLanguage()); } catch (_) {} }
+  setDirection(b.dirArg || b.direction || (b.langArg === 'ar' ? 'rtl' : 'ltr'), false);
   if (!S.review && !b.dirArg) { try { localStorage.setItem(DIR_KEY, currentDirection()); } catch (_) {} }
   // The view you left the app in. localStorage is this window's memory,
   // settings.json the shared one; a --scene may force one for a screenshot.
@@ -1073,20 +1075,20 @@ function buildShell() {
               <span class="brand-ver" id="brand-ver"></span>
             </span>
           </span>
-          <span class="brand-sub">AI Agent Operating Platform</span>
+          <span class="brand-sub" data-i18n="shell.tagline">${t('shell.tagline')}</span>
         </div>
         <div class="topbar-center" id="topbar-center"></div>
         <div class="topbar-right">
           <div class="live-badge" id="live-badge" style="display:none"><span class="dot"></span><span id="live-label"></span></div>
-          <button class="btn btn-help" id="btn-help" title="${t('launcher.quickStart')}" data-i18n-title="launcher.quickStart"><span class="uni-i">?</span><span class="pix-i">${pixIcon('help')}</span></button>
-          <div class="theme-zone" id="theme-zone"><button class="btn" id="btn-theme" title="Theme"><span class="uni-i">◐</span><span class="pix-i">${pixIcon('theme')}</span></button></div>
-          <button class="btn btn-set" id="btn-settings" title="${t('header.settings')}" data-i18n-title="header.settings"><span class="uni-i">⚙</span><span class="pix-i">${pixIcon('settings')}</span></button>
-          <div class="viewsw" id="viewsw" role="group" aria-label="${t('view.aria')}" data-i18n-aria="view.aria" title="${t('view.title')}" data-i18n-title="view.title">
+          <button class="btn btn-help" id="btn-help" title="${t('topbar.quickstart')}" data-i18n-title="topbar.quickstart"><span class="uni-i">?</span><span class="pix-i">${pixIcon('help')}</span></button>
+          <div class="theme-zone" id="theme-zone"><button class="btn" id="btn-theme" title="${t('topbar.theme')}" data-i18n-title="topbar.theme"><span class="uni-i">◐</span><span class="pix-i">${pixIcon('theme')}</span></button></div>
+          <button class="btn btn-set" id="btn-settings" title="${t('topbar.settings')}" data-i18n-title="topbar.settings"><span class="uni-i">⚙</span><span class="pix-i">${pixIcon('settings')}</span></button>
+          <div class="viewsw" id="viewsw" role="group" aria-label="${t('topbar.view')}" data-i18n-aria="topbar.view" title="${t('topbar.viewHint')}" data-i18n-title="topbar.viewHint">
             <button class="view-choice" data-view="desk" data-i18n="view.desk">${t('view.desk')}</button>
             <button class="view-choice" data-view="split" data-i18n="view.split">${t('view.split')}</button>
           </div>
-          <button class="btn" id="btn-agents"><span data-i18n="header.agents">${t('header.agents')}</span><span class="kb"> ⌘K</span></button>
-          <button class="btn btn--go" id="btn-new"><span class="uni-i">＋ </span><span class="pix-i">${pixIcon('plus')}</span><span data-i18n="header.new">${t('header.new')}</span><span class="kb2" data-i18n="header.newSuffix">${t('header.newSuffix')}</span><span class="kb"> ⌘N</span></button>
+          <button class="btn" id="btn-agents"><span data-i18n="topbar.agents">${t('topbar.agents')}</span><span class="kb"> ⌘K</span></button>
+          <button class="btn btn--go" id="btn-new"><span class="uni-i">＋ </span><span class="pix-i">${pixIcon('plus')}</span><span data-i18n="topbar.new">${t('topbar.new')}</span><span class="kb2" data-i18n="topbar.newSession">${t('topbar.newSession')}</span><span class="kb"> ⌘N</span></button>
         </div>
       </div>
       <div class="split">
@@ -1376,7 +1378,7 @@ function closeOverlay() { S.overlay = null; renderOverlay(); }
 function openPeek(p) {
   const cur = S.overlay && S.overlay.type === 'peek' && S.overlay.panel;
   if (cur && (cur.kind === 'editor' || cur.kind === 'card') && cur.dirty) {
-    askConfirm({ title: t('confirm.discard.title'), message: t('confirm.discard.message', { name: baseNameOf(cur.filePath) }), confirmLabel: t('confirm.discard.confirm'), cancelLabel: t('confirm.discard.keep'), danger: true })
+    confirmDiscard(baseNameOf(cur.filePath))
       .then((ok) => { if (ok) { S.overlay = { type: 'peek', panel: p }; renderOverlay(); } });
     return;
   }
@@ -1425,7 +1427,7 @@ function requestClosePeek() {
   const o = S.overlay; if (!o || o.type !== 'peek') { closeOverlay(); return; }
   const p = o.panel;
   if ((p.kind === 'editor' || p.kind === 'card') && p.dirty) {
-    askConfirm({ title: t('confirm.discard.title'), message: t('confirm.discard.message', { name: baseNameOf(p.filePath) }), confirmLabel: t('confirm.discard.confirm'), cancelLabel: t('confirm.discard.keep'), danger: true })
+    confirmDiscard(baseNameOf(p.filePath))
       .then((ok) => { if (ok && S.overlay && S.overlay.panel === p) closeOverlay(); });
     return;
   }

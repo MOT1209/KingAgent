@@ -10,6 +10,7 @@
 // task that never ends, no approval policy is an agent that deletes things.
 
 const { DANGEROUS_ACTIONS } = require('../approval/request');
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
 
 const EXECUTION_MODES = Object.freeze({
   SINGLE_AGENT: 'single-agent',
@@ -19,16 +20,12 @@ const EXECUTION_MODES = Object.freeze({
   APPROVAL: 'approval',
 });
 
-const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
-
-const LIMITS = ORCHESTRATION_LIMITS.orchestrator;
-
 const DEFAULT_POLICIES = Object.freeze({
   maxConcurrentTasks: 3,
-  maxDelegationDepth: LIMITS.maxDelegationDepth,
-  maxDelegationsPerTask: LIMITS.maxDelegationsPerTask,
-  taskTimeoutMs: LIMITS.taskTimeoutMs,
-  delegationTimeoutMs: LIMITS.delegationTimeoutMs,
+  maxDelegationDepth: ORCHESTRATION_LIMITS.delegationDepth.task,
+  maxDelegationsPerTask: 6,
+  taskTimeoutMs: ORCHESTRATION_LIMITS.taskTimeoutMs.task,
+  delegationTimeoutMs: ORCHESTRATION_LIMITS.delegationTimeoutMs.task,
   // Multi-agent is opt-in per request or per capability set: routing a simple
   // request to three agents is slower, costlier and harder to explain than
   // doing it once.

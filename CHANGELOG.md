@@ -14,14 +14,6 @@ always the newest one below.
 
 ### Added
 
-- Interface translation, starting with the core screens. `src/renderer/i18n.mjs`
-  provides `t('key')` over two dictionaries (`i18n-en.mjs`, `i18n-ar.mjs`) and
-  a new **Language** choice in Settings → Look, next to "Layout direction"
-  (the two are independent). Settings, the sidebar, the top bar and footer,
-  confirmation dialogs and the launcher's headline strings are translated;
-  commands and agent output never are. English stays the default and renders
-  pixel-identically; a missing key falls back to English. A test fails if a key
-  is missing from either dictionary or a `t('key')` has no definition.
 - `safeFetch` (`src/core/research/security/safeFetch.js`): the SSRF-safe fetch
   loop a search provider's `fetch()` is built on. It resolves the host through an
   injected `lookup({ all: true })`, refuses if any returned address is
@@ -62,17 +54,30 @@ always the newest one below.
   sheet that looks the same on every theme by design. The skills pane's
   hard-coded red is now the `--red-body` token.
 
+### Added
+
+- **Arabic interface, first slice.** `src/renderer/i18n.mjs` with English and
+  Arabic dictionaries (`locales/en.mjs`, `locales/ar.mjs`). Settings → Look has a
+  Language picker; choosing Arabic also mirrors the layout, and the direction can
+  still be changed on its own. Translated: the app shell (tabs, top bar, footer,
+  live badge, view switch), Settings (title, every section name and lead, the Look
+  pane, Done and the footer note), the unsaved-changes and outside-project
+  confirmations, and the "Saved" toast. Everything else is still English and falls
+  back to it; `tests/i18n.test.mjs` fails if Arabic lacks a key English has, if a
+  placeholder differs, or if the app draws a key that does not exist. Commands,
+  file names, agent output and the terminal are never translated. `--lang=ar`
+  forces it for screenshots. Setting: `language` in settings.json.
+
 ### Changed
 
-- Removed `mountOrgView` (and its two tests) from `agent-org.mjs`: it was
-  exported but never mounted, and the Agent Platform panel already draws the
-  organization rows itself. No visual change.
-- The delegation-depth, task-timeout, poll-interval and fan-out limits of the
-  three orchestration layers were private literals that had drifted apart. They
-  now live in one frozen `ORCHESTRATION_LIMITS` table
-  (`src/core/orchestration-limits.js`) that all three import. Values are
-  unchanged, so behavior is identical; reconciling them is a separate decision.
-
+- **Orchestration limits in one place (C7).** Depth, task and delegation
+  timeouts, fan-out and poll intervals for the two orchestrators and two
+  coordinators now come from `src/core/orchestration-limits.js`, frozen, with the
+  reason for each difference written beside it. The values are the ones each
+  module used before, so nothing behaves differently; a test fails if a module
+  stops importing it or a number drifts.
+- The unused `mountOrgView` and its tests are removed (U23); the organization
+  view is drawn in `agent-platform.mjs`.
 - **Defences that were written and never called (C1, C3, C9).** Model calls in
   the reasoner, evaluator and planner go through `generateWithin()`: a 60 s
   deadline, and the task's cancel signal now reaches the request, so a hung

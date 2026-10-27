@@ -91,3 +91,10 @@ test('fs:* handlers never trust a renderer-supplied root — they overwrite it w
   }
   assert.match(mainSrc, /function trustedRoot\(e\)\s*\{\s*return winFolders\.get\(e\.sender\.id\)/);
 });
+
+test('an outside-project text file is explained up front, not offered and then refused', () => {
+  assert.match(preloadSrc, /fileEditable:\s*\(file\)\s*=>\s*ipcRenderer\.invoke\('file:editable', file\)/);
+  assert.match(mainSrc, /ipcMain\.handle\('file:editable'/);
+  const life = fs.readFileSync(path.join(root, 'src/renderer/panel-lifecycle.mjs'), 'utf8');
+  assert.match(life, /async function confirmOutsideOpen[\s\S]*?api\.fileEditable\(abs\)[\s\S]*?return false;[\s\S]*?askConfirm/);
+});

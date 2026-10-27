@@ -12,7 +12,6 @@ import { OPEN_OUTPUT_COPY } from './shortcuts.mjs';
 import { tailPath } from './file-kinds.mjs';
 import { guarded, messageOf } from './guard.mjs';
 import { activateOnKey } from './a11y.mjs';
-import { t } from './i18n.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -64,7 +63,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     : `<div class="ff-empty">
           <div class="ff-msg">No folders here yet</div>
           <div class="ff-sub">a folder is where your files and the session live. One of your projects, or an empty one to start in</div>
-          <button class="btn btn--go" id="ff-pick">${esc(t('launcher.chooseFolder'))}</button>
+          <button class="btn btn--go" id="ff-pick">Choose a folder…</button>
           <div class="ff-hint">opens the Mac folder dialog</div>
         </div>`}`, { top: true });
     // A pick has to outlive the overlay: closeOverlay() nulls S.overlay, so the
@@ -766,7 +765,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
   function renderAgentPickerSheet() {
     const o = S.overlay; const agents = pickerAgents();
     const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">❯</span>
-        <input id="ap-input" placeholder="${esc(t('launcher.pickAgent'))}" value="${esc(o.query)}" /></div>
+        <input id="ap-input" placeholder="Start a session with which agent?" value="${esc(o.query)}" /></div>
       <div class="picker-list" id="ap-list"></div>
       <div class="picker-foot"><span>click a row → a session as that agent</span>
         <span><b>›</b> → run it on another tool</span></div>`, { top: true });
@@ -1141,7 +1140,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         <div class="qs-s">${esc(r.sub)}</div>${acts}</div></div>`;
     }).join('');
 
-    const modal = overlay('qs-box', `<div class="qs-head"><span class="title">${esc(t('launcher.quickStart'))}</span></div>
+    const modal = overlay('qs-box', `<div class="qs-head"><span class="title">Quick start</span></div>
       <div class="qs-body">${body}</div>
       <div class="qs-foot"><span>Stuck? <a class="qs-link" href="#" data-url="${REPO_URL}/issues">Ask on GitHub</a></span>
       <a class="qs-link" href="#" data-url="${DOCS.start}">Full guide ↗</a></div>`, { top: true });

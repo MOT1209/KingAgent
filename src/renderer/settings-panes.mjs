@@ -2,7 +2,7 @@ import { usagePaneHtml, wireUsagePane as wireUsageContent } from './usage-pane.m
 import { OPEN_OUTPUT_COPY, SHORTCUT_GROUPS } from './shortcuts.mjs';
 import { GROK_API_KEY } from './grok-auth.mjs';
 import { guarded, messageOf } from './guard.mjs';
-import { t, LANGUAGES, getLanguage } from './i18n.mjs';
+import { t, getLanguage, LANGUAGES } from './i18n.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -11,12 +11,19 @@ import { t, LANGUAGES, getLanguage } from './i18n.mjs';
 // browser-pane.mjs), Usage (delegates to usage-pane.mjs), Updates, About.
 export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overlay, closeOverlay, renderOverlay,
   rememberHelpFocus, getHelpFocusKey, refreshSttInfo, setSttInfo, transcribeBlob, setTheme, currentTheme, getThemeOptions,
-  setDirection, currentDirection, setLanguage, browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
+  setDirection, currentDirection, setLanguageUi, browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
   const S = state;
 
-  // A function, not a constant: the names follow the interface language.
-  const SECTION_IDS = ['voice', 'look', 'keys', 'shortcuts', 'browser', 'usage', 'updates', 'about'];
-  const setSections = () => SECTION_IDS.map((id) => ({ id, name: t(`settings.${id}`), lead: t(`settings.${id}.lead`) }));
+  const SET_SECTIONS = [
+    { id: 'voice', get name() { return t('settings.voice'); }, get lead() { return t('settings.voice.lead'); } },
+    { id: 'look', get name() { return t('settings.look'); }, get lead() { return t('settings.look.lead'); } },
+    { id: 'keys', get name() { return t('settings.keys'); }, get lead() { return t('settings.keys.lead'); } },
+    { id: 'shortcuts', get name() { return t('settings.shortcuts'); }, get lead() { return t('settings.shortcuts.lead'); } },
+    { id: 'browser', get name() { return t('settings.browser'); }, get lead() { return t('settings.browser.lead'); } },
+    { id: 'usage', get name() { return t('settings.usage'); }, get lead() { return t('settings.usage.lead'); } },
+    { id: 'updates', get name() { return t('settings.updates'); }, get lead() { return t('settings.updates.lead'); } },
+    { id: 'about', get name() { return t('settings.about'); }, get lead() { return t('settings.about.lead'); } },
+  ];
   function openSettings(section) {
     rememberHelpFocus();
     S.overlay = { type: 'settings', section: section || 'voice', draft: {}, test: null };
@@ -29,7 +36,6 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
 
   function renderSettings() {
     const o = S.overlay;
-    const SET_SECTIONS = setSections();
     const sec = SET_SECTIONS.find((s) => s.id === o.section) || SET_SECTIONS[0];
     const modal = overlay('modal modal--settings' + (sec.id === 'shortcuts' ? ' modal--shortcuts' : ''), `
       <div class="modal-head"><span class="col">
@@ -44,7 +50,7 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
               : sec.id === 'browser' ? browsers.settingsHtml() : sec.id === 'usage' ? usagePaneHtml()
                 : sec.id === 'updates' ? updatesPaneHtml() : sec.id === 'about' ? aboutPaneHtml() : sec.id === 'shortcuts' ? shortcutsPaneHtml() : keysPaneHtml()}</div>
       </div></div>
-      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : '<span class="note">' + esc(t('settings.savedLocally')) + '</span>'}
+      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : `<span class="note">${esc(t('settings.localOnly'))}</span>`}
         <button class="btn btn--go" id="set-done">${esc(t('settings.done'))}</button></div>`);
 
     modal.querySelectorAll('.set-nav .rail-tab').forEach((b) => {
@@ -271,24 +277,28 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   // ---- Look ------------------------------------------------------------------
   // Direction mirrors the layout, not the words: the strings stay English, and
   // chat, documents and file names find their own direction either way.
-  const directionOptions = () => ['ltr', 'rtl'].map((id) => ({ id, name: t(`look.direction.${id}`), desc: t(`look.direction.${id}.desc`) }));
-  const languageOptions = () => LANGUAGES.map((l) => ({ id: l.id, name: l.name, desc: t(`look.language.${l.id}.desc`) }));
+  const DIRECTION_OPTIONS = () => [
+    { id: 'ltr', name: t('look.ltr'), desc: t('look.ltr.desc') },
+    { id: 'rtl', name: t('look.rtl'), desc: t('look.rtl.desc') },
+  ];
+  // Language names are shown in their own language, whichever one is active.
+  const LANGUAGE_OPTIONS = () => LANGUAGES.map((id) => ({ id, name: t('look.lang.' + id), desc: t('look.lang.' + id + '.desc') }));
   function lookPaneHtml() {
     return `<div class="field-label">${esc(t('look.appearance'))}</div>` + getThemeOptions().map((t) =>
       `<button class="theme-opt set-opt${currentTheme() === t.id ? ' picked' : ''}" data-theme-id="${t.id}" aria-pressed="${currentTheme() === t.id}">
         <span class="theme-dot"></span>
         <span class="set-opt-col"><span class="theme-name">${esc(t.name)}</span>
           <span class="set-opt-desc">${esc(t.desc)}</span></span></button>`).join('')
-      + `<div class="field-label">${esc(t('look.direction'))}</div>` + directionOptions().map((d) =>
-      `<button class="theme-opt set-opt${currentDirection() === d.id ? ' picked' : ''}" data-dir-id="${d.id}" aria-pressed="${currentDirection() === d.id}">
+      + `<div class="field-label">${esc(t('look.language'))}</div>` + LANGUAGE_OPTIONS().map((d) =>
+      `<button class="theme-opt set-opt${getLanguage() === d.id ? ' picked' : ''}" data-lang-id="${d.id}" aria-pressed="${getLanguage() === d.id}">
         <span class="theme-dot"></span>
         <span class="set-opt-col"><span class="theme-name">${esc(d.name)}</span>
           <span class="set-opt-desc">${esc(d.desc)}</span></span></button>`).join('')
-      + `<div class="field-label">${esc(t('look.language'))}</div>` + languageOptions().map((l) =>
-      `<button class="theme-opt set-opt${getLanguage() === l.id ? ' picked' : ''}" data-lang-id="${l.id}" aria-pressed="${getLanguage() === l.id}">
+      + `<div class="field-label">${esc(t('look.direction'))}</div>` + DIRECTION_OPTIONS().map((d) =>
+      `<button class="theme-opt set-opt${currentDirection() === d.id ? ' picked' : ''}" data-dir-id="${d.id}" aria-pressed="${currentDirection() === d.id}">
         <span class="theme-dot"></span>
-        <span class="set-opt-col"><span class="theme-name">${esc(l.name)}</span>
-          <span class="set-opt-desc">${esc(l.desc)}</span></span></button>`).join('');
+        <span class="set-opt-col"><span class="theme-name">${esc(d.name)}</span>
+          <span class="set-opt-desc">${esc(d.desc)}</span></span></button>`).join('');
   }
   function wireLookPane(modal) {
     modal.querySelectorAll('[data-theme-id]').forEach((b) => {
@@ -299,20 +309,19 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
         q(`.set-opt[data-theme-id="${theme}"]`)?.focus({ preventScroll: true });
       };
     });
+    modal.querySelectorAll('[data-lang-id]').forEach((b) => {
+      b.onclick = () => {
+        const lang = b.dataset.langId;
+        setLanguageUi(lang);
+        q(`.set-opt[data-lang-id="${lang}"]`)?.focus({ preventScroll: true });
+      };
+    });
     modal.querySelectorAll('[data-dir-id]').forEach((b) => {
       b.onclick = () => {
         const dir = b.dataset.dirId;
         setDirection(dir);
         // Like setTheme, setDirection re-renders Settings; keep focus on the row.
         q(`.set-opt[data-dir-id="${dir}"]`)?.focus({ preventScroll: true });
-      };
-    });
-    modal.querySelectorAll('[data-lang-id]').forEach((b) => {
-      b.onclick = () => {
-        const lang = b.dataset.langId;
-        setLanguage(lang);
-        // setLanguage re-renders Settings in the new language; keep focus on the row.
-        q(`.set-opt[data-lang-id="${lang}"]`)?.focus({ preventScroll: true });
       };
     });
   }

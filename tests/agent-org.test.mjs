@@ -168,3 +168,5 @@ test('agent detail: a lifecycle record wins over the tree status', () => {
   assert.equal(detail.statusLabel, 'Paused');
   assert.equal(agentDetail({}), null);
 });
+
+// --- DOM adapter -----------------------------------------------------------------
