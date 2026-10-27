@@ -67,7 +67,9 @@ class AgentRuntime {
   cancel(id, reason) {
     const info = this._tasks.get(id);
     if (info && info.controller) info.controller.abort();
-    return this.taskManager.cancel(id, reason);
+    // While the run loop is alive it, not this call, reports the task cancelled
+    // (from its finally), so "cancelled" never precedes the loop actually stopping.
+    return this.taskManager.cancel(id, reason, { settle: !info });
   }
 
   // Public entry point: run a user request. Returns the task snapshot; the run
@@ -183,6 +185,7 @@ class AgentRuntime {
       this.taskManager.fail(taskId, err);
     } finally {
       this._tasks.delete(taskId);
+      this.taskManager.settleCancel(taskId);
     }
   }
 

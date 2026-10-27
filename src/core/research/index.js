@@ -30,6 +30,7 @@ const { registerResearchTools, RESEARCH_SKILLS, listResearchSkills, resolveSkill
 const { loadResearchPolicies, RESEARCH_ACTION } = require('./policies/researchPolicy');
 const { RESEARCH_EVENTS, UI_EVENTS, STAGE_LABEL } = require('./traceEvents');
 const { assertWithin } = require('../tools/path-guard');
+const { safeFetch } = require('./security/safeFetch');
 
 // Defaults matching §50's configuration surface. A host overrides any of them;
 // the names are the setting names, so `research.maxSources` maps to
@@ -204,6 +205,7 @@ module.exports = {
   SourceManager,
   createSourceRegistry,
   createSearchProviderRegistry,
+  safeFetch,
   createRetrievalCache,
   registerResearchTools,
   registerResearchAgent,

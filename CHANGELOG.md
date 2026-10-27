@@ -14,6 +14,14 @@ always the newest one below.
 
 ### Added
 
+- `safeFetch` (`src/core/research/security/safeFetch.js`): the SSRF-safe fetch
+  loop a search provider's `fetch()` is built on. It resolves the host through an
+  injected `lookup({ all: true })`, refuses if any returned address is
+  private, hands the transport the screened address (not the name), and screens
+  every redirect hop up to `MAX_REDIRECTS`. Core still opens no socket.
+- `prettier` as a devDependency with a `.prettierrc.json` matching the existing
+  style, and `npm run format -- <files>` to format only the files you name
+  (never the whole repository).
 - Arabic support, batch P2 of the audit fix plan in `docs/audit/`. The
   interface strings are still English. What changed:
   - **Arabic text renders correctly everywhere.** IBM Plex Sans Arabic
@@ -178,10 +186,28 @@ Batch P10 + P4 + P5 of the audit fix plan.
 
 ### Fixed
 
+- `runtime.cancel()` reported a task `cancelled` before its run loop had stopped,
+  so a step could keep running (and writing) after the cancel was acknowledged.
+  The task now sits in `cancelling` until the loop exits and settles in its
+  `finally`; a step that throws because it was aborted no longer turns the
+  cancellation into a failure.
+- `WorkflowEngine.cancel()` returned `cancelled: true` while the instance could
+  still end `failed` if the in-flight node died with an ordinary error. The run
+  now checks the recorded cancellation request before classifying the error.
+- `governor.noteUsage` had no production caller, so none of the five agent
+  budgets was ever enforced. `generateWithin` now takes `{ governor, agentId }`
+  and charges each answered call's tokens/cost to that agent, so a run past the
+  token budget shows up in `governor.sweep()`. Callers pass them once a model
+  provider is registered in production.
 - Dictating into a tile's AI input now sends a bubbling `input` event, like
   the other three dictation paths, so delegated listeners see it (U34).
 
 ### Security
+
+- Bumped `@modelcontextprotocol/sdk` 1.27.1 → 1.32.2 and the `sharp` override
+  0.35.4 → 0.35.5, clearing all three high-severity `npm audit` findings. Four
+  low findings remain in `katex`, reachable only from the editor bundle's
+  build tooling (devDependency), not shipped.
 
 First batch from the audit in `docs/audit/` (fix plan P1): every IPC handler
 that ran, deleted, read or wrote a path the renderer chose now checks it against
