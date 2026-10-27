@@ -90,7 +90,7 @@ npm run audit:full     # مع شرائح للصفحات الطويلة
 | P7 | U9 U22 | **أُصلحت** | `overlay()` يجعل كل ورقة حوارًا عبر `dialog.mjs` |
 | P7 | U14 | **أُصلحت** | `confirm-sheet.mjs`: ورقة بسمات التطبيق بدل `confirm()`؛ `closePanel` يعيد المحاولة بعد الموافقة |
 | P9 | C3 | **أُصلحت** | `generateWithin`: مهلة 60 ث + إلغاء بالإشارة في المواضع الستة؛ إلغاء المهمة يوقف نداء النموذج الآن |
-| P3 | C1 | **أُصلحت جزئيًا** | أي مزوّد بحث يملك `fetch()` يجب أن يُعلن `ssrfChecked: true` عند التسجيل؛ الفحص نفسه يبقى على المزوّد الذي لا وجود له بعد |
+| P3 / P16 | C1 | **أُصلحت** | أي مزوّد يملك `fetch()` يُعلن `ssrfChecked: true`؛ وحلقة الفحص نفسها صارت في `safeFetch` (`research/security/safeFetch.js`): تحلّ الاسم بـ `lookup({all:true})` عبر دالة تُحقن (النواة لا تستورد dns/net)، وتفحص كل عنوان بـ `screenResolvedAddress`، وتسلّم المنقولَ العنوانَ المفحوص لا الاسم، وتفحص كل قفزة بـ `screenRedirect` حتى `MAX_REDIRECTS`. يستعملها أول مزوّد بحث حقيقي |
 | P3 | C9 | **أُصلحت** | `synthesizer.write` و`reviewer._questionDrift` و`evidenceExtractor.refine` تُسيّج النص المسترجَع؛ `queryPlanner` لا يحوي نصًا مسترجَعًا فلا يحتاج |
 | P14 | C2 | **أُصلحت** | `generateWithin(provider, args, { governor, agentId })` يحمّل usage كل نداء مكتمل على الوكيل عبر `governor.noteUsage`؛ اختبار 600 ألف توكن يعطي `sweep()` غير فارغ. المستدعون الحاليون (planner/reasoning/evaluator) لم يُوصَّلوا بعد لأنه لا مزوّد مسجَّل في الإنتاج |
 | P15 | C4 | **أُصلحت** | `runtime.cancel` يُبقي المهمة `cancelling` ما دامت حلقة التنفيذ حيّة، وتنتقل إلى `cancelled` من `finally` الحلقة؛ و`fail()` لا يحوّل مهمة قيد الإلغاء إلى فاشلة |

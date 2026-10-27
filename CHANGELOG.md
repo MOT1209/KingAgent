@@ -14,6 +14,11 @@ always the newest one below.
 
 ### Added
 
+- `safeFetch` (`src/core/research/security/safeFetch.js`): the SSRF-safe fetch
+  loop a search provider's `fetch()` is built on. It resolves the host through an
+  injected `lookup({ all: true })`, refuses if any returned address is
+  private, hands the transport the screened address (not the name), and screens
+  every redirect hop up to `MAX_REDIRECTS`. Core still opens no socket.
 - `prettier` as a devDependency with a `.prettierrc.json` matching the existing
   style, and `npm run format -- <files>` to format only the files you name
   (never the whole repository).
