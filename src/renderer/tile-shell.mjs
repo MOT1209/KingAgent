@@ -11,6 +11,7 @@ import { clampTermFont, nextTermFont, clampDocScale, nextDocScale, TERM_FONT_DEF
 import { createClockB } from './pty-notify.mjs';
 import { pixIcon } from './icons.mjs';
 import { mountChatPane } from './acp-pane.mjs';
+import { t } from './i18n.mjs';
 import { isRtl, inlineDelta, inlineOffset } from './dir-axis.mjs';
 
 // Grid of tiles: layout/sizing, the split view, terminal/doc zoom, tile
@@ -42,17 +43,17 @@ export function createTileShell({
 
   function statusMeta(p) {
     const c = statusColors();
-    if (p.kind === 'browser') return { label: 'browser', color: c.ok };
-    if (p.kind === 'card') return { label: p.dirty ? 'unsaved' : (p.item.readOnly ? 'read-only' : p.item.type), color: p.dirty ? c.warn : c.mut };
+    if (p.kind === 'browser') return { label: t('status.browser'), color: c.ok };
+    if (p.kind === 'card') return { label: p.dirty ? t('status.unsaved') : (p.item.readOnly ? t('status.readOnly') : p.item.type), color: p.dirty ? c.warn : c.mut };
     if (p.kind === 'viewer') return { label: p.sub, color: c.mut };
-    if (p.kind === 'editor') return { label: p.dirty ? 'unsaved' : 'file', color: p.dirty ? c.warn : c.mut };
+    if (p.kind === 'editor') return { label: p.dirty ? t('status.unsaved') : t('status.file'), color: p.dirty ? c.warn : c.mut };
     if (p.kind === 'acp') {
-      if (p.exited) return { label: 'closed', color: c.mut };
-      if (p.attention) return { label: 'needs you', color: c.warn };
-      if (p.working) return { label: 'working', color: c.warn };
-      return { label: 'live', color: c.ok };
+      if (p.exited) return { label: t('status.closed'), color: c.mut };
+      if (p.attention) return { label: t('status.needsYou'), color: c.warn };
+      if (p.working) return { label: t('status.working'), color: c.warn };
+      return { label: t('status.live'), color: c.ok };
     }
-    if (p.exited) return { label: 'closed', color: c.mut };
+    if (p.exited) return { label: t('status.closed'), color: c.mut };
     // A one-shot says how its command went, not just that a shell is alive: the
     // whole reason the tile exists is the command, and "live" while sitting at a
     // finished prompt is the thing that read as a dead end.
@@ -60,13 +61,13 @@ export function createTileShell({
     // an install cannot (see finishAgentInstall). A tile still waiting on that
     // answer says 'finished', which is the only thing known for certain.
     if (p.oneShot && p.commandDone) {
-      if (p.installOk === true) return { label: 'installed', color: c.ok };
-      if (p.installOk === false) return { label: 'did not install', color: c.warn };
-      return { label: 'finished', color: c.mut };
+      if (p.installOk === true) return { label: t('status.installed'), color: c.ok };
+      if (p.installOk === false) return { label: t('status.installFailed'), color: c.warn };
+      return { label: t('status.finished'), color: c.mut };
     }
-    if (p.oneShot) return { label: 'running', color: c.warn };
-    if (p.attention) return { label: 'needs you', color: c.warn };
-    return { label: 'live', color: c.ok };
+    if (p.oneShot) return { label: t('status.running'), color: c.warn };
+    if (p.attention) return { label: t('status.needsYou'), color: c.warn };
+    return { label: t('status.live'), color: c.ok };
   }
   function kindLabel(p) {
     if (p.kind === 'browser') return 'browser';
