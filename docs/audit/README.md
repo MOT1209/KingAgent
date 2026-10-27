@@ -93,7 +93,8 @@ npm run audit:full     # مع شرائح للصفحات الطويلة
 | P3 | C1 | **أُصلحت جزئيًا** | أي مزوّد بحث يملك `fetch()` يجب أن يُعلن `ssrfChecked: true` عند التسجيل؛ الفحص نفسه يبقى على المزوّد الذي لا وجود له بعد |
 | P3 | C9 | **أُصلحت** | `synthesizer.write` و`reviewer._questionDrift` و`evidenceExtractor.refine` تُسيّج النص المسترجَع؛ `queryPlanner` لا يحوي نصًا مسترجَعًا فلا يحتاج |
 | P14 | C2 | **أُصلحت** | `generateWithin(provider, args, { governor, agentId })` يحمّل usage كل نداء مكتمل على الوكيل عبر `governor.noteUsage`؛ اختبار 600 ألف توكن يعطي `sweep()` غير فارغ. المستدعون الحاليون (planner/reasoning/evaluator) لم يُوصَّلوا بعد لأنه لا مزوّد مسجَّل في الإنتاج |
-| P9 | C4 C5 | **مؤجَّلة** | دلالات إلغاء في المنسّق ومحرك السير |
+| P15 | C4 | **أُصلحت** | `runtime.cancel` يُبقي المهمة `cancelling` ما دامت حلقة التنفيذ حيّة، وتنتقل إلى `cancelled` من `finally` الحلقة؛ و`fail()` لا يحوّل مهمة قيد الإلغاء إلى فاشلة |
+| P15 | C5 | **أُصلحت** | `WorkflowEngine.run` يفحص `instance.cancellation.requested` في `catch` قبل التصنيف، فلا تنتهي نسخة أُبلِغ عن إلغائها بـ `failed` |
 | P11 | U27 U29 U36 | **أُصلحت** | `aria-live` للتوست، احترام `prefers-reduced-motion`، وقت بلغة النظام |
 | P11 | U26 | **أُصلحت** | الأربعة `--muted…--faint` وصلت 4.5:1 في السمات الست؛ تقلّص التدرّج بين درجات الخافت |
 | P12 | S12 S15 | **أُصلحت** | سقف 200 على `titleWatch`، وحذف `pendingAuth` عند الرد |

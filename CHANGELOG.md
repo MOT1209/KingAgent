@@ -156,6 +156,14 @@ Batch P10 + P4 + P5 of the audit fix plan.
 
 ### Fixed
 
+- `runtime.cancel()` reported a task `cancelled` before its run loop had stopped,
+  so a step could keep running (and writing) after the cancel was acknowledged.
+  The task now sits in `cancelling` until the loop exits and settles in its
+  `finally`; a step that throws because it was aborted no longer turns the
+  cancellation into a failure.
+- `WorkflowEngine.cancel()` returned `cancelled: true` while the instance could
+  still end `failed` if the in-flight node died with an ordinary error. The run
+  now checks the recorded cancellation request before classifying the error.
 - `governor.noteUsage` had no production caller, so none of the five agent
   budgets was ever enforced. `generateWithin` now takes `{ governor, agentId }`
   and charges each answered call's tokens/cost to that agent, so a run past the

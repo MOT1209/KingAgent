@@ -147,8 +147,12 @@ class WorkflowEngine {
         );
       }
     } catch (err) {
-      if (err instanceof WorkflowCancelledError) {
-        await this._finishCancelled(instance, workflow, err.reason);
+      // cancel() already told the caller "cancelled", so a node that then dies
+      // with an ordinary error (an abort surfacing as a socket error, say) is
+      // the cancellation landing, not a failure to classify.
+      const requested = instance.cancellation && instance.cancellation.requested;
+      if (err instanceof WorkflowCancelledError || requested) {
+        await this._finishCancelled(instance, workflow, err instanceof WorkflowCancelledError ? err.reason : instance.cancellation.reason);
       } else {
         instance.status = INSTANCE_STATUS.FAILED;
         instance.error = err.message;
