@@ -45,16 +45,16 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     if (r.missing) {
       return `<button class="project-row dead" data-path="${esc(r.path)}" title="${esc(r.path)}">
         <span class="folder-glyph">${treeIcon('', 'dir', false)}</span>
-        <span class="col"><span class="name">${esc(r.name)}</span><span class="summary">moved or deleted — locate…</span></span>
-        <span class="mark row-forget" title="Remove from Recents">✕</span></button>`;
+        <span class="col"><span class="name">${esc(r.name)}</span><span class="summary">${esc(t('lib.moved'))}</span></span>
+        <span class="mark row-forget" title="${esc(t('lib.forget'))}">✕</span></button>`;
     }
     return `<button class="project-row" data-path="${esc(r.path)}" title="${esc(r.path)}">
-      <span class="mark row-pin${r.pinned ? ' on' : ''}" title="${r.pinned ? 'Unpin' : 'Pin to the top'}">${r.pinned ? '●' : '○'}</span>
+      <span class="mark row-pin${r.pinned ? ' on' : ''}" title="${esc(r.pinned ? t('lib.unpin') : t('lib.pin'))}">${r.pinned ? '●' : '○'}</span>
       <span class="folder-glyph">${treeIcon('', 'dir', false)}</span>
       <span class="col"><span class="name">${esc(r.name)}</span><span class="summary">${esc(r.pathShort)}</span></span>
       <span class="row-age">${esc(shortAge(r.at))}</span>
-      <span class="mark row-newwin" title="Open in a new window">⧉</span>
-      <span class="mark row-forget" title="Remove from Recents">✕</span></button>`;
+      <span class="mark row-newwin" title="${esc(t('lib.newWinTip'))}">⧉</span>
+      <span class="mark row-forget" title="${esc(t('lib.forget'))}">✕</span></button>`;
   }
 
   function toggleProjectsPop() {
@@ -69,9 +69,9 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const body = pinned.length
       ? group('Pinned', pinned) + group('Recent', rest)
       : group('Recent folders', rest);
-    pop.innerHTML = `${body || '<div class="rail-empty">No recent folders yet.</div>'}
-      <button class="project-open-other" id="open-other"><span class="plus">＋</span><span>Open another folder…</span><span class="kbd">⌘O</span></button>
-      <button class="project-open-other" id="open-newwin"><span class="plus">⧉</span><span>New window</span><span class="kbd">⇧⌘N</span></button>`;
+    pop.innerHTML = `${body || `<div class="rail-empty">${esc(t('lib.noRecent'))}</div>`}
+      <button class="project-open-other" id="open-other"><span class="plus">＋</span><span>${esc(t('lib.openOther'))}</span><span class="kbd">⌘O</span></button>
+      <button class="project-open-other" id="open-newwin"><span class="plus">⧉</span><span>${esc(t('lib.newWindow'))}</span><span class="kbd">⇧⌘N</span></button>`;
     // fixed + measured + parked on body, not absolute-in-topbar: the topbar clips
     // its descendants (overflow backstop for ⌘+ zoom), and renderHeader() rebuilds
     // topbar-center's innerHTML, which would silently eat the pop.
@@ -127,7 +127,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
   function toggleThemePop() {
     const ex = q('.theme-pop'); if (ex) { ex.remove(); return; }
     const pop = document.createElement('div'); pop.className = 'theme-pop';
-    pop.innerHTML = `<div class="pop-label">Appearance</div>` + THEME_OPTIONS.map((t) =>
+    pop.innerHTML = `<div class="pop-label">${esc(t('look.appearance'))}</div>` + THEME_OPTIONS.map((t) =>
       `<button class="theme-opt${currentTheme() === t.id ? ' picked' : ''}" data-theme-id="${t.id}" aria-pressed="${currentTheme() === t.id}">
         <span class="theme-dot"></span><span class="theme-name">${t.name}</span><span class="theme-desc">${t.desc}</span></button>`).join('');
     pop.onclick = (e) => e.stopPropagation();
@@ -162,10 +162,10 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
   }
   function refreshSessionsRail(c) {
     const head = document.createElement('div'); head.className = 'rail-head';
-    head.innerHTML = `<span class="title">Sessions</span>${S.panels.length ? '<span class="action" id="clear-all">close finished</span>' : ''}`;
+    head.innerHTML = `<span class="title">${esc(t('rail.sessions'))}</span>${S.panels.length ? `<span class="action" id="clear-all">${esc(t('lib.closeFinished'))}</span>` : ''}`;
     c.appendChild(head);
     const cl = q('#clear-all', head); if (cl) cl.onclick = closeFinished;
-    if (!S.panels.length) { const e = document.createElement('div'); e.className = 'rail-empty'; e.textContent = 'No sessions yet. Press ⌘N, or type a message below.'; c.appendChild(e); return; }
+    if (!S.panels.length) { const e = document.createElement('div'); e.className = 'rail-empty'; e.textContent = t('lib.noSessions'); c.appendChild(e); return; }
     // Sessions first, each with the files that joined it folded under it; files
     // with no live session last, under "Desk" (desk-view.mjs). In split the
     // highlight follows the two panes, on the desk the card you last clicked.
@@ -219,7 +219,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       }
     }
     if (g.desk.length) {
-      if (g.sessions.length) { const h = document.createElement('div'); h.className = 'nav-group'; h.textContent = 'Desk'; dropTarget(h, null); list.appendChild(h); }
+      if (g.sessions.length) { const h = document.createElement('div'); h.className = 'nav-group'; h.textContent = t('view.desk'); dropTarget(h, null); list.appendChild(h); }
       const grp = document.createElement('div'); grp.className = 'nav-files nav-files--desk';
       for (const f of g.desk) grp.appendChild(fileRow(f));
       list.appendChild(grp);
@@ -229,12 +229,12 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
   function refreshWorkspaceRail(c) {
     const p = S.project;
     const wrap = document.createElement('div'); wrap.className = 'tree';
-    if (!p) { wrap.innerHTML = '<div class="rail-empty">Open a folder (⌘O) to browse and edit files.</div>'; c.appendChild(wrap); return; }
+    if (!p) { wrap.innerHTML = `<div class="rail-empty">${esc(t('lib.openFolderHint'))}</div>`; c.appendChild(wrap); return; }
     const head = document.createElement('div'); head.className = 'tree-path';
     const pathSpan = document.createElement('span'); pathSpan.className = 'path'; pathSpan.textContent = p.pathShort;
     const toggle = document.createElement('span'); toggle.className = 'action';
-    toggle.textContent = S.treeAll ? 'essentials' : 'show all';
-    toggle.title = S.treeAll ? 'Hide build output, dotfiles and node_modules' : 'Show every file, including hidden and ignored ones';
+    toggle.textContent = S.treeAll ? t('lib.essentials') : t('lib.showAll');
+    toggle.title = S.treeAll ? t('lib.essentialsTip') : t('lib.showAllTip');
     const flipTree = () => {
       S.treeAll = !S.treeAll;
       localStorage.setItem('kingagent-tree-all', S.treeAll ? '1' : '0');
@@ -251,12 +251,12 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     // opens, on something you can see. Both glyphs, because glass and graphite
     // swap every chrome mark for its pixel twin.
     const plus = document.createElement('span');
-    plus.className = 'tree-new'; plus.title = 'New file or folder';
+    plus.className = 'tree-new'; plus.title = t('lib.newItem');
     plus.setAttribute('role', 'button'); plus.tabIndex = 0;
     plus.innerHTML = `<span class="uni-i">＋</span><span class="pix-i">${pixIcon('plus')}</span>`;
     const openNewMenu = (x, y) => showMenu(x, y, [
-      { label: 'New file…', run: () => openFsName('file', newTargetDir()) },
-      { label: 'New folder…', run: () => openFsName('folder', newTargetDir()) },
+      { label: t('lib.newFile'), run: () => openFsName('file', newTargetDir()) },
+      { label: t('lib.newFolder'), run: () => openFsName('folder', newTargetDir()) },
     ]);
     plus.onclick = (e) => { e.stopPropagation(); const r = plus.getBoundingClientRect(); openNewMenu(r, r.bottom + 4); };
     plus.onkeydown = (e) => {
@@ -268,8 +268,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       e.preventDefault();
       showMenu(e.clientX, e.clientY, [
         { label: REVEAL_LABEL, run: () => api.revealFile(p.path) },
-        { label: 'New file…', run: () => openFsName('file', p.path) },
-        { label: 'New folder…', run: () => openFsName('folder', p.path) },
+        { label: t('lib.newFile'), run: () => openFsName('file', p.path) },
+        { label: t('lib.newFolder'), run: () => openFsName('folder', p.path) },
       ]);
     };
     // the header stands for the root, so a drag can be dropped on it to move
@@ -608,10 +608,10 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
   // gesture, and the fix is to click the session you meant first.
   async function addPathToSession(path, isDir) {
     const live = S.panels.filter(isSessionPanel).filter((p) => !p.exited);
-    if (!live.length) { toast('Open a session first.'); return; }
+    if (!live.length) { toast(t('lib.needSession')); return; }
     const active = live.find((p) => p.id === S.activeId);
     const target = active || (live.length === 1 ? live[0] : null);
-    if (!target) { toast('Click the session you mean, then add the file.'); return; }
+    if (!target) { toast(t('lib.pickSession')); return; }
     const text = pathRef(path, S.project && S.project.path, isDir);
     const ok = await insertSessionText(target.id, text, { focus: true });
     toast(ok ? 'Added to ' + (target.title || 'the session') + '.' : 'Could not add that here.');
@@ -622,10 +622,10 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const owner = p.owner && S.panels.find((s) => s.id === p.owner && isSessionPanel(s) && !s.exited);
     if (owner) return owner;
     const live = S.panels.filter(isSessionPanel).filter((s) => !s.exited);
-    if (!live.length) { toast('Open a session first.'); return null; }
+    if (!live.length) { toast(t('lib.needSession')); return null; }
     const active = live.find((s) => s.id === S.activeId);
     const target = active || (live.length === 1 ? live[0] : null);
-    if (!target) toast('Click the session you mean, then add the file.');
+    if (!target) toast(t('lib.pickSession'));
     return target;
   }
   async function addTileToSession(p) {
@@ -645,7 +645,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       return;
     }
     if (p.url && /^https?:\/\//i.test(p.url)) api.openUrl(p.url);
-    else toast('Nothing to open yet.');
+    else toast(t('lib.nothingToOpen'));
   }
   function tileMenu(p) {
     return tileMenuItems(p, {
@@ -659,37 +659,37 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const root = S.project.path;
     const items = [];
     if (n.kind === 'file' && fileKind(n.path) === 'html') {
-      items.push({ label: 'Open in browser', run: () => openFileInBrowser(n.path) });
-      items.push({ label: 'Open in Chrome ↗', run: () => openOutside({ filePath: n.path }) });
+      items.push({ label: t('lib.openBrowser'), run: () => openFileInBrowser(n.path) });
+      items.push({ label: t('lib.openChrome'), run: () => openOutside({ filePath: n.path }) });
     }
     // The whole file, not a highlighted piece of it. Same text a drag types —
     // an @mention inside the project, a quoted path outside — into the session
     // you are working in. Folders go too, with their trailing slash.
-    items.push({ label: 'Add to session', run: () => addPathToSession(n.path, n.kind === 'dir') });
+    items.push({ label: t('lib.addToSession'), run: () => addPathToSession(n.path, n.kind === 'dir') });
     // Every window owns one folder. A folder opens as that window's root; a
     // file opens its folder and lands the file on the new desk.
-    items.push({ label: 'Open in new window', run: () => {
+    items.push({ label: t('lib.openNewWindow'), run: () => {
       if (n.kind === 'dir') api.newWindow(n.path);
       else api.newWindow(parentDir || root, n.path);
     } });
     items.push({ label: REVEAL_LABEL, run: () => api.revealFile(n.path) });
     if (n.kind === 'dir') {
-      items.push({ label: 'New file…', run: () => openFsName('file', n.path) });
-      items.push({ label: 'New folder…', run: () => openFsName('folder', n.path) });
+      items.push({ label: t('lib.newFile'), run: () => openFsName('file', n.path) });
+      items.push({ label: t('lib.newFolder'), run: () => openFsName('folder', n.path) });
     }
     // "Move to…" is gone: it opened a native picker that would happily let you
     // choose a folder outside the root, and then movePath refused it — offering a
     // destination you are not allowed to use. Dragging the row does this now.
-    items.push({ label: 'Rename…', kb: '⏎', run: () => beginTreeRename(n.path) });
-    items.push({ label: 'Duplicate', run: async () => {
+    items.push({ label: t('lib.rename'), kb: '⏎', run: () => beginTreeRename(n.path) });
+    items.push({ label: t('lib.duplicate'), run: async () => {
       const res = await api.fsDuplicate({ root, src: n.path });
       if (!res.ok) { toast(res.error || 'Could not duplicate'); return; }
       markFresh([res.path]);
       await refreshTreeDir(parentDir);
       toast('Duplicated to ' + baseName(res.path) + '.');
     } });
-    items.push({ label: 'Copy path', run: async () => {
-      try { await navigator.clipboard.writeText(n.path); toast('Path copied.'); }
+    items.push({ label: t('lib.copyPath'), run: async () => {
+      try { await navigator.clipboard.writeText(n.path); toast(t('lib.pathCopied')); }
       catch (_) { toast('Could not copy that.'); }
     } });
     items.push('-');

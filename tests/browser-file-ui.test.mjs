@@ -16,7 +16,7 @@ const tileShell = fs.readFileSync(path.resolve(dir, '../src/renderer/tile-shell.
 const tileContent = fs.readFileSync(path.resolve(dir, '../src/renderer/tile-content.mjs'), 'utf8');
 
 test('HTML browser actions exist in the tree, peek head, and pinned editor', () => {
-  assert.match(workspaceLib, /fileKind\(n\.path\) === 'html'[\s\S]{0,180}Open in browser/);
+  assert.match(workspaceLib, /fileKind\(n\.path\) === 'html'[\s\S]{0,180}lib\.openBrowser/);
   assert.match(app, /class="btn pk-browser"/);
   assert.match(tileContent, /class="btn ed-browser"/);
 });
@@ -28,7 +28,7 @@ test('opening a dirty HTML panel saves before invoking the browser channel', () 
 
 test('the ↗ buttons leave for Chrome; the tree offers both the tile and Chrome', () => {
   assert.match(tileShell, /function bindBrowserButton[\s\S]{0,200}button\.onclick = \(\) => openOutside\(p\)/);
-  assert.match(workspaceLib, /Open in browser'[\s\S]{0,120}Open in Chrome ↗/);
+  assert.match(workspaceLib, /lib\.openBrowser'\)[\s\S]{0,120}lib\.openChrome/);
   // a dirty page is saved before Chrome reads the file
   assert.match(workspaceLib, /async function openOutside[\s\S]{0,200}if \(p\.dirty && !\(await saveEditor\(p\)\)\) return;[\s\S]{0,80}api\.openFileInBrowser/);
 });
