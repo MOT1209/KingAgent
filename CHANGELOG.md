@@ -48,6 +48,15 @@ always the newest one below.
 
 ### Changed
 
+- **No more native `confirm()` (U14).** Discarding unsaved edits and opening a
+  file from outside the project use a themed sheet (`confirm-sheet.mjs`) with
+  its own layer, Escape = no, and focus on the safe answer. The system dialog
+  stopped the renderer painting, so every live terminal froze while it was up.
+  `confirmOutsideOpen` now returns a promise.
+- **Filtering no longer rebuilds what you are typing in (U12, U13).** The
+  library filter and the ⌘K agent picker refill their lists in place; the input
+  keeps its focus, caret and IME composition, and a background scan landing
+  mid-typing no longer replaces it.
 - **Contrast (U26).** `--muted`, `--muted-2`, `--muted-3` and `--faint` now
   reach 4.5:1 against their theme's surface in all six themes (the worst were
   glass `--faint` at 1.9:1 and paper at 2.4:1). The cost is visible and

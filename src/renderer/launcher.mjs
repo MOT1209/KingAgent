@@ -764,32 +764,38 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
 
   function renderAgentPickerSheet() {
     const o = S.overlay; const agents = pickerAgents();
-    const query = o.query.toLowerCase();
-    const filtered = agents.filter((a) => (a.slug + ' ' + a.name + ' ' + (a.description || '')).toLowerCase().includes(query));
     const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">❯</span>
         <input id="ap-input" placeholder="Start a session with which agent?" value="${esc(o.query)}" /></div>
       <div class="picker-list" id="ap-list"></div>
       <div class="picker-foot"><span>click a row → a session as that agent</span>
         <span><b>›</b> → run it on another tool</span></div>`, { top: true });
-    const groups = [[], []];
-    filtered.forEach((a) => {
-      const k = sortKey(a);
-      if (k === 0 || k === 1) groups[k].push(a);
-    });
-    const visible = groups[0].concat(groups[1]);
-    if (o.hi > visible.length - 1) o.hi = Math.max(0, visible.length - 1);
+    // Typing, and the arrow keys, rebuild the list and nothing else. The sheet
+    // used to be torn down and rebuilt per keystroke, then refocused on a timer,
+    // which dropped keys typed in the gap and re-ran every row's markup (U13).
+    let visible = [];
     const input = q('#ap-input', modal); setTimeout(() => input.focus(), 30);
-    input.oninput = () => { o.query = input.value; o.hi = 0; o.open = null; renderOverlay(); };
+    input.oninput = () => { o.query = input.value; o.hi = 0; o.open = null; fill(); };
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const a = visible[o.hi]; const t = a && rowTool(a);
         if (a && t) launchAgent(a, t);
         else if (a) toast(`Nothing installed can run ${a.slug}.`);
       }
-      if (e.key === 'ArrowDown') { o.hi = Math.min(visible.length - 1, o.hi + 1); renderOverlay(); }
-      if (e.key === 'ArrowUp') { o.hi = Math.max(0, o.hi - 1); renderOverlay(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); o.hi = Math.min(visible.length - 1, o.hi + 1); fill(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); o.hi = Math.max(0, o.hi - 1); fill(); }
     });
     const list = q('#ap-list', modal);
+    const fill = () => {
+    const query = o.query.toLowerCase();
+    const filtered = agents.filter((a) => (a.slug + ' ' + a.name + ' ' + (a.description || '')).toLowerCase().includes(query));
+    const groups = [[], []];
+    filtered.forEach((a) => {
+      const k = sortKey(a);
+      if (k === 0 || k === 1) groups[k].push(a);
+    });
+    visible = groups[0].concat(groups[1]);
+    if (o.hi > visible.length - 1) o.hi = Math.max(0, visible.length - 1);
+    list.replaceChildren();
     if (!filtered.length) {
       list.innerHTML = agents.length
         ? '<div class="rail-empty" style="padding:14px">No match.</div>'
@@ -844,6 +850,8 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         }
       });
     });
+    };
+    fill();
   }
 
   // ---- create an agent or a skill (Library ＋ buttons) ------------------------

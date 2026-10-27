@@ -773,6 +773,14 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const openGroups = new Set(MAC_GROUP_KEYS.filter((k) => !S.library.collapsed.has(k)));
     if (shouldLoadMac({ openGroups, query: S.library.q, macLoaded: false })) loadMacLibrary();
   }
+  // The list refill of the library rail currently on screen, so a scan that
+  // lands while someone is typing in the filter updates the rows without
+  // replacing the box they are typing in.
+  let libFill = null, libFillHost = null;
+  function refreshLibraryInPlace() {
+    if (S.railTab !== 'library') return;
+    if (libFill && libFillHost && libFillHost.isConnected) libFill(); else refreshRail();
+  }
   async function loadMacLibrary() {
     if (S.library.macLoaded || S.library.macLoading) return;
     S.library.macLoading = true;
@@ -786,7 +794,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       S.library.macLoaded = true;
     } catch (_) {}
     if (gen === S.library.macGen) S.library.macLoading = false;
-    if (S.railTab === 'library') refreshRail();
+    refreshLibraryInPlace();
   }
   async function refreshServices() {
     if (S.services.loading) return;
@@ -990,9 +998,14 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const top = document.createElement('div'); top.className = 'lib-top';
     const search = document.createElement('input');
     search.className = 'lib-search'; search.placeholder = 'Filter the library…'; search.value = S.library.q;
-    search.oninput = () => { S.library.q = search.value; maybeLoadMac(); refreshRail(); const s = q('.lib-search', c); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } };
+    // Typing refills the list and leaves the search box — the same node, with
+    // its focus, caret and IME composition — alone. The whole rail used to be
+    // torn down and rebuilt per keystroke, then the caret put back by hand (U12).
+    search.oninput = () => { S.library.q = search.value; maybeLoadMac(); fillList(); };
     top.appendChild(search); c.appendChild(top);
     const list = document.createElement('div'); list.className = 'lib-list'; c.appendChild(list);
+    const fillList = () => {
+    list.replaceChildren();
     if (!S.library.loaded) { const e = document.createElement('div'); e.className = 'rail-empty'; e.textContent = 'Scanning…'; list.appendChild(e); return; }
     const ql = S.library.q.trim().toLowerCase();
     const match = (i) => !ql || (i.name + ' ' + i.description + ' ' + i.slug + ' ' + (i.filePath || '')).toLowerCase().includes(ql);
@@ -1058,6 +1071,9 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       if (g.key === 'skills') appendPointerBar(sect);
     }
     if (!shown) { const e = document.createElement('div'); e.className = 'rail-empty'; e.textContent = ql ? 'No match.' : 'Nothing here yet — the buttons above make your first.'; list.appendChild(e); }
+    };
+    libFill = fillList; libFillHost = list;
+    fillList();
   }
   // With no folder there is exactly one thing worth saying, and it is the thing
   // the screen is asking you to fix. This used to announce "claude ready" when the

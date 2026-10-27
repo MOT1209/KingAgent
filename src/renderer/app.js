@@ -4,6 +4,7 @@ import { createTerminalLinkTracking } from './terminal-link-tracking.mjs';
 import { createPanelLifecycle } from './panel-lifecycle.mjs';
 import { createSettingsPanes } from './settings-panes.mjs';
 import { makeDialog } from './dialog.mjs';
+import { askConfirm } from './confirm-sheet.mjs';
 import { createLauncher } from './launcher.mjs';
 import { createWorkspaceLibrary } from './workspace-library.mjs';
 // KingAgent — the agent workbench, by Dainami (renderer, terminal-first).
@@ -1357,8 +1358,11 @@ function closeOverlay() { S.overlay = null; renderOverlay(); }
 // ---- peek: float a file or card above the desk without touching the tiles --
 function openPeek(p) {
   const cur = S.overlay && S.overlay.type === 'peek' && S.overlay.panel;
-  if (cur && (cur.kind === 'editor' || cur.kind === 'card') && cur.dirty
-      && !confirm(`Discard unsaved changes to ${baseNameOf(cur.filePath)}?`)) return;
+  if (cur && (cur.kind === 'editor' || cur.kind === 'card') && cur.dirty) {
+    askConfirm({ title: 'Discard unsaved changes?', message: `${baseNameOf(cur.filePath)} has changes that are not saved.`, confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true })
+      .then((ok) => { if (ok) { S.overlay = { type: 'peek', panel: p }; renderOverlay(); } });
+    return;
+  }
   S.overlay = { type: 'peek', panel: p }; renderOverlay();
 }
 function renderPeek() {
@@ -1403,8 +1407,11 @@ async function pinPeek() {
 function requestClosePeek() {
   const o = S.overlay; if (!o || o.type !== 'peek') { closeOverlay(); return; }
   const p = o.panel;
-  if ((p.kind === 'editor' || p.kind === 'card') && p.dirty
-      && !confirm(`Discard unsaved changes to ${baseNameOf(p.filePath)}?`)) return;
+  if ((p.kind === 'editor' || p.kind === 'card') && p.dirty) {
+    askConfirm({ title: 'Discard unsaved changes?', message: `${baseNameOf(p.filePath)} has changes that are not saved.`, confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true })
+      .then((ok) => { if (ok && S.overlay && S.overlay.panel === p) closeOverlay(); });
+    return;
+  }
   closeOverlay();
 }
 

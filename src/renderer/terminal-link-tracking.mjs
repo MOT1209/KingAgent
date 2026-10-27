@@ -77,7 +77,7 @@ export function createTerminalLinkTracking({ api, state, q, tiles, terminalHint,
 
   function openTermLink(link, st, ev) {
     if (link.kind === 'url') { api.openUrl(urlTarget(link.text)); return; }
-    if (st && st.isFile && !(ev && ev.altKey)) { if (confirmOutsideOpen(st.abs)) openFile(st.abs); }
+    if (st && st.isFile && !(ev && ev.altKey)) { confirmOutsideOpen(st.abs).then((ok) => { if (ok) openFile(st.abs); }); }
     else if (st) api.revealFile(st.abs);
   }
 

@@ -978,7 +978,7 @@ export function createTileShell({
     if (t.kind !== 'path') return;
     const st = await api.statPath({ token: t.target, cwd: p.cwd, id: p.id });
     if (!st.exists) { toast('Not found: ' + shortHome(t.target)); return; }
-    if (st.isFile) { if (confirmOutsideOpen(st.abs)) openFile(st.abs); }
+    if (st.isFile) { confirmOutsideOpen(st.abs).then((ok) => { if (ok) openFile(st.abs); }); }
     else api.revealFile(st.abs);
   }
 

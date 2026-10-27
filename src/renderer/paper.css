@@ -2633,3 +2633,14 @@ body .modal.modal--settings .set-nav .rail-tab.active { color: var(--menu-sheet)
 [dir="rtl"] body :where(*) { unicode-bidi: plaintext; }
 [dir="rtl"] :is(.cw-md, .md-read) { text-align: start; }
 [dir="rtl"] ::placeholder { unicode-bidi: plaintext; }
+
+/* ---- confirmation sheet (confirm-sheet.mjs) ------------------------------
+   Its own layer on the body, above every other sheet and the context menu, so
+   it can be asked from inside one. Replaces window.confirm(), which stops the
+   renderer painting while it is open. */
+.overlay--confirm { position: fixed; z-index: 400; }
+.modal--confirm { width: min(420px, calc(100vw - 32px)); }
+.modal--confirm .confirm-msg { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+.modal--confirm .modal-foot { justify-content: flex-end; }
+.btn--danger { background: var(--red-ink); color: var(--paper); border-color: var(--red-ink); }
+.btn--danger:hover { filter: brightness(1.08); }
