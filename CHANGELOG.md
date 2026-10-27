@@ -14,6 +14,14 @@ always the newest one below.
 
 ### Added
 
+- Interface translation, starting with the core screens. `src/renderer/i18n.mjs`
+  provides `t('key')` over two dictionaries (`i18n-en.mjs`, `i18n-ar.mjs`) and
+  a new **Language** choice in Settings → Look, next to "Layout direction"
+  (the two are independent). Settings, the sidebar, the top bar and footer,
+  confirmation dialogs and the launcher's headline strings are translated;
+  commands and agent output never are. English stays the default and renders
+  pixel-identically; a missing key falls back to English. A test fails if a key
+  is missing from either dictionary or a `t('key')` has no definition.
 - `safeFetch` (`src/core/research/security/safeFetch.js`): the SSRF-safe fetch
   loop a search provider's `fetch()` is built on. It resolves the host through an
   injected `lookup({ all: true })`, refuses if any returned address is

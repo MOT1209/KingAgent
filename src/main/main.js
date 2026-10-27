@@ -737,6 +737,9 @@ ipcMain.handle('boot', (e) => {
     // Layout direction, and --dir=rtl to force it for a screenshot (not persisted)
     direction: settingsStore.normalizeDirection(readSettings().direction),
     dirArg: (process.argv.find((a) => a.startsWith('--dir=')) || '').split('=')[1] || null,
+    // Interface language, and --lang=ar to force it for a screenshot (not persisted)
+    language: settingsStore.normalizeLanguage(readSettings().language),
+    langArg: (process.argv.find((a) => a.startsWith('--lang=')) || '').split('=')[1] || null,
     // --scene=<name> opens one surface on boot so it can be screenshotted; screenshots only
     scene: SCENE,
     // ask the provider registry, not the environment — a key typed into Settings
@@ -1105,7 +1108,7 @@ ipcMain.handle('view:set', (_e, view) => REVIEW ? { ok: true } : writeSettings({
 // writable from the renderer — panel layout and recents live in state.json and
 // have their own channels, and nothing else should be reachable from a page.
 const WRITABLE_SETTINGS = new Set([
-  'theme', 'view', 'direction',
+  'theme', 'view', 'direction', 'language',
   'sttProvider', 'openaiKey', 'elevenKey', 'openaiModel', 'elevenModel',
   'sttModelId',
   // Settings → Updates (spec section 27). Read back in updateManager() and
@@ -1155,8 +1158,9 @@ ipcMain.handle('keys:reveal', (_e, { name }) => ({ value: storedEnvKeys()[name] 
 ipcMain.handle('settings:set', (_e, patch) => {
   const clean = {};
   for (const [k, v] of Object.entries(patch || {})) if (WRITABLE_SETTINGS.has(k)) clean[k] = v;
-  if (REVIEW) { delete clean.theme; delete clean.view; delete clean.direction; }
+  if (REVIEW) { delete clean.theme; delete clean.view; delete clean.direction; delete clean.language; }
   if ('direction' in clean) clean.direction = settingsStore.normalizeDirection(clean.direction);
+  if ('language' in clean) clean.language = settingsStore.normalizeLanguage(clean.language);
   const res = writeSettings(clean);
   return res.ok ? { ok: true, sttInfo: sttStatus() } : res;
 });

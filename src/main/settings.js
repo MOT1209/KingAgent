@@ -111,6 +111,10 @@ function normalizeView(name) { return VIEWS.includes(name) ? name : 'desk'; }
 // documents, file names) finds its own direction regardless of this.
 const DIRECTIONS = ['ltr', 'rtl'];
 function normalizeDirection(d) { return DIRECTIONS.includes(d) ? d : 'ltr'; }
+// Which language the interface text is in (src/renderer/i18n.mjs). Independent
+// of the direction above. English is the default and the fallback.
+const LANGUAGES = ['en', 'ar'];
+function normalizeLanguage(l) { return LANGUAGES.includes(l) ? l : 'en'; }
 function themeBackground(name) { return THEME_BG[normalizeTheme(name)]; }
 
 // --- research settings (Phase 7 §50) ----------------------------------------
@@ -183,6 +187,6 @@ function researchConfig(settings) {
 
 module.exports = {
   readSettings, writeSettings, fsIo, normalizeTheme, themeBackground, THEMES, DEFAULT_THEME,
-  normalizeView, VIEWS, normalizeDirection, DIRECTIONS, researchConfig, RESEARCH_DEFAULTS, RESEARCH_MODES,
+  normalizeView, VIEWS, normalizeDirection, DIRECTIONS, normalizeLanguage, LANGUAGES, researchConfig, RESEARCH_DEFAULTS, RESEARCH_MODES,
   SECRET_KEYS, ENC_PREFIX,
 };

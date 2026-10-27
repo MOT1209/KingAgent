@@ -11,8 +11,9 @@
 // answer so a stray Enter cannot discard anything.
 
 import { makeDialog } from './dialog.mjs';
+import { t } from './i18n.mjs';
 
-export function askConfirm({ title = 'Are you sure?', message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, safe = 'cancel' } = {}) {
+export function askConfirm({ title = t('confirm.title'), message = '', confirmLabel = t('confirm.ok'), cancelLabel = t('confirm.cancel'), danger = false, safe = 'cancel' } = {}) {
   return new Promise((resolve) => {
     const previous = document.activeElement;
     const wrap = document.createElement('div');

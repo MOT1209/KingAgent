@@ -5,6 +5,7 @@ import { isOutsideProject } from './path-guard.mjs';
 import { hashText } from './file-sync.mjs';
 import { DOC_STEPS } from './tile-zoom.mjs';
 import { askConfirm } from './confirm-sheet.mjs';
+import { t } from './i18n.mjs';
 import { isFile as isFilePanel, isSession as isSessionPanel, ownerFor, previewToReplace, keep as keepFile, orphan as orphanFiles, moveTo as moveFile, splitAfter, focusSplit, ownerIndexes, resolveOwners } from './desk-view.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
@@ -193,7 +194,7 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
   // window.confirm that froze every live terminal while it was up).
   function confirmOutsideOpen(abs) {
     if (!isOutsideProject(S.project && S.project.path, abs)) return Promise.resolve(true);
-    return askConfirm({ title: 'Open a file outside your project?', message: shortHome(abs), confirmLabel: 'Open it', cancelLabel: 'Cancel', safe: 'cancel' });
+    return askConfirm({ title: t('confirm.outside.title'), message: shortHome(abs), confirmLabel: t('confirm.outside.confirm'), cancelLabel: t('confirm.cancel'), safe: 'cancel' });
   }
   // Looking at a file floats it above the desk; only pinning (or an explicit
   // drop onto the desk, or restore-on-boot) makes it a tile.
@@ -272,7 +273,7 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
     if ((p.kind==='browser'||isSessionPanel(p)) && !opts.browserConfirmed && browsers.hasPending(p)) { browsers.canClose(p).then(ok=>{if(ok)closePanel(id,{...opts,browserConfirmed:true});}).catch((err)=>{ toast('Could not check for unsaved notes, so closing anyway.'); console.warn(err); closePanel(id,{...opts,browserConfirmed:true}); }); return; }
     if (p.kind === 'browser') browsers.removeNotes(id); else if(isSessionPanel(p)&&browsers.hasPending(p)) browsers.clearNotes(p);
     if ((p.kind === 'editor' || p.kind === 'card') && p.dirty && !opts.silent && !opts.discardConfirmed) {
-      askConfirm({ title: 'Discard unsaved changes?', message: `${baseNameOf(p.filePath)} has changes that are not saved.`, confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true })
+      askConfirm({ title: t('confirm.discard.title'), message: t('confirm.discard.message', { name: baseNameOf(p.filePath) }), confirmLabel: t('confirm.discard.confirm'), cancelLabel: t('confirm.discard.keep'), danger: true })
         .then((ok) => { if (ok) closePanel(id, { ...opts, discardConfirmed: true }); });
       return;
     }
