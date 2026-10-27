@@ -1,6 +1,7 @@
 import { usagePaneHtml, wireUsagePane as wireUsageContent } from './usage-pane.mjs';
 import { OPEN_OUTPUT_COPY, SHORTCUT_GROUPS } from './shortcuts.mjs';
 import { GROK_API_KEY } from './grok-auth.mjs';
+import { guarded, messageOf } from './guard.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -54,7 +55,12 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     modal.querySelectorAll('.set-nav .rail-tab').forEach((b) => {
       b.onclick = () => { keepDraft(modal); o.section = b.dataset.sec; renderOverlay(); };
     });
-    q('#set-done', modal).onclick = async () => { await saveVoiceDraft(modal); closeOverlay(); };
+    // Done closes the sheet even when saving the voice draft fails: a Done that
+    // does nothing is a sheet the user cannot leave.
+    q('#set-done', modal).onclick = async () => {
+      try { await saveVoiceDraft(modal); } catch (err) { toast('Could not save: ' + messageOf(err)); }
+      closeOverlay();
+    };
     if (sec.id === 'voice') wireVoicePane(modal);
     if (sec.id === 'look') wireLookPane(modal);
     if (sec.id === 'keys') wireKeysPane(modal);
@@ -72,22 +78,8 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   // Settings and Quick Start are keyboard-accessible help surfaces. Preserve the
   // focused control across async Settings refreshes and return to the invoker.
   function wireHelpDialog(modal) {
-    const title = q('.title', modal);
-    title.id = 'help-dialog-title';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-labelledby', title.id);
-    modal.tabIndex = -1;
-    q('.ov-x', modal).setAttribute('aria-label', 'Close dialog');
-    modal.addEventListener('keydown', (e) => {
-      if (e.key !== 'Tab') return;
-      const controls = Array.from(modal.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]'))
-        .filter((el) => el.getClientRects().length);
-      const first = controls[0], last = controls[controls.length - 1];
-      if (!first) { e.preventDefault(); return; }
-      if (e.shiftKey && (document.activeElement === first || document.activeElement === modal)) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === modal)) { e.preventDefault(); first.focus(); }
-    });
+    // role, aria-modal, the name and the Tab trap come from overlay() now
+    // (dialog.mjs); what stays here is the part only these two sheets need.
     const helpFocusKey = getHelpFocusKey();
     let target = helpFocusKey && helpFocusKey.id ? document.getElementById(helpFocusKey.id) : null;
     if ((!target || !modal.contains(target)) && helpFocusKey && helpFocusKey.section) {
@@ -216,12 +208,12 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   function wireVoicePane(modal) {
     const o = S.overlay;
     modal.querySelectorAll('.set-opt').forEach((b) => {
-      b.onclick = async () => {
+      b.onclick = guarded(async () => {
         if (b.dataset.p === pickedVoiceId()) return;
         keepDraft(modal); o.pick = b.dataset.p; o.test = null;
         await saveVoiceDraft(modal);
         renderOverlay();
-      };
+      }, (err) => toast('Could not save that choice: ' + messageOf(err)));
     });
     modal.querySelectorAll('.sv-help[data-url]').forEach((el) => { el.onclick = () => api.openUrl(el.dataset.url); });
     // "add it in Keys" jumps to the Keys tab with that key's row already open
@@ -239,8 +231,13 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
         const line = dlProgressText(ev);
         if (note && line) note.textContent = line;
       });
-      const res = await api.sttPrepare();
-      off();
+      // A rejected prepare used to skip off() and leave the button disabled on
+      // "Downloading…" for good: the listener is dropped and the button comes
+      // back whichever way this ends.
+      let res;
+      try { res = await api.sttPrepare(); }
+      catch (err) { res = { ok: false, error: messageOf(err) }; }
+      finally { off(); dl.disabled = false; }
       await refreshSttInfo();
       if (!res || !res.ok) toast('Download failed: ' + (res && res.error || '?'));
       if (isSettingsOpen()) renderOverlay();
@@ -423,7 +420,7 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     });
     const act = q('#ab-act', modal);
     if (!act) return;
-    act.onclick = async () => {
+    act.onclick = guarded(async () => {
       const a = o.about;
       // Downloading from here is the same download as the bar's, not a second
       // one: re-arm the bar with what the pane is showing and let the progress
@@ -441,7 +438,11 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
       // again, or the bar could never come back for that version.
       if (res && res.state === 'update') localStorage.removeItem(updateBar.SKIPPED_UPDATE);
       if (isSettingsOpen()) { S.overlay.about = res || { state: 'offline' }; renderOverlay(); }
-    };
+    }, (err) => {
+      // The pane sat on "checking" for good when the check itself rejected.
+      toast('Could not check for updates: ' + messageOf(err));
+      if (isSettingsOpen()) { S.overlay.about = { ...(S.overlay.about || {}), state: 'offline' }; renderOverlay(); }
+    });
   }
 
   // ---- Keys — named secrets every session inherits ---------------------------
@@ -518,14 +519,14 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     modal.querySelectorAll('.key-row .k-act').forEach((b) => {
       const name = b.closest('.key-row').dataset.key;
       const act = b.dataset.act;
-      b.onclick = async () => {
+      b.onclick = guarded(async () => {
         if (act === 'add' || act === 'edit') { o.editKey = name; o.reveal = null; renderOverlay(); const i = q('#key-edit-val'); if (i) i.focus(); }
         else if (act === 'save') saveKey(name, q('#key-edit-val', modal));
         else if (act === 'cancel') { o.editKey = null; renderOverlay(); }
         else if (act === 'show') { const r = await api.keysReveal(name); o.reveal = { name, value: r.value }; renderOverlay(); }
         else if (act === 'hide') { o.reveal = null; renderOverlay(); }
         else if (act === 'remove') { o.reveal = null; await api.keysDelete(name); toast(`${name} removed.`); refreshKeys(); refreshSttInfo(); }
-      };
+      }, (err) => toast('Could not do that: ' + messageOf(err)));
     });
     const editInput = q('#key-edit-val', modal);
     if (editInput) editInput.onkeydown = (e) => {

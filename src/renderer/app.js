@@ -3,6 +3,7 @@ import { createUpdateBar } from './update-bar.mjs';
 import { createTerminalLinkTracking } from './terminal-link-tracking.mjs';
 import { createPanelLifecycle } from './panel-lifecycle.mjs';
 import { createSettingsPanes } from './settings-panes.mjs';
+import { makeDialog } from './dialog.mjs';
 import { createLauncher } from './launcher.mjs';
 import { createWorkspaceLibrary } from './workspace-library.mjs';
 // KingAgent — the agent workbench, by Dainami (renderer, terminal-first).
@@ -1409,6 +1410,7 @@ function overlay(cls, inner, opts) {
   if (overlayStill) modal.style.animation = 'none';
   const x = document.createElement('button'); x.className = 't-btn ov-x'; x.title = 'Close'; x.innerHTML = `<span class="uni-i">✕</span><span class="pix-i">${pixIcon('close')}</span>`; x.onclick = closeOverlay;
   modal.appendChild(x);
+  makeDialog(modal);
   wrap.appendChild(modal); els.overlayRoot.appendChild(wrap); return modal;
 }
 

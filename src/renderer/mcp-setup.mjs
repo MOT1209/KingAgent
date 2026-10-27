@@ -4,6 +4,8 @@
 // written to connections.json from here.
 
 import { knowsCopy } from './receivers.mjs';
+import { guarded, messageOf } from './guard.mjs';
+import { activateOnKey } from './a11y.mjs';
 
 export const CONNECT_OVERLAYS = new Set([
   'connect', 'connect-form', 'connect-done', 'connect-custom', 'connect-own',
@@ -103,9 +105,10 @@ export function createMcpSetup(deps) {
     return api.deliverServices({ projectPath, agentIds: installedAgentIds() }).then(() => refreshServices());
   }
 
+  // role="button" too: the catalog templates only had tabindex, so a screen
+  // reader announced "group" and the cards could not be told apart from text.
   function clickOnEnter(el) {
-    if (!el) return;
-    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.onclick(); } };
+    if (el) activateOnKey(el, () => el.onclick());
   }
 
   function openConnect() {
@@ -184,7 +187,8 @@ export function createMcpSetup(deps) {
     const pickBtn = q('#own-bundle', modal);
     if (pickBtn) pickBtn.onclick = async () => {
       keep();
-      const res = await api.pickBundle();
+      let res;
+      try { res = await api.pickBundle(); } catch (err) { res = { ok: false, error: messageOf(err) }; }
       if (!res) return;
       if (!res.ok) { toast(res.error || 'Could not read that bundle.'); return; }
       o.bundle = res;
@@ -200,10 +204,15 @@ export function createMcpSetup(deps) {
       const missing = b ? b.fields.filter((f) => f.required && !o.values[f.id]) : [];
       if (missing.length) { toast(`Fill in ${missing[0].label} first.`); return; }
       q('#own-go', modal).textContent = 'Connecting…';
-      const res = await api.connectCustom({
-        name: o.name, address: o.address, values: o.values, bundleDir: b && b.dir,
-        scope: o.scope, agentIds: installedAgentIds(), projectPath: projectPathOf(),
-      });
+      // A rejection lands on the same "didn't connect" sheet as a refusal,
+      // instead of leaving the button on "Connecting…".
+      let res;
+      try {
+        res = await api.connectCustom({
+          name: o.name, address: o.address, values: o.values, bundleDir: b && b.dir,
+          scope: o.scope, agentIds: installedAgentIds(), projectPath: projectPathOf(),
+        });
+      } catch (err) { res = { ok: false, error: messageOf(err) }; }
       refreshServices(); loadLibrary(true);
       state.overlay = { type: 'connect-done', svc: { name: o.name.trim(), code: '＋', desc: 'your own connection' }, result: res };
       renderOverlay();
@@ -247,7 +256,7 @@ export function createMcpSetup(deps) {
     q('#sv-docs', modal).onclick = () => api.openUrl(svc.docs);
     q('#sv-scope', modal).querySelectorAll('.pick-chip').forEach((chip) => { chip.onclick = () => { saveKeys(); o.scope = chip.dataset.v; renderOverlay(); }; });
     const pickBtn = q('#sv-pick-folder', modal);
-    if (pickBtn) pickBtn.onclick = async () => { const info = await api.pickFolder(); if (info) { o.values.folder = info.path; q('#sv-folder-note', modal).textContent = info.pathShort; } };
+    if (pickBtn) pickBtn.onclick = guarded(async () => { const info = await api.pickFolder(); if (info) { o.values.folder = info.path; q('#sv-folder-note', modal).textContent = info.pathShort; } }, (err) => toast('Could not open the folder picker: ' + messageOf(err)));
     const install = svc.kind === 'install';
     const installDirOf = () => '~/.kingagent/connectors/' + svc.docs.split('/').pop();
     if (install && o.installed === undefined) {
@@ -274,7 +283,9 @@ export function createMcpSetup(deps) {
       if (install) o.values.installDir = installDirOf();
       if (svc.keys.some((k) => !o.values[k.id]) || (folder && !o.values.folder)) { toast(folder ? 'Choose a folder first.' : 'Paste your key first.'); return; }
       q('#sv-connect', modal).textContent = 'Connecting…';
-      const res = await api.connectService({ id: svc.id, values: o.values, scope: o.scope, agentIds: installedAgentIds(), projectPath: projectPathOf() });
+      let res;
+      try { res = await api.connectService({ id: svc.id, values: o.values, scope: o.scope, agentIds: installedAgentIds(), projectPath: projectPathOf() }); }
+      catch (err) { res = { ok: false, error: messageOf(err) }; }
       refreshServices(); loadLibrary(true);
       state.overlay = { type: 'connect-done', svc, result: res }; renderOverlay();
     };
@@ -298,10 +309,10 @@ export function createMcpSetup(deps) {
       <button class="btn" id="sv-disc">Disconnect</button>
       <button class="btn btn--go" id="sv-ok">Done</button></div>`);
     q('#sv-ok', modal).onclick = closeOverlay;
-    q('#sv-disc', modal).onclick = async () => {
+    q('#sv-disc', modal).onclick = guarded(async () => {
       await api.disconnectService({ id: sv.id, projectPath: projectPathOf() });
       refreshServices(); closeOverlay(); toast(sv.name + ' disconnected.');
-    };
+    }, (err) => toast('Could not disconnect ' + sv.name + ': ' + messageOf(err)));
   }
 
   function renderConnectCustom() {

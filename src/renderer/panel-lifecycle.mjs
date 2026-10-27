@@ -73,6 +73,7 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
     const newestLegacy = snaps.find((s) => s.kind === 'claude' && !s.sid);
     const restored = snaps.map(() => null); // snapshot position -> the panel it became
     // open* unshift; walk the list backwards so the restored order matches
+    let failed = 0;
     for (const [i, s] of [...snaps.entries()].reverse()) {
       try {
         // Every open* unshifts, so a tile that actually arrived is S.panels[0].
@@ -99,8 +100,15 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
             if (rec?.refreshImages) rec.refreshImages();
           }
         }
-      } catch (_) {}
+      } catch (err) {
+        // A tile that cannot come back used to vanish without a word, which is
+        // the whole job of restoring. Count them, name the kind in the console,
+        // and say so once after the loop rather than once per tile.
+        failed++;
+        console.warn('could not restore a ' + (s && s.kind) + ' tile' + (s && s.filePath ? ' (' + s.filePath + ')' : ''), err);
+      }
     }
+    if (failed) toast(failed === 1 ? 'One tile could not be restored.' : failed + ' tiles could not be restored.');
     for(let i=0;i<snaps.length;i++){const p=restored[i],owner=Number.isInteger(snaps[i]?.companionIndex)?restored[snaps[i].companionIndex]:null;if(p&&isSessionPanel(p)&&owner&&owner!==p&&isSessionPanel(owner))p.companionOf=owner.id;}
     resolveOwners(restored, snaps); // owners by position, now that every id exists
     browsers.restore();
@@ -258,7 +266,7 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
   }
   function closePanel(id, opts = {}) {
     const p = S.panels.find((x) => x.id === id); if (!p) return;
-    if ((p.kind==='browser'||isSessionPanel(p)) && !opts.browserConfirmed && browsers.hasPending(p)) { browsers.canClose(p).then(ok=>{if(ok)closePanel(id,{...opts,browserConfirmed:true});}); return; }
+    if ((p.kind==='browser'||isSessionPanel(p)) && !opts.browserConfirmed && browsers.hasPending(p)) { browsers.canClose(p).then(ok=>{if(ok)closePanel(id,{...opts,browserConfirmed:true});}).catch((err)=>{ toast('Could not check for unsaved notes, so closing anyway.'); console.warn(err); closePanel(id,{...opts,browserConfirmed:true}); }); return; }
     if (p.kind === 'browser') browsers.removeNotes(id); else if(isSessionPanel(p)&&browsers.hasPending(p)) browsers.clearNotes(p);
     if ((p.kind === 'editor' || p.kind === 'card') && p.dirty && !opts.silent && !confirm(`Discard unsaved changes to ${baseNameOf(p.filePath)}?`)) return;
     else if (!isFilePanel(p)) {

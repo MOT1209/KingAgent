@@ -7,6 +7,8 @@ import { receiversOf } from './receivers.mjs';
 import { shortAge } from './rel-time.mjs';
 import { chipHtml, iconKeyFor, treeIcon, pixIcon } from './icons.mjs';
 import { isRtl, alignStart, alignEnd } from './dir-axis.mjs';
+import { guarded, messageOf } from './guard.mjs';
+import { activateOnKey } from './a11y.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -202,6 +204,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
         <span class="col"><span class="goal" title="${esc(p.title)} — double-click to rename">${esc(p.title)}</span><span class="sid">${esc(kindLabel(p))}</span></span>
         <span class="nav-meta"><span class="status" style="color:${m.color}">${p.attention ? '● ' : ''}${esc(m.label)}</span>${count}</span>`;
       row.onclick = () => focusPanel(p.id);
+      row.setAttribute('aria-pressed', String(isActive(p)));
+      activateOnKey(row, () => focusPanel(p.id));
       q('.goal', row).addEventListener('dblclick', (e) => { e.stopPropagation(); beginRename(p, q('.goal', row)); });
       const cnt = q('.count', row);
       if (cnt) cnt.onclick = (e) => { e.stopPropagation(); if (folded) S.railFold.delete(p.id); else S.railFold.add(p.id); refreshRail(); q(`.nav-card[data-id="${p.id}"] .count`)?.focus({ preventScroll: true }); };
@@ -230,12 +234,17 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const toggle = document.createElement('span'); toggle.className = 'action';
     toggle.textContent = S.treeAll ? 'essentials' : 'show all';
     toggle.title = S.treeAll ? 'Hide build output, dotfiles and node_modules' : 'Show every file, including hidden and ignored ones';
-    toggle.onclick = () => {
+    const flipTree = () => {
       S.treeAll = !S.treeAll;
       localStorage.setItem('kingagent-tree-all', S.treeAll ? '1' : '0');
       S.tree = {};
-      api.listDir(p.path, S.treeAll).then((rows) => { S.tree[p.path] = rows; refreshRail(); });
+      api.listDir(p.path, S.treeAll).then((rows) => { S.tree[p.path] = rows; refreshRail(); }).catch((err) => toast('Could not list the folder: ' + messageOf(err)));
     };
+    toggle.onclick = flipTree;
+    // The only control in this header besides "+", and the only one the
+    // keyboard could not reach (U15).
+    toggle.setAttribute('aria-pressed', String(!!S.treeAll));
+    activateOnKey(toggle, flipTree);
     // Creating a file has always worked — it was just right-click-only, which for
     // most people means it did not exist. Same menu the header's context menu
     // opens, on something you can see. Both glyphs, because glass and graphite
@@ -457,7 +466,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       // reason in the shortcut column and does nothing when clicked. Removing it
       // instead would leave the question unanswered.
       if (it.off) row.onclick = (e) => e.stopPropagation();
-      else row.onclick = (e) => { e.stopPropagation(); hideMenu(); it.run(e); };
+      else row.onclick = guarded((e) => { e.stopPropagation(); hideMenu(); return it.run(e); }, (err) => toast(messageOf(err)));
       m.appendChild(row);
     }
     document.body.appendChild(m);
@@ -932,6 +941,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       <span class="col"><span class="name">${esc(i.name)}</span><span class="tools">${esc(path)}</span></span>
       ${libItemTag(i)}<span class="chev">›</span>`;
     row.onclick = () => openCard(i);
+    activateOnKey(row, () => openCard(i));
     sect.appendChild(row);
   }
   function appendServiceRow(sect, sv) {
@@ -945,13 +955,14 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       <span class="tools">${serviceCovLine(sv)}</span></span>
       ${missing.length ? '<button class="btn sv-tell">tell them</button>' : `<span class="scope-tag">${sv.scopes && sv.scopes.includes('project') ? 'project' : 'this Mac'}</span>`}`;
     row.onclick = () => openServiceDetails(sv);
+    activateOnKey(row, () => openServiceDetails(sv));
     const tell = row.querySelector('.sv-tell');
-    if (tell) tell.onclick = async (e) => {
+    if (tell) tell.onclick = guarded(async (e) => {
       e.stopPropagation();
       tell.disabled = true; tell.textContent = 'telling…';
       await api.deliverServices({ projectPath: S.project && S.project.path, agentIds: installedAgentIds() });
       refreshServices();
-    };
+    }, (err) => { toast('Could not tell them: ' + messageOf(err)); tell.disabled = false; tell.textContent = 'tell them'; });
     sect.appendChild(row);
   }
   function refreshLibraryRail(c) {
@@ -1000,6 +1011,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       const count = pendingMac ? macCountLabel({ loaded: false, n: items.length }) : items.length;
       lab.innerHTML = `<span class="lg-caret">${open ? '▾' : '▸'}</span><span>${esc(g.label)}</span><span class="lg-count">${esc(String(count))}</span>`;
       lab.onclick = () => toggleLibGroup(g.key);
+      lab.setAttribute('aria-expanded', String(!!open));
+      activateOnKey(lab, () => toggleLibGroup(g.key));
       sect.appendChild(lab);
       if (!open) continue;
       if (pendingMac) {
@@ -1015,6 +1028,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
           add.innerHTML = `<span class="code" data-kind="service">⚡</span>
             <span class="col"><span class="name">connect MCP</span><span class="tools">Notion, Slack, a folder…</span></span><span class="chev">›</span>`;
           add.onclick = () => openConnect();
+          activateOnKey(add, () => openConnect());
           sect.appendChild(add);
         }
         continue;
@@ -1033,6 +1047,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
           const sub = document.createElement('div'); sub.className = 'lib-group sub';
           sub.innerHTML = `<span class="lg-caret">${subOpen ? '▾' : '▸'}</span><span>${esc(agentNameOf(k))}</span><span class="lg-count">${buckets.get(k).length}</span>`;
           sub.onclick = () => toggleLibGroup(subKey);
+          sub.setAttribute('aria-expanded', String(!!subOpen));
+          activateOnKey(sub, () => toggleLibGroup(subKey));
           sect.appendChild(sub);
           if (subOpen) for (const i of buckets.get(k)) appendLibItem(sect, i);
         }

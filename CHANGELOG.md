@@ -48,6 +48,33 @@ always the newest one below.
 
 ### Changed
 
+Batch P8 + P6 + P7 of the audit fix plan.
+
+- **A failed request no longer leaves a control stuck.** About twenty click
+  handlers awaited an `api.*` call with nothing to catch a rejection, so the
+  remove sheet sat on "Working out what this would delete…", the Delete button
+  on "Really move to Trash?", the editor button on "Lifting…", Connect on
+  "Connecting…" and the voice download button disabled for good. They go
+  through `guarded()` (`src/renderer/guard.mjs`) or a local try/catch, say what
+  failed, and put the control back (U20, U8). The context-menu and Quick Start
+  runners are guarded once for every item. A tile that cannot be restored is
+  now counted and reported once (U38); a rejected unsaved-notes check no longer
+  makes a tile unclosable (U39); and a folder switch refused by a browser
+  holding unsent notes says so (U40).
+- **Everything in the sidebar and library is reachable from the keyboard.**
+  Session rows, the show-all/essentials toggle, library groups and rows,
+  service rows, the "connect MCP" row, the agent-picker chevrons and cards, and
+  the connect catalog now share `activateOnKey()` (`a11y.mjs`): Tab reaches
+  them, a screen reader says "button", Enter and Space act (U15–U18, U46).
+- **Every sheet is a dialog.** `overlay()` applies `role="dialog"`,
+  `aria-modal`, a name and a Tab trap through `dialog.mjs`, where only the two
+  help sheets had them. A sheet with no `.title` no longer throws while being
+  built (U9, U22).
+- Checked and left alone: U33 (every place that bumps the scan generation
+  already resets `macLoading`), U14 (native `confirm()` needs `closePanel` and
+  `swapDesk` to become async, a change of its own).
+- `docs/audit/README.md` now records what happened to every finding.
+
 Batch P10 + P4 + P5 of the audit fix plan.
 
 - **Keychain reads no longer stop the app.** `security find-generic-password`

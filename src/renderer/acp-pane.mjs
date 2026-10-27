@@ -322,7 +322,9 @@ export function mountChatPane(p, rec, hooks) {
   const watchTitle = () => { if (api.sessionWatchTitle && p.acpSid) api.sessionWatchTitle({ id: p.id, agent: p.agentId || 'claude', cwd: p.cwd, sid: p.acpSid }); };
   (async () => {
     const agentId = CHAT_READY.includes(p.agentId) ? p.agentId : 'claude';
-    const started = await api.acpStart({ id: p.id, cwd: p.cwd, agentId });
+    let started;
+    try { started = await api.acpStart({ id: p.id, cwd: p.cwd, agentId }); }
+    catch (err) { started = { ok: false, error: (err && err.message) || 'the request was refused' }; }
     if (!started.ok) { transcript.error((p.title || 'The agent') + ' could not start' + (started.error ? ' — ' + started.error : '')); return; }
     try {
       const { session } = await client.connect(p.cwd, await mcpOptions());

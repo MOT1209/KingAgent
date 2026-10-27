@@ -10,6 +10,8 @@ import { createMcpSetup } from './mcp-setup.mjs';
 import { isSession as isSessionPanel } from './desk-view.mjs';
 import { OPEN_OUTPUT_COPY } from './shortcuts.mjs';
 import { tailPath } from './file-kinds.mjs';
+import { guarded, messageOf } from './guard.mjs';
+import { activateOnKey } from './a11y.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -169,6 +171,8 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         tail.innerHTML = '<button class="lc-chat">Chat<span class="lc-beta">beta</span></button>';
         row.appendChild(tail);
       }
+      const manageChev = row.querySelector('.chev');
+      if (manageChev) { manageChev.setAttribute('aria-label', 'Manage ' + a.name); activateOnKey(manageChev, () => openAgentSheet(a)); }
       row.onclick = async (e) => {
         if (manageable && e.target.closest('.chev')) { openAgentSheet(a); return; }
         if (demoAcp && e.target.closest('.lc-chat')) {
@@ -207,6 +211,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         card.innerHTML = `${chipHtml({ key: iconKeyFor(a.id), code: code2(a.name), kind: 'agent' })}
           <span class="ac-name">${esc(a.name)}</span><span class="ac-desc">${esc(a.sub)}</span><span class="ac-go">set up →</span>`;
         card.onclick = () => { closeOverlay(); openAgentSetup(a); };
+        activateOnKey(card, () => card.onclick());
         grid.appendChild(card);
       }
     }
@@ -344,6 +349,9 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     renderOverlay();
     api.agentRemovalPlan(agent.id).then((plan) => {
       if (S.overlay && S.overlay.type === 'agent-remove') { S.overlay.plan = plan; renderOverlay(); }
+    }).catch((err) => {
+      // Without this the sheet stays on "Working out what this would delete…" forever.
+      if (S.overlay && S.overlay.type === 'agent-remove') { S.overlay.plan = { mode: 'none', reason: 'Could not work out what this would delete: ' + messageOf(err) }; renderOverlay(); }
     });
   }
   function renderAgentRemove() {
@@ -373,7 +381,8 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     if (go) go.onclick = async () => {
       if (plan.mode === 'uninstall') return runAgentCommand(a, plan.command, `remove ${a.name}`);
       o.busy = true; renderOverlay();
-      const res = await api.agentRemove(a.id);
+      let res;
+      try { res = await api.agentRemove(a.id); } catch (err) { res = { ok: false, error: messageOf(err) }; }
       o.busy = false;
       if (res.ok) { closeOverlay(); refreshAgents(); toast(`${a.name} removed.`); }
       else { renderOverlay(); toast(res.error || `Could not remove ${a.name}.`); }
@@ -814,6 +823,9 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
           if (tool) launchAgent(a, tool);
           else toast(`Nothing installed can run ${a.slug}.`);
         };
+        // The chevron said "button" and answered no key at all (U18).
+        const toolsChev = row.querySelector('.chev');
+        if (toolsChev) { toolsChev.setAttribute('aria-label', toolsChev.title); activateOnKey(toolsChev, () => openToolList(a)); }
         list.appendChild(row);
         if (o.open === a.slug) {
           const wrap = document.createElement('div');
@@ -1133,7 +1145,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         if (!act) return;
         qsMark(row.n);
         if (act.play) { api.openUrl(DEMOS[act.play]); return; }
-        act.run();
+        guarded(act.run, (err) => toast(messageOf(err)))();
       };
     });
     modal.querySelectorAll('.qs-link[data-url]').forEach((el) => {
@@ -1204,7 +1216,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
   // Save → clear → restore, in that order. The save has to name the *outgoing*
   // folder explicitly: savePanels() reads S.project, which is about to change.
   async function swapDesk(info) {
-    for (const p of S.panels) if (p.kind === 'browser' && browsers.hasPending(p) && !await browsers.canClose(p)) return;
+    for (const p of S.panels) if (p.kind === 'browser' && browsers.hasPending(p) && !await browsers.canClose(p)) { toast('Kept this folder open: a browser tab still has notes you have not sent.'); return; }
     const from = S.project ? S.project.path : null;
     // flushPanels() itself clears the pending debounce before writing.
     await flushPanels(from);
