@@ -18,6 +18,7 @@
 //
 // The AgentRuntime is not replaced: `delegate` runs the sub-task *through* it.
 
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
 const { TYPES } = require('../events/event-bus');
 const { identityRefs } = require('../workspace/identity');
 const { AgentLifecycle, AGENT_STATES } = require('./lifecycle');
@@ -26,10 +27,10 @@ const { createHandoff, summarizeHandoff } = require('./handoff');
 const { TRACE_EVENTS } = require('../trace/events');
 
 const DEFAULTS = Object.freeze({
-  timeoutMs: 5 * 60 * 1000,
-  maxDepth: 3,
-  maxFanout: 6,
-  pollMs: 50,
+  timeoutMs: ORCHESTRATION_LIMITS.agents.delegationTimeoutMs,
+  maxDepth: ORCHESTRATION_LIMITS.agents.maxDepth,
+  maxFanout: ORCHESTRATION_LIMITS.agents.maxFanout,
+  pollMs: ORCHESTRATION_LIMITS.agents.pollMs,
 });
 
 class DelegationError extends Error {

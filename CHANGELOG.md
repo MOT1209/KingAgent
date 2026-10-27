@@ -48,6 +48,12 @@ always the newest one below.
 
 ### Changed
 
+- The delegation-depth, task-timeout, poll-interval and fan-out limits of the
+  three orchestration layers were private literals that had drifted apart. They
+  now live in one frozen `ORCHESTRATION_LIMITS` table
+  (`src/core/orchestration-limits.js`) that all three import. Values are
+  unchanged, so behavior is identical; reconciling them is a separate decision.
+
 - **Defences that were written and never called (C1, C3, C9).** Model calls in
   the reasoner, evaluator and planner go through `generateWithin()`: a 60 s
   deadline, and the task's cancel signal now reaches the request, so a hung

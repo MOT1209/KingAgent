@@ -19,12 +19,16 @@ const EXECUTION_MODES = Object.freeze({
   APPROVAL: 'approval',
 });
 
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
+
+const LIMITS = ORCHESTRATION_LIMITS.orchestrator;
+
 const DEFAULT_POLICIES = Object.freeze({
   maxConcurrentTasks: 3,
-  maxDelegationDepth: 3,
-  maxDelegationsPerTask: 6,
-  taskTimeoutMs: 15 * 60 * 1000,
-  delegationTimeoutMs: 5 * 60 * 1000,
+  maxDelegationDepth: LIMITS.maxDelegationDepth,
+  maxDelegationsPerTask: LIMITS.maxDelegationsPerTask,
+  taskTimeoutMs: LIMITS.taskTimeoutMs,
+  delegationTimeoutMs: LIMITS.delegationTimeoutMs,
   // Multi-agent is opt-in per request or per capability set: routing a simple
   // request to three agents is slower, costlier and harder to explain than
   // doing it once.
