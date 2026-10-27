@@ -66,7 +66,34 @@ function createProviderRegistry() {
 // passes the signal on so a well-behaved adapter can also stop its work.
 const DEFAULT_GENERATE_TIMEOUT_MS = 60_000;
 
-function generateWithin(provider, args = {}, { timeoutMs = DEFAULT_GENERATE_TIMEOUT_MS } = {}) {
+// Tokens and cost a provider reported for one call. Adapters name these
+// differently, so accept the common spellings; anything unreadable counts as 0
+// (an unmetered call is better than a thrown one).
+function usageOf(result) {
+  const u = result && typeof result === 'object' ? result.usage : null;
+  if (!u || typeof u !== 'object') return { tokens: 0, cost: 0 };
+  const num = (v) => Math.max(0, Number(v) || 0);
+  const tokens = u.totalTokens != null ? num(u.totalTokens)
+    : u.tokens != null ? num(u.tokens)
+      : num(u.inputTokens ?? u.promptTokens) + num(u.outputTokens ?? u.completionTokens);
+  return { tokens, cost: num(u.cost) };
+}
+
+// With a governor and an agentId (either in `opts` or on `args`), every answered
+// call's usage is charged to that agent, so the governor's budgets are enforced
+// from the one place every model call passes through (audit C2).
+function generateWithin(provider, args = {}, { timeoutMs = DEFAULT_GENERATE_TIMEOUT_MS, governor = null, agentId = null } = {}) {
+  const billTo = agentId || args.agentId || null;
+  if (governor && billTo && typeof governor.noteUsage === 'function') {
+    return generateBounded(provider, args, timeoutMs).then((result) => {
+      governor.noteUsage(billTo, usageOf(result));
+      return result;
+    });
+  }
+  return generateBounded(provider, args, timeoutMs);
+}
+
+function generateBounded(provider, args, timeoutMs) {
   const outer = args.signal;
   if (outer && outer.aborted) return Promise.reject(new ModelError('model call was cancelled', { code: 'MODEL_CANCELLED', provider: provider && provider.id }));
   const controller = new AbortController();
@@ -92,4 +119,4 @@ function generateWithin(provider, args = {}, { timeoutMs = DEFAULT_GENERATE_TIME
   });
 }
 
-module.exports = { createProviderRegistry, nullProvider, ModelError, generateWithin, DEFAULT_GENERATE_TIMEOUT_MS };
+module.exports = { createProviderRegistry, nullProvider, ModelError, generateWithin, usageOf, DEFAULT_GENERATE_TIMEOUT_MS };

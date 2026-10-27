@@ -156,6 +156,11 @@ Batch P10 + P4 + P5 of the audit fix plan.
 
 ### Fixed
 
+- `governor.noteUsage` had no production caller, so none of the five agent
+  budgets was ever enforced. `generateWithin` now takes `{ governor, agentId }`
+  and charges each answered call's tokens/cost to that agent, so a run past the
+  token budget shows up in `governor.sweep()`. Callers pass them once a model
+  provider is registered in production.
 - Dictating into a tile's AI input now sends a bubbling `input` event, like
   the other three dictation paths, so delegated listeners see it (U34).
 
