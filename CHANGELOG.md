@@ -187,6 +187,11 @@ Batch P10 + P4 + P5 of the audit fix plan.
 
 ### Security
 
+- Bumped `@modelcontextprotocol/sdk` 1.27.1 → 1.32.2 and the `sharp` override
+  0.35.4 → 0.35.5, clearing all three high-severity `npm audit` findings. Four
+  low findings remain in `katex`, reachable only from the editor bundle's
+  build tooling (devDependency), not shipped.
+
 First batch from the audit in `docs/audit/` (fix plan P1): every IPC handler
 that ran, deleted, read or wrote a path the renderer chose now checks it against
 something main knows itself.
