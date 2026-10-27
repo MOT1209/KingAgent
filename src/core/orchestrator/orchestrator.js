@@ -16,6 +16,7 @@
 // second runtime nobody can reconcile with the first.
 
 const { TYPES } = require('../events/event-bus');
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
 const { identityRefs, createIdentity } = require('../workspace/identity');
 const { TRACE_EVENTS } = require('../trace/events');
 const { EXECUTION_MODES, createPolicies } = require('./policies');
@@ -468,7 +469,7 @@ class Orchestrator {
         this._runtime.cancel(taskId, 'orchestration timed out');
         return { ok: false, error: `task timed out after ${timeoutMs}ms`, taskId };
       }
-      await sleep(40);
+      await sleep(ORCHESTRATION_LIMITS.pollMs.task);
     }
   }
 

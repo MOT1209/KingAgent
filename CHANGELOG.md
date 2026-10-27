@@ -48,6 +48,14 @@ always the newest one below.
 
 ### Changed
 
+- **Orchestration limits in one place (C7).** Depth, task and delegation
+  timeouts, fan-out and poll intervals for the two orchestrators and two
+  coordinators now come from `src/core/orchestration-limits.js`, frozen, with the
+  reason for each difference written beside it. The values are the ones each
+  module used before, so nothing behaves differently; a test fails if a module
+  stops importing it or a number drifts.
+- The unused `mountOrgView` and its tests are removed (U23); the organization
+  view is drawn in `agent-platform.mjs`.
 - **Defences that were written and never called (C1, C3, C9).** Model calls in
   the reasoner, evaluator and planner go through `generateWithin()`: a 60 s
   deadline, and the task's cancel signal now reaches the request, so a hung

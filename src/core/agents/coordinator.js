@@ -24,12 +24,13 @@ const { AgentLifecycle, AGENT_STATES } = require('./lifecycle');
 const { MESSAGE_TYPES } = require('./messaging/message');
 const { createHandoff, summarizeHandoff } = require('./handoff');
 const { TRACE_EVENTS } = require('../trace/events');
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
 
 const DEFAULTS = Object.freeze({
-  timeoutMs: 5 * 60 * 1000,
-  maxDepth: 3,
-  maxFanout: 6,
-  pollMs: 50,
+  timeoutMs: ORCHESTRATION_LIMITS.delegationTimeoutMs.coordinator,
+  maxDepth: ORCHESTRATION_LIMITS.delegationDepth.coordinator,
+  maxFanout: ORCHESTRATION_LIMITS.maxFanout,
+  pollMs: ORCHESTRATION_LIMITS.pollMs.coordinator,
 });
 
 class DelegationError extends Error {
