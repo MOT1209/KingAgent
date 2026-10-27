@@ -37,7 +37,7 @@ const JS_RULES = [
 
 function offenders(file, rules) {
   const out = [];
-  fs.readFileSync(path.join(RENDERER, file), 'utf8').split('\n').forEach((line, i) => {
+  fs.readFileSync(path.join(RENDERER, file), 'utf8').split(/\r?\n/).forEach((line, i) => {
     if (line.includes('physical:')) return;
     // Comments say left and right in prose; only code counts.
     const code = line.replace(/\/\*.*?\*\//g, '').replace(/^\s*(\/\/|\*|\/\*).*$/, '').replace(/\s\/\/\s.*$/, '');
