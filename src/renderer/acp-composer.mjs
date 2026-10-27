@@ -6,6 +6,7 @@
 // State setters returned: setCommands, setSkills, setMode, setModel, setUsage,
 // setBusy, attach, focus.
 
+import { t } from './i18n.mjs';
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export function createComposer(host, o) {
@@ -13,16 +14,16 @@ export function createComposer(host, o) {
   host.innerHTML = `
     <div class="cw-att" hidden></div>
     <div class="cw-inrow">
-      <button class="cw-plus" title="Files, commands and skills">＋</button>
-      <textarea class="cw-in" rows="1" spellcheck="false" placeholder="Write a message…"></textarea>
-      <button class="cw-send" title="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
-      <button class="cw-stopbtn" hidden title="Stop">■</button>
+      <button class="cw-plus" title="${esc(t('composer.plus'))}">＋</button>
+      <textarea class="cw-in" rows="1" spellcheck="false" placeholder="${esc(t('composer.placeholder'))}"></textarea>
+      <button class="cw-send" title="${esc(t('composer.send'))}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      <button class="cw-stopbtn" hidden title="${esc(t('composer.stop'))}">■</button>
     </div>
     <div class="cw-tools">
-      <button class="cw-tool cw-mode" hidden title="Mode — ⇧⇥ cycles"><span>◈</span> <b></b></button>
-      <button class="cw-tool cw-model" hidden title="Model"><span>☰</span> <b></b></button>
-      <span class="cw-ctx" hidden title="Context used">ctx <b></b></span>
-      <span class="cw-drop">Drop files anywhere</span>
+      <button class="cw-tool cw-mode" hidden title="${esc(t('composer.mode'))}"><span>◈</span> <b></b></button>
+      <button class="cw-tool cw-model" hidden title="${esc(t('composer.model'))}"><span>☰</span> <b></b></button>
+      <span class="cw-ctx" hidden title="${esc(t('composer.ctxTip'))}">${esc(t('composer.ctx'))} <b></b></span>
+      <span class="cw-drop">${esc(t('composer.drop'))}</span>
     </div>
     <input class="cw-fileinput" type="file" multiple hidden>
     <div class="cw-pop" hidden></div>`;
@@ -83,15 +84,15 @@ export function createComposer(host, o) {
     const cmdRows = commands.filter((c) => !q || c.name.toLowerCase().startsWith(q));
     const skRows = q ? [] : skills;
     let html = '';
-    if (!filter) html += '<button class="r files"><b>📎 Add files and folders</b><span>or drop from Finder</span></button>';
-    if (builtins.length) html += '<div class="hd">Session</div>' +
+    if (!filter) html += `<button class="r files"><b>📎 ${esc(t('composer.addFiles'))}</b><span>${esc(t('composer.orDrop'))}</span></button>`;
+    if (builtins.length) html += `<div class="hd">${esc(t('composer.hdSession'))}</div>` +
       builtins.map((c) => `<button class="r" data-cmd="${esc(c.name)}"><b>/${esc(c.name)}</b><span>${esc((c.description || '').slice(0, 44))}</span></button>`).join('');
-    if (cmdRows.length) html += '<div class="hd">Commands</div>' +
+    if (cmdRows.length) html += `<div class="hd">${esc(t('composer.hdCommands'))}</div>` +
       cmdRows.map((c) => `<button class="r" data-cmd="${esc(c.name)}"><b>/${esc(c.name)}</b><span>${esc((c.description || '').slice(0, 44))}</span></button>`).join('');
-    if (skRows.length) html += '<div class="hd">Skills</div>' +
+    if (skRows.length) html += `<div class="hd">${esc(t('composer.hdSkills'))}</div>` +
       skRows.map((c) => `<button class="r" data-skill="${esc(c.name)}"><b>✦ ${esc(c.name)}</b><span>${esc((c.description || '').slice(0, 44))}</span></button>`).join('');
-    if (!cmdRows.length && filter) html += '<div class="ft">No matching command — Enter sends it as written</div>';
-    if (!commands.length && !filter) html += '<div class="ft">Connecting…</div>';
+    if (!cmdRows.length && filter) html += `<div class="ft">${esc(t('composer.noMatch'))}</div>`;
+    if (!commands.length && !filter) html += `<div class="ft">${esc(t('composer.connecting'))}</div>`;
     popEl.innerHTML = html;
     popEl.style.maxHeight = menuHeight() + 'px';
     popEl.hidden = false;

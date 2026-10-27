@@ -1,3 +1,4 @@
+import { t } from './i18n.mjs';
 import { createBrowserAnnotations } from './browser-annotations.mjs';
 import { browserSettingsHtml, wireBrowserSettings } from './browser-settings.mjs';
 import { createBrowserOverlays } from './browser-overlays.mjs';
@@ -86,7 +87,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     rec.root.classList.add('browser-tile'); rec.body.classList.add('browser-body');
     q('.t-zoom-out', rec.head).hidden = true; q('.t-zoom-in', rec.head).hidden = true;
     q('.t-mic', rec.head).hidden = true;
-    rec.body.innerHTML = `<form class="browser-address">${button('back', 'Back', 'back')}${button('forward', 'Forward', 'forward')}${button('refresh', 'Reload', 'reload')}<input aria-label="Browser address" placeholder="Search or enter address" value="${esc(p.filePath || (p.url && p.url !== 'about:blank' ? p.url : ''))}" spellcheck="false"><button type="button" class="browser-annotate" aria-pressed="false" title="Annotate">Annotate</button>${button('more', 'Browser menu', 'menu')}</form><div class="browser-error" role="status" hidden></div><div class="browser-viewport"></div><div class="browser-selection" hidden><button class="btn btn--small">Selection · Add to session…</button></div>`;
+    rec.body.innerHTML = `<form class="browser-address">${button('back', t('browser.back'), 'back')}${button('forward', t('browser.forward'), 'forward')}${button('refresh', t('browser.reload'), 'reload')}<input aria-label="${esc(t('browser.address'))}" placeholder="${esc(t('browser.addressPh'))}" value="${esc(p.filePath || (p.url && p.url !== 'about:blank' ? p.url : ''))}" spellcheck="false"><button type="button" class="browser-annotate" aria-pressed="false" title="${esc(t('browser.annotate'))}">${esc(t('browser.annotate'))}</button>${button('more', t('browser.menu'), 'menu')}</form><div class="browser-error" role="status" hidden></div><div class="browser-viewport"></div><div class="browser-selection" hidden><button class="btn btn--small">${esc(t('browser.selection'))}</button></div>`;
     rec.browserViewport = q('.browser-viewport', rec.body);
     const disposeAnnotations = annotations.mount(p, rec.browserViewport);
     const ro = new ResizeObserver(schedule); ro.observe(rec.browserViewport);
@@ -121,24 +122,24 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     let control = null;
     try { control = (await api.browserControl())?.sessions?.find((s) => s.sessionId === p.id) || null; } catch { /* leave it unknown */ }
     const actions = [
-      ['Open in Chrome \u2197', () => openOutside(p)],
-      ['Find in page', () => findInPage(p)],
-      ['Zoom in', () => api.browserAction({id:p.id,action:'zoom',value:p.pageZoom=Math.min(3,(p.pageZoom||1)+0.1)}).then(check)],
-      ['Zoom out', () => api.browserAction({id:p.id,action:'zoom',value:p.pageZoom=Math.max(0.5,(p.pageZoom||1)-0.1)}).then(check)],
-      ['Reset zoom', () => api.browserAction({id:p.id,action:'zoom',value:p.pageZoom=1}).then(check)],
-      ['Take screenshot…', () => api.browserAction({id:p.id,action:'capture'}).then(check)],
-      ['Import from Chrome…', () => show({type:'browser-import',panelId:p.id})],
-      ['Manage profiles…', () => show({type:'browser-profiles',panelId:p.id})],
-      ['Clear browsing data…', () => show({type:'browser-profiles',panelId:p.id,section:'clear'})],
-      ['Browser settings…', () => settings('browser')],
+      [t('lib.openChrome'), () => openOutside(p)],
+      [t('browser.find'), () => findInPage(p)],
+      [t('browser.zoomIn'), () => api.browserAction({id:p.id,action:'zoom',value:p.pageZoom=Math.min(3,(p.pageZoom||1)+0.1)}).then(check)],
+      [t('browser.zoomOut'), () => api.browserAction({id:p.id,action:'zoom',value:p.pageZoom=Math.max(0.5,(p.pageZoom||1)-0.1)}).then(check)],
+      [t('browser.zoomReset'), () => api.browserAction({id:p.id,action:'zoom',value:p.pageZoom=1}).then(check)],
+      [t('browser.screenshot'), () => api.browserAction({id:p.id,action:'capture'}).then(check)],
+      [t('browser.importChrome'), () => show({type:'browser-import',panelId:p.id})],
+      [t('browser.profiles'), () => show({type:'browser-profiles',panelId:p.id})],
+      [t('browser.clearData'), () => show({type:'browser-profiles',panelId:p.id,section:'clear'})],
+      [t('browser.settings'), () => settings('browser')],
     ];
     // §23: the person's half of take-control. An agent is paused on this tab
     // until the second row is used — and the agent cannot unpause itself, which
     // is why taking control is not a tool.
     if (control) {
       actions.unshift(control.owner === 'human'
-        ? ['Return control to the agent', () => api.browserReturnControl({ id: p.id }).then((r) => { if (check(r)) toast('The agent may drive this tab again.'); })]
-        : ['Take control from the agent', () => api.browserTakeControl({ id: p.id, reason: 'Taken from the browser menu' }).then((r) => { if (check(r)) toast('You have control. The agent is paused on this tab.'); })]);
+        ? [t('browser.returnControl'), () => api.browserReturnControl({ id: p.id }).then((r) => { if (check(r)) toast(t('browser.returned')); })]
+        : [t('browser.takeControl'), () => api.browserTakeControl({ id: p.id, reason: 'Taken from the browser menu' }).then((r) => { if (check(r)) toast(t('browser.taken')); })]);
     }
     for (const [label, run] of actions) { const b = document.createElement('button'); b.type='button'; b.setAttribute('role','menuitem'); b.textContent=label; b.onclick=()=>{closeMenu();run();}; menu.appendChild(b); }
     document.body.appendChild(menu); const r=anchor.getBoundingClientRect();
@@ -150,7 +151,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
   function findInPage(p) {
     document.querySelector('.browser-find')?.remove();
     const rec=tiles.get(p.id), bar=document.createElement('form'); bar.className='browser-find';
-    bar.innerHTML='<input aria-label="Find in page" placeholder="Find in page"><button class="btn btn--small">Find</button><button class="btn btn--small" type="button" aria-label="Close find">×</button>';
+    bar.innerHTML=`<input aria-label="${t('browser.find')}" placeholder="${t('browser.find')}"><button class="btn btn--small">${t('browser.findBtn')}</button><button class="btn btn--small" type="button" aria-label="${t('browser.closeFind')}">×</button>`;
     rec.body.prepend(bar);
     bar.onsubmit=e=>{e.preventDefault();api.browserAction({id:p.id,action:'find',value:q('input',bar).value}).then(check);};
     const finish=()=>{api.browserAction({id:p.id,action:'stop-find'});bar.remove();schedule();};
@@ -248,7 +249,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     schedule();
   });
   function inbox(p) {
-    if (!p.browserMessages?.length) { toast('No messages for this session.'); return; }
+    if (!p.browserMessages?.length) { toast(t('browser.noMessages')); return; }
     selection({ owner: p.id }, { reference: 'Messages for ' + p.title, text: p.browserMessages.map((m) => 'From ' + m.title + '\n' + m.text).join('\n\n') });
   }
   return { open, mount, restore, decorate, schedule, clearNotes, newBrowser, renderNew, renderNote, settingsHtml, wireSettings, renderProfiles, renderImport, inbox, hasPending:p=>annotations.hasPending(p), canClose:p=>annotations.canClose(p), removeNotes:id=>annotations.removeTab(id) };
