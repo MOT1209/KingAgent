@@ -15,9 +15,7 @@
 // Pure where it can be; the probe is injectable so tests never touch a real
 // PATH. main.js owns the pty; this owns which program the pty runs.
 
-const {
-  windowsShells, defaultTerminalShell, loginShell,
-} = require('./platform.js');
+const { windowsShells, loginShell } = require('./platform.js');
 
 // The full decision, injectable end to end:
 //   { program, args, kind, id } — program/args go straight to pty.spawn,
@@ -46,4 +44,4 @@ function cachedShell(opts = {}) {
 }
 function resetShellCache() { memo = null; }
 
-module.exports = { resolveShell, cachedShell, resetShellCache, defaultTerminalShell };
+module.exports = { resolveShell, cachedShell, resetShellCache };

@@ -11,6 +11,7 @@ import { clampTermFont, nextTermFont, clampDocScale, nextDocScale, TERM_FONT_DEF
 import { createClockB } from './pty-notify.mjs';
 import { pixIcon } from './icons.mjs';
 import { mountChatPane } from './acp-pane.mjs';
+import { isRtl, inlineDelta, inlineOffset } from './dir-axis.mjs';
 
 // Grid of tiles: layout/sizing, the split view, terminal/doc zoom, tile
 // mounting and its shell (drag/drop, resize grip, file selection, image
@@ -232,7 +233,7 @@ export function createTileShell({
   }
   function syncSplitLayout(pv) {
     const cs = getComputedStyle(pv);
-    const width = pv.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const width = pv.clientWidth - parseFloat(cs.paddingInlineStart) - parseFloat(cs.paddingInlineEnd);
     const layout = splitLayout(width, S.splitRatio);
     pv.classList.toggle('is-compact', layout.compact);
     pv.style.setProperty('--split', layout.left + 'px');
@@ -242,17 +243,20 @@ export function createTileShell({
       b.disabled = !(b.dataset.pane === 'agent' ? S.split.sessionId : S.split.fileId);
     });
   }
-  // The line between the panes: drag it, the left pane keeps the width.
+  // The line between the panes: drag it, the first pane keeps the width. The
+  // first pane is on the left of a left-to-right desk and on the right of a
+  // mirrored one, so the pointer is measured from whichever edge it starts at.
   function wireDivider(pv) {
     const div = q('.pane-divider', pv);
     div.onmousedown = (e) => {
       e.preventDefault(); ptyDiscrete();
       const r = pv.getBoundingClientRect();
       const cs = getComputedStyle(pv);
-      const left = parseFloat(cs.paddingLeft || '0');
+      const start = parseFloat(cs.paddingInlineStart || '0');
+      const rtl = isRtl(pv);
       const mv = (ev) => {
-        const width = pv.clientWidth - left - parseFloat(cs.paddingRight || '0');
-        const px = splitLayout(width, (ev.clientX - r.left - left) / (width - 20)).left;
+        const width = pv.clientWidth - start - parseFloat(cs.paddingInlineEnd || '0');
+        const px = splitLayout(width, inlineOffset(ev.clientX, r, start, rtl) / (width - 20)).left;
         S.splitRatio = px / (width - 20); syncSplitLayout(pv);
         tileEls.forEach((t) => { if (t.fit && t.root.closest('.paneview')) markFit(t); });
       };
@@ -338,8 +342,12 @@ export function createTileShell({
       const grid = els.grid;
       const cs = getComputedStyle(grid);
       const inner = grid.clientWidth
-        - parseFloat(cs.paddingLeft || '0') - parseFloat(cs.paddingRight || '0');
+        - parseFloat(cs.paddingInlineStart || '0') - parseFloat(cs.paddingInlineEnd || '0');
       const cols = syncDeskColumns.last || MIN_COLS;
+      // On a mirrored desk the card is anchored at its right edge and the grip
+      // is bottom-left, so dragging left grows it: the delta flips, and the
+      // lifted card's left moves to keep its right edge still.
+      const rtl = isRtl(grid);
       const pitchX = (inner + GAP) / cols;     // one column plus the gap after it
       const pitchY = ROW + GAP;
       const startW = rec.root.offsetWidth, startH = rec.root.offsetHeight;
@@ -367,7 +375,7 @@ export function createTileShell({
       // keeps firing, so clock A refits the live terminal on every frame of this.
       rec.root.classList.add('lifting');
       rec.root.style.position = 'absolute';
-      rec.root.style.left = left + 'px';
+      rec.root.style.left = left + 'px'; // physical: offsetLeft is a physical coordinate
       rec.root.style.top = top + 'px';
       rec.root.style.width = startW + 'px';
       rec.root.style.height = startH + 'px';
@@ -375,6 +383,7 @@ export function createTileShell({
       clockB.setHold(p.id, true);
 
       const place = (w, h) => {
+        if (rtl) rec.root.style.left = (left + startW - w) + 'px'; // physical: keeps the right edge where it was
         rec.root.style.width = w + 'px';
         rec.root.style.height = h + 'px';
         const nx = clampSpan(Math.round((w + GAP) / pitchX), cols);
@@ -389,7 +398,7 @@ export function createTileShell({
 
       const move = (ev) => {
         if (Math.abs(ev.clientX - e.clientX) > 2 || Math.abs(ev.clientY - e.clientY) > 2) moved = true;
-        place(Math.max(80, startW + (ev.clientX - e.clientX)),
+        place(Math.max(80, startW + inlineDelta(ev.clientX - e.clientX, rtl)),
               Math.max(60, startH + (ev.clientY - e.clientY)));
       };
       const up = () => {
@@ -398,7 +407,7 @@ export function createTileShell({
         grip.removeEventListener('pointercancel', up);
         slot.remove();
         rec.root.classList.remove('lifting');
-        rec.root.style.position = ''; rec.root.style.left = ''; rec.root.style.top = '';
+        rec.root.style.position = ''; rec.root.style.left = ''; rec.root.style.top = ''; // physical: clears the lift
         rec.root.style.width = ''; rec.root.style.height = '';
         rec.holdPty = false;
         clockB.setHold(p.id, false);
@@ -677,7 +686,7 @@ export function createTileShell({
   function drainFits() {
     const batch = [...dirtyFits];
     dirtyFits.clear();
-    for (const rec of batch) fitCanvas(rec);
+    fitBatch(batch);
   }
 
   // How long a gesture has to be still before the agent is told. The settle is
@@ -698,41 +707,61 @@ export function createTileShell({
     clockB.notify(p.id, rec.term.cols, rec.term.rows);
   }
 
-  function fitCanvas(rec) {
-    if (!rec || !rec.term || !rec.fit) return;
-    // A hidden terminal measures zero. addon-fit would round that up to its
-    // minimum and resize the pty to a couple of columns — and claude reflows to
-    // whatever it is told, so the session would come back from the card view
-    // wrapped one word per line.
-    //
-    // Left marked rather than dropped, so it is redrawn on the frame it becomes
-    // visible. Dropping it is why a tile came back from a collapse at the size it
-    // held before the expand, and stayed there until something else nudged it.
-    // No frame is scheduled here — the ResizeObserver fires the moment the tile
-    // has a size, and that is what drains this.
-    if (!rec.body.clientWidth || !rec.body.clientHeight) { dirtyFits.add(rec); return; }
-    // One resize from FitAddon's proposal, then at most one overflow clip.
-    // Both happen in this turn; Clock B coalesces them into one pty notify.
-    let dim;
-    try { dim = rec.fit.proposeDimensions(); } catch (_) { return; }
-    if (!dim || isNaN(dim.cols) || isNaN(dim.rows)) return;
-    const term = rec.term;
-    if (term.cols !== dim.cols || term.rows !== dim.rows) {
-      try { term.resize(dim.cols, dim.rows); } catch (_) { return; }
+  function fitCanvas(rec) { fitBatch([rec]); }
+  // Every dirty tile in one frame, in phases: all the reads, then all the
+  // writes. A tile's resize invalidates layout, so doing read→write→read→write
+  // per tile made the next tile's read (and the overflow read after each
+  // resize) force a synchronous layout: four tiles, eight forced layouts a
+  // frame while a window edge was dragged. Phased, it is one layout to measure
+  // the proposals and one to measure the overflow, however many tiles there are.
+  function fitBatch(recs) {
+    // 1 · read: what each visible terminal should become.
+    const planned = [];
+    for (const rec of recs) {
+      if (!rec || !rec.term || !rec.fit) continue;
+      // A hidden terminal measures zero. addon-fit would round that up to its
+      // minimum and resize the pty to a couple of columns — and claude reflows to
+      // whatever it is told, so the session would come back from the card view
+      // wrapped one word per line.
+      //
+      // Left marked rather than dropped, so it is redrawn on the frame it becomes
+      // visible. Dropping it is why a tile came back from a collapse at the size it
+      // held before the expand, and stayed there until something else nudged it.
+      // No frame is scheduled here — the ResizeObserver fires the moment the tile
+      // has a size, and that is what drains this.
+      if (!rec.body.clientWidth || !rec.body.clientHeight) { dirtyFits.add(rec); continue; }
+      let dim;
+      try { dim = rec.fit.proposeDimensions(); } catch (_) { continue; }
+      if (!dim || isNaN(dim.cols) || isNaN(dim.rows)) continue;
+      planned.push({ rec, dim });
     }
-    try {
-      const body = rec.body;
-      const screen = body.querySelector('.xterm-screen'); if (!screen) return;
-      const cs = getComputedStyle(body);
-      const limit = body.getBoundingClientRect().right
-        - parseFloat(cs.borderRightWidth || '0') - parseFloat(cs.paddingRight || '0');
-      const sr = screen.getBoundingClientRect();
-      const overflow = sr.right - limit;
-      if (overflow > 0 && term.cols > 20) {
-        const cell = sr.width / term.cols;
-        term.resize(term.cols - Math.ceil(overflow / cell), term.rows);
+    // 2 · write: one resize from FitAddon's proposal. Clock B coalesces the
+    // notifications into one pty notify.
+    const resized = [];
+    for (const item of planned) {
+      const { rec, dim } = item, term = rec.term;
+      if (term.cols !== dim.cols || term.rows !== dim.rows) {
+        try { term.resize(dim.cols, dim.rows); } catch (_) { continue; }
       }
-    } catch (_) {}
+      resized.push(item);
+    }
+    // 3 · read: how far each screen overflows its body, after the resizes.
+    const clips = [];
+    for (const { rec } of resized) {
+      try {
+        const body = rec.body;
+        const screen = body.querySelector('.xterm-screen'); if (!screen) continue;
+        const cs = getComputedStyle(body);
+        // physical: the terminal is left-to-right in every layout, so its right edge is its end
+        const limit = body.getBoundingClientRect().right
+          - parseFloat(cs.borderRightWidth || '0') - parseFloat(cs.paddingRight || '0'); // physical: see above
+        const sr = screen.getBoundingClientRect();
+        const overflow = sr.right - limit;
+        if (overflow > 0 && rec.term.cols > 20) clips.push({ rec, drop: Math.ceil(overflow / (sr.width / rec.term.cols)) });
+      } catch (_) {}
+    }
+    // 4 · write: at most one overflow clip each.
+    for (const { rec, drop } of clips) { try { rec.term.resize(rec.term.cols - drop, rec.term.rows); } catch (_) {} }
   }
 
   function mountTerminal(p, rec) {
@@ -949,7 +978,7 @@ export function createTileShell({
     if (t.kind !== 'path') return;
     const st = await api.statPath({ token: t.target, cwd: p.cwd, id: p.id });
     if (!st.exists) { toast('Not found: ' + shortHome(t.target)); return; }
-    if (st.isFile) { if (confirmOutsideOpen(st.abs)) openFile(st.abs); }
+    if (st.isFile) { confirmOutsideOpen(st.abs).then((ok) => { if (ok) openFile(st.abs); }); }
     else api.revealFile(st.abs);
   }
 

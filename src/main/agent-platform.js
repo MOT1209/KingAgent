@@ -269,7 +269,9 @@ function registerIpcHandlers({ ipcMain, platform, forward }) {
   ipcMain.handle('agent:authorizeResponse', (event, payload) => {
     const args = validatePayload('agent:authorizeResponse', payload);
     const pending = platform._pendingAuth && platform._pendingAuth.get(args.requestId);
-    if (pending) pending(args.approved);
+    // Removed on answer, not only on the 60 s timeout: a repeated response for
+    // the same request must not run the resolver a second time.
+    if (pending) { platform._pendingAuth.delete(args.requestId); pending(args.approved); }
     return { ok: true };
   });
 

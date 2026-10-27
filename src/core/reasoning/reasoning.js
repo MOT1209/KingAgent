@@ -6,6 +6,7 @@
 // makes progress.
 
 const { TYPES } = require('../events/event-bus');
+const { generateWithin } = require('../ai/provider');
 
 class Reasoner {
   constructor({ provider, bus, logger }) {
@@ -18,7 +19,7 @@ class Reasoner {
     this._bus.emit(TYPES.TASK_ANALYZING, { taskId: task.id, agentId: task.agentId });
     if (!this._provider) return deterministicAnalyze(task);
     try {
-      const result = await this._provider.generate({
+      const result = await generateWithin(this._provider, {
         system:
           'Analyze the user request and workspace state. Return a JSON object with exactly ' +
           'keys: { interpretation: string, goal: string, constraints: string[], risks: string[] }.',
@@ -44,7 +45,7 @@ class Reasoner {
     if (this._provider && options.length) {
       const list = options.map((o) => `- id: ${o.id}, name: ${o.name || o.id}, description: ${(o.description || '').slice(0, 80)}`).join('\n');
       try {
-        const result = await this._provider.generate({
+        const result = await generateWithin(this._provider, {
           system:
             `You are choosing the next action for task ${task.id}. Return a JSON object with exactly ` +
             'keys: { decision: string, rationale: string, actions: [{ id, confidence: 0-1 }] }.',
@@ -69,7 +70,7 @@ class Reasoner {
   async evaluateStep(task, step, result) {
     if (this._provider) {
       try {
-        const r = await this._provider.generate({
+        const r = await generateWithin(this._provider, {
           system:
             'Evaluate the step result. Return { passed: boolean, reason: string, next: "continue"|"replan"|"fail" }.',
           messages: [
@@ -90,7 +91,7 @@ class Reasoner {
     const msg = error && error.message ? error.message : String(error);
     if (this._provider) {
       try {
-        const r = await this._provider.generate({
+        const r = await generateWithin(this._provider, {
           system: 'Return { cause: string, category: string, proposedFix: string }. No prose.',
           messages: [{ role: 'user', content: `error: ${msg}\nrequest: ${task.request}` }],
           structured: true,

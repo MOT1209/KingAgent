@@ -18,33 +18,6 @@ import { STAGE_ORDER, STAGE_LABEL, summarize, renderProgressLines } from './rese
 
 const PANEL_CLASS = 'research-panel';
 
-const STYLE = `
-.research-panel { display: flex; flex-direction: column; gap: 10px; font: 12px/1.55 system-ui, sans-serif; }
-.research-panel .r-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.research-panel .r-q { font-weight: 600; }
-.research-panel .r-grade { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
-.research-panel .r-grade.strong { color: #2f7d4f; }
-.research-panel .r-grade.adequate { color: #6b6f2a; }
-.research-panel .r-grade.weak { color: #9a5b1e; }
-.research-panel .r-grade.insufficient { color: #a3352c; }
-.research-panel .r-steps { list-style: none; margin: 0; padding: 0; }
-.research-panel .r-steps li { display: flex; gap: 8px; align-items: baseline; padding: 1px 0; }
-.research-panel .r-mark { width: 1.1em; flex: none; text-align: center; }
-.research-panel .r-mark.done { color: #2f7d4f; }
-.research-panel .r-mark.warn { color: #9a5b1e; }
-.research-panel .r-mark.fail { color: #a3352c; }
-.research-panel .r-mark.run { color: #4a6ea8; }
-.research-panel .r-note { color: var(--muted, #767676); }
-.research-panel .r-caveats { margin: 0; padding-left: 16px; color: #9a5b1e; }
-.research-panel .r-sources { list-style: none; margin: 0; padding: 0; }
-.research-panel .r-sources li { padding: 3px 0; border-top: 1px solid rgba(127,127,127,.18); }
-.research-panel .r-ord { color: var(--muted, #767676); }
-.research-panel .r-primary { font-size: 10px; border: 1px solid rgba(47,125,79,.5); color: #2f7d4f; border-radius: 3px; padding: 0 4px; margin-left: 5px; }
-.research-panel .r-flag { font-size: 10px; border: 1px solid rgba(163,53,44,.5); color: #a3352c; border-radius: 3px; padding: 0 4px; margin-left: 5px; }
-.research-panel .r-conflict { border-left: 2px solid #9a5b1e; padding-left: 8px; margin: 4px 0; }
-.research-panel .r-empty { color: var(--muted, #767676); font-style: italic; }
-.research-panel button { font: inherit; cursor: pointer; }
-`;
 
 // Only http(s) reaches an href.
 //
@@ -183,13 +156,7 @@ function renderResult(result) {
 function mountResearch(host, { api = window.kingagent && window.kingagent.agentPlatform } = {}) {
   if (!host || !api || typeof api.startResearch !== 'function') return null;
 
-  if (!document.getElementById('research-panel-style')) {
-    const style = el('style');
-    style.id = 'research-panel-style';
-    style.textContent = STYLE;
-    document.head.append(style);
-  }
-
+  // Styles: research-panel.css, linked from index.html.
   let taskId = null;
   let state = summarize(null, null);
   let poll = null;
@@ -264,4 +231,4 @@ function mountResearch(host, { api = window.kingagent && window.kingagent.agentP
   };
 }
 
-export { mountResearch, renderResult, renderProgress, renderSources, renderConflicts, isLinkable, STAGE_ORDER, STAGE_LABEL, PANEL_CLASS, STYLE };
+export { mountResearch, renderResult, renderProgress, renderSources, renderConflicts, isLinkable, STAGE_ORDER, STAGE_LABEL, PANEL_CLASS };

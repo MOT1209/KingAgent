@@ -43,7 +43,7 @@ export function createLinkHint({ document, window, schedule = setTimeout, cancel
       const left = Math.max(12, Math.min(point.clientX + 14, window.innerWidth - rect.width - 12));
       const below = point.clientY + 18;
       const top = below + rect.height <= window.innerHeight - 12 ? below : Math.max(12, point.clientY - rect.height - 14);
-      node.style.left = left + 'px';
+      node.style.left = left + 'px'; // physical: follows the pointer
       node.style.top = top + 'px';
     }, 300);
   }

@@ -54,7 +54,8 @@ const TEAM_TEMPLATES = Object.freeze({
   document: [ROLES.WORKER, ROLES.REVIEW],
 });
 
-const MAX_DEPTH = 4;
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
+const MAX_DEPTH = ORCHESTRATION_LIMITS.delegationDepth.harness;
 
 class DelegationDeniedError extends Error {
   constructor(message, { reasons = [], delegationId = null } = {}) {

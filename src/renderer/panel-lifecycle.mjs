@@ -4,6 +4,8 @@ import { isGenericTitle } from './session-name.mjs';
 import { isOutsideProject } from './path-guard.mjs';
 import { hashText } from './file-sync.mjs';
 import { DOC_STEPS } from './tile-zoom.mjs';
+import { askConfirm, confirmDiscard } from './confirm-sheet.mjs';
+import { t } from './i18n.mjs';
 import { isFile as isFilePanel, isSession as isSessionPanel, ownerFor, previewToReplace, keep as keepFile, orphan as orphanFiles, moveTo as moveFile, splitAfter, focusSplit, ownerIndexes, resolveOwners } from './desk-view.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
@@ -73,6 +75,7 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
     const newestLegacy = snaps.find((s) => s.kind === 'claude' && !s.sid);
     const restored = snaps.map(() => null); // snapshot position -> the panel it became
     // open* unshift; walk the list backwards so the restored order matches
+    let failed = 0;
     for (const [i, s] of [...snaps.entries()].reverse()) {
       try {
         // Every open* unshifts, so a tile that actually arrived is S.panels[0].
@@ -99,8 +102,15 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
             if (rec?.refreshImages) rec.refreshImages();
           }
         }
-      } catch (_) {}
+      } catch (err) {
+        // A tile that cannot come back used to vanish without a word, which is
+        // the whole job of restoring. Count them, name the kind in the console,
+        // and say so once after the loop rather than once per tile.
+        failed++;
+        console.warn('could not restore a ' + (s && s.kind) + ' tile' + (s && s.filePath ? ' (' + s.filePath + ')' : ''), err);
+      }
     }
+    if (failed) toast(failed === 1 ? 'One tile could not be restored.' : failed + ' tiles could not be restored.');
     for(let i=0;i<snaps.length;i++){const p=restored[i],owner=Number.isInteger(snaps[i]?.companionIndex)?restored[snaps[i].companionIndex]:null;if(p&&isSessionPanel(p)&&owner&&owner!==p&&isSessionPanel(owner))p.companionOf=owner.id;}
     resolveOwners(restored, snaps); // owners by position, now that every id exists
     browsers.restore();
@@ -180,9 +190,21 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
   // the terminal) can point anywhere on disk. Opening one inside the project is
   // normal; opening one outside it asks first, so a benign-looking link can't
   // silently surface an SSH key or credentials file into a tile.
-  function confirmOutsideOpen(abs) {
+  // Resolves to whether to go ahead; callers `.then` it (U14: it was a blocking
+  // window.confirm that froze every live terminal while it was up).
+  async function confirmOutsideOpen(abs) {
     if (!isOutsideProject(S.project && S.project.path, abs)) return true;
-    return confirm('This file is outside your project:\n\n' + shortHome(abs) + '\n\nOpen it anyway?');
+    // The editor only reads and writes inside the project, the Library and the
+    // agents' own settings (main refuses the rest). Asking "open it anyway?" and
+    // then showing an error card is worse than saying so up front; the file is
+    // revealed in the file manager instead. Media opens through its own viewer.
+    const kind = fileKind(abs);
+    if ((kind === 'text' || kind === 'html') && !(await api.fileEditable(abs))) {
+      toast('That file is outside your project, so the editor will not open it. Showing it in the file manager.');
+      try { await api.revealFile(abs); } catch (_) { /* the toast already said what to do */ }
+      return false;
+    }
+    return askConfirm({ title: t('confirm.outside.title'), message: shortHome(abs), confirmLabel: t('confirm.outside.yes'), cancelLabel: t('confirm.cancel'), safe: 'cancel' });
   }
   // Looking at a file floats it above the desk; only pinning (or an explicit
   // drop onto the desk, or restore-on-boot) makes it a tile.
@@ -258,9 +280,13 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
   }
   function closePanel(id, opts = {}) {
     const p = S.panels.find((x) => x.id === id); if (!p) return;
-    if ((p.kind==='browser'||isSessionPanel(p)) && !opts.browserConfirmed && browsers.hasPending(p)) { browsers.canClose(p).then(ok=>{if(ok)closePanel(id,{...opts,browserConfirmed:true});}); return; }
+    if ((p.kind==='browser'||isSessionPanel(p)) && !opts.browserConfirmed && browsers.hasPending(p)) { browsers.canClose(p).then(ok=>{if(ok)closePanel(id,{...opts,browserConfirmed:true});}).catch((err)=>{ toast('Could not check for unsaved notes, so closing anyway.'); console.warn(err); closePanel(id,{...opts,browserConfirmed:true}); }); return; }
     if (p.kind === 'browser') browsers.removeNotes(id); else if(isSessionPanel(p)&&browsers.hasPending(p)) browsers.clearNotes(p);
-    if ((p.kind === 'editor' || p.kind === 'card') && p.dirty && !opts.silent && !confirm(`Discard unsaved changes to ${baseNameOf(p.filePath)}?`)) return;
+    if ((p.kind === 'editor' || p.kind === 'card') && p.dirty && !opts.silent && !opts.discardConfirmed) {
+      confirmDiscard(baseNameOf(p.filePath))
+        .then((ok) => { if (ok) closePanel(id, { ...opts, discardConfirmed: true }); });
+      return;
+    }
     else if (!isFilePanel(p)) {
       // term:set-persistent already ran when the toggle was clicked; term:kill
       // reads that same flag on the main-process side and detaches instead of
@@ -277,7 +303,7 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
     renderGrid(); renderRail(); renderHeader(); savePanels();
   }
   function closeFinished() {
-    const gone = S.panels.filter((p) => p.exited || (p.kind === 'editor' && !p.dirty && false));
+    const gone = S.panels.filter((p) => p.exited);
     for (const p of gone) closePanel(p.id);
     if (!gone.length) toast('Nothing finished to close.');
   }

@@ -42,7 +42,19 @@ export function createComposer(host, o) {
   let busy = false;
 
   // ---- growing input --------------------------------------------------------
-  function grow() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+  // Resetting to auto is what lets the box shrink, and reading scrollHeight
+  // right after it forces a layout, so doing this inside every input event made
+  // each keystroke pay for one. Deferred to the frame and coalesced: a burst of
+  // events (a paste, a held key) measures once, when the browser lays out anyway.
+  let growRaf = 0;
+  function grow() {
+    if (growRaf) return;
+    growRaf = requestAnimationFrame(() => {
+      growRaf = 0;
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+  }
 
   // ---- attachments ----------------------------------------------------------
   function attach(label, meta) {
@@ -134,6 +146,9 @@ export function createComposer(host, o) {
     if (v.startsWith('/') && !v.includes(' ') && !v.includes('\n')) openMenu(v);
     else closeMenu();
   });
+  // On document so a click anywhere closes the menu — which makes it this
+  // composer's to remove: a tile that is closed must not leave one behind per
+  // chat ever opened, each running on every click in the app.
   document.addEventListener('click', closeMenu);
 
   function openSelect(title, rows, cb) {
@@ -162,5 +177,6 @@ export function createComposer(host, o) {
     },
     setBusy: (b) => { busy = b; stopBtn.hidden = !b; sendBtn.hidden = b; },
     openMenu,
+    dispose: () => { document.removeEventListener('click', closeMenu); if (growRaf) { cancelAnimationFrame(growRaf); growRaf = 0; } },
   };
 }

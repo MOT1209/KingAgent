@@ -61,7 +61,7 @@
 .skill-finding-warn { color: #9a3412; }
 .skill-finding-info { opacity: 0.7; }
 
-.skills-concerns { border-left: 3px solid #9a3412; padding-left: 10px; }
+.skills-concerns { border-inline-start: 3px solid var(--red-body); padding-inline-start: 10px; }
 .skills-concerns h3, .skills-sources h3, .skills-installed h3, .skills-mcp h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
 
 @media (max-width: 520px) {

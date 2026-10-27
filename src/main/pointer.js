@@ -23,6 +23,7 @@
 // the right to write into a file the user also edits by hand.
 
 const fs = require('fs');
+const { safeRead } = require('./text-util.js');
 const path = require('path');
 const { KNOWN_AGENTS, POINTER_FILE, contextFilesFor } = require('./agents-detect.js');
 
@@ -193,7 +194,6 @@ function pointerStatus({ dir, skills, agentIds } = {}) {
   };
 }
 
-function safeRead(p) { try { return fs.readFileSync(p, 'utf8'); } catch (_) { return ''; } }
 
 // ---- native registration ---------------------------------------------------
 

@@ -3,6 +3,7 @@
 // and normalizes to the common item shape; adding a platform later = one more adapter here.
 
 const fs = require('fs');
+const { escapeRe } = require('./text-util.js');
 const path = require('path');
 const os = require('os');
 
@@ -441,7 +442,6 @@ function duplicateItem({ filePath, type, projectPath }) {
 // An item references another when its file mentions the target's slug. To keep noise out,
 // a plain mention only counts for hyphenated slugs (distinctive); single-word slugs need an
 // explicit [[wiki-link]]. Self and same-slug (other scopes/versions) never link.
-function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function extractEdges(items, { maxBytes = 65536 } = {}) {
   const edges = [];
   const targets = items.map((t) => ({
@@ -468,12 +468,12 @@ function extractEdges(items, { maxBytes = 65536 } = {}) {
 // user most wants to delete, and existsSync follows the link and reports the dead
 // target as "already gone" — refusing to remove the entry that is still there.
 function entryExists(p) { try { fs.lstatSync(p); return true; } catch (_) { return false; } }
-async function deleteItem({ filePath, projectPath, homeDir, trashFn, existsFn = entryExists }) {
+// Built from the same source tables the scan uses, so anything KingAgent is willing
+// to list it is willing to clean up — which is what makes the broken-links
+// group actionable instead of just a shelf of other tools' rot. The editor's
+// read/write guard (ipc-trust.js) starts from the same list for the same reason.
+function libraryRoots({ projectPath, homeDir } = {}) {
   const home = homeDir || os.homedir();
-  const abs = path.resolve(String(filePath || ''));
-  // Built from the same source tables the scan uses, so anything KingAgent is willing
-  // to list it is willing to clean up — which is what makes the broken-links
-  // group actionable instead of just a shelf of other tools' rot.
   const roots = [];
   if (projectPath) {
     for (const s of PROJECT_SKILL_SOURCES) roots.push(path.join(projectPath, s.rel));
@@ -482,6 +482,11 @@ async function deleteItem({ filePath, projectPath, homeDir, trashFn, existsFn = 
   }
   for (const s of USER_SKILL_SOURCES) roots.push(path.join(home, s.rel));
   roots.push(path.join(home, '.claude', 'agents'), path.join(home, '.config', 'opencode'));
+  return roots;
+}
+async function deleteItem({ filePath, projectPath, homeDir, trashFn, existsFn = entryExists }) {
+  const abs = path.resolve(String(filePath || ''));
+  const roots = libraryRoots({ projectPath, homeDir });
   const inRoot = roots.some((r) => abs.startsWith(r + path.sep));
   const inPluginCache = abs.includes(path.sep + path.join('.claude', 'plugins') + path.sep);
   if (!inRoot || inPluginCache) return { ok: false, error: 'Not a deletable library item' };
@@ -491,4 +496,4 @@ async function deleteItem({ filePath, projectPath, homeDir, trashFn, existsFn = 
   catch (e) { return { ok: false, error: e.message }; }
 }
 
-module.exports = { scanLibrary, scanProject, scanMac, createItem, duplicateItem, deleteItem, extractEdges };
+module.exports = { scanLibrary, scanProject, scanMac, createItem, duplicateItem, deleteItem, libraryRoots, extractEdges };

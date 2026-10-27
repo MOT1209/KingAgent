@@ -11,9 +11,9 @@ body[data-theme="dusk"] {
   --paper-3: #262a31;
   --ink: #e8eaee;
   --muted: #8d939e;
-  --muted-2: #7a808a;
-  --muted-3: #6a707a;
-  --faint: #5c6370;
+  --muted-2: #8b9199;
+  --muted-3: #8b919a;
+  --faint: #89919e;
   --line: rgba(232, 234, 238, 0.16);
   --dash: rgba(232, 234, 238, 0.12);
   --dash-dark: rgba(232, 234, 238, 0.22);
@@ -102,7 +102,7 @@ body[data-dusk] .cw-md th, body[data-dusk] .cw-md td { border: 0; border-bottom:
 body[data-dusk] .cw-md tr:last-child td { border-bottom: 0; }
 body[data-dusk] .cw-md th, body[data-dusk] .cw-md tr:nth-child(even) td { background: transparent; }
 body[data-dusk] .cw-md blockquote {
-  border-left: 0; background: var(--paper); border-radius: var(--sf-r-sm);
+  border-inline-start: 0; background: var(--paper); border-radius: var(--sf-r-sm);
   box-shadow: var(--sf-press-sm); padding: 8px 12px;
 }
 body[data-dusk] .cw-md hr { border: 0; height: 4px; border-radius: 2px; box-shadow: var(--sf-press-sm); }

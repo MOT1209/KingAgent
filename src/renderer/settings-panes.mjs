@@ -1,6 +1,8 @@
 import { usagePaneHtml, wireUsagePane as wireUsageContent } from './usage-pane.mjs';
 import { OPEN_OUTPUT_COPY, SHORTCUT_GROUPS } from './shortcuts.mjs';
 import { GROK_API_KEY } from './grok-auth.mjs';
+import { guarded, messageOf } from './guard.mjs';
+import { t, getLanguage, LANGUAGES } from './i18n.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -9,18 +11,18 @@ import { GROK_API_KEY } from './grok-auth.mjs';
 // browser-pane.mjs), Usage (delegates to usage-pane.mjs), Updates, About.
 export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overlay, closeOverlay, renderOverlay,
   rememberHelpFocus, getHelpFocusKey, refreshSttInfo, setSttInfo, transcribeBlob, setTheme, currentTheme, getThemeOptions,
-  browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
+  setDirection, currentDirection, setLanguageUi, browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
   const S = state;
 
   const SET_SECTIONS = [
-    { id: 'voice', name: 'Voice', lead: 'how KingAgent hears you' },
-    { id: 'look', name: 'Look', lead: 'how KingAgent looks on this desk' },
-    { id: 'keys', name: 'Keys', lead: 'keys every session can use' },
-    { id: 'shortcuts', name: 'Shortcuts', lead: 'small moves that make your desk easier to use' },
-    { id: 'browser', name: 'Browser', lead: 'browser views your sessions can use' },
-    { id: 'usage', name: 'Usage', lead: 'remaining allowance by connected account' },
-    { id: 'updates', name: 'Updates', lead: 'how KingAgent checks for and installs new versions' },
-    { id: 'about', name: 'About', lead: 'about this copy of KingAgent' },
+    { id: 'voice', get name() { return t('settings.voice'); }, get lead() { return t('settings.voice.lead'); } },
+    { id: 'look', get name() { return t('settings.look'); }, get lead() { return t('settings.look.lead'); } },
+    { id: 'keys', get name() { return t('settings.keys'); }, get lead() { return t('settings.keys.lead'); } },
+    { id: 'shortcuts', get name() { return t('settings.shortcuts'); }, get lead() { return t('settings.shortcuts.lead'); } },
+    { id: 'browser', get name() { return t('settings.browser'); }, get lead() { return t('settings.browser.lead'); } },
+    { id: 'usage', get name() { return t('settings.usage'); }, get lead() { return t('settings.usage.lead'); } },
+    { id: 'updates', get name() { return t('settings.updates'); }, get lead() { return t('settings.updates.lead'); } },
+    { id: 'about', get name() { return t('settings.about'); }, get lead() { return t('settings.about.lead'); } },
   ];
   function openSettings(section) {
     rememberHelpFocus();
@@ -37,7 +39,7 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     const sec = SET_SECTIONS.find((s) => s.id === o.section) || SET_SECTIONS[0];
     const modal = overlay('modal modal--settings' + (sec.id === 'shortcuts' ? ' modal--shortcuts' : ''), `
       <div class="modal-head"><span class="col">
-        <span class="title">Settings</span>
+        <span class="title">${esc(t('settings.title'))}</span>
         <span class="sub">${esc(sec.lead)}</span></span></div>
       <div class="modal-body"><div class="set-wrap">
         <div class="set-nav">${SET_SECTIONS.map((s) =>
@@ -48,13 +50,18 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
               : sec.id === 'browser' ? browsers.settingsHtml() : sec.id === 'usage' ? usagePaneHtml()
                 : sec.id === 'updates' ? updatesPaneHtml() : sec.id === 'about' ? aboutPaneHtml() : sec.id === 'shortcuts' ? shortcutsPaneHtml() : keysPaneHtml()}</div>
       </div></div>
-      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : '<span class="note">Saved on this Mac only, nothing syncs.</span>'}
-        <button class="btn btn--go" id="set-done">Done</button></div>`);
+      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : `<span class="note">${esc(t('settings.localOnly'))}</span>`}
+        <button class="btn btn--go" id="set-done">${esc(t('settings.done'))}</button></div>`);
 
     modal.querySelectorAll('.set-nav .rail-tab').forEach((b) => {
       b.onclick = () => { keepDraft(modal); o.section = b.dataset.sec; renderOverlay(); };
     });
-    q('#set-done', modal).onclick = async () => { await saveVoiceDraft(modal); closeOverlay(); };
+    // Done closes the sheet even when saving the voice draft fails: a Done that
+    // does nothing is a sheet the user cannot leave.
+    q('#set-done', modal).onclick = async () => {
+      try { await saveVoiceDraft(modal); } catch (err) { toast('Could not save: ' + messageOf(err)); }
+      closeOverlay();
+    };
     if (sec.id === 'voice') wireVoicePane(modal);
     if (sec.id === 'look') wireLookPane(modal);
     if (sec.id === 'keys') wireKeysPane(modal);
@@ -72,22 +79,8 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   // Settings and Quick Start are keyboard-accessible help surfaces. Preserve the
   // focused control across async Settings refreshes and return to the invoker.
   function wireHelpDialog(modal) {
-    const title = q('.title', modal);
-    title.id = 'help-dialog-title';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-labelledby', title.id);
-    modal.tabIndex = -1;
-    q('.ov-x', modal).setAttribute('aria-label', 'Close dialog');
-    modal.addEventListener('keydown', (e) => {
-      if (e.key !== 'Tab') return;
-      const controls = Array.from(modal.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]'))
-        .filter((el) => el.getClientRects().length);
-      const first = controls[0], last = controls[controls.length - 1];
-      if (!first) { e.preventDefault(); return; }
-      if (e.shiftKey && (document.activeElement === first || document.activeElement === modal)) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === modal)) { e.preventDefault(); first.focus(); }
-    });
+    // role, aria-modal, the name and the Tab trap come from overlay() now
+    // (dialog.mjs); what stays here is the part only these two sheets need.
     const helpFocusKey = getHelpFocusKey();
     let target = helpFocusKey && helpFocusKey.id ? document.getElementById(helpFocusKey.id) : null;
     if ((!target || !modal.contains(target)) && helpFocusKey && helpFocusKey.section) {
@@ -216,12 +209,12 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   function wireVoicePane(modal) {
     const o = S.overlay;
     modal.querySelectorAll('.set-opt').forEach((b) => {
-      b.onclick = async () => {
+      b.onclick = guarded(async () => {
         if (b.dataset.p === pickedVoiceId()) return;
         keepDraft(modal); o.pick = b.dataset.p; o.test = null;
         await saveVoiceDraft(modal);
         renderOverlay();
-      };
+      }, (err) => toast('Could not save that choice: ' + messageOf(err)));
     });
     modal.querySelectorAll('.sv-help[data-url]').forEach((el) => { el.onclick = () => api.openUrl(el.dataset.url); });
     // "add it in Keys" jumps to the Keys tab with that key's row already open
@@ -239,8 +232,13 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
         const line = dlProgressText(ev);
         if (note && line) note.textContent = line;
       });
-      const res = await api.sttPrepare();
-      off();
+      // A rejected prepare used to skip off() and leave the button disabled on
+      // "Downloading…" for good: the listener is dropped and the button comes
+      // back whichever way this ends.
+      let res;
+      try { res = await api.sttPrepare(); }
+      catch (err) { res = { ok: false, error: messageOf(err) }; }
+      finally { off(); dl.disabled = false; }
       await refreshSttInfo();
       if (!res || !res.ok) toast('Download failed: ' + (res && res.error || '?'));
       if (isSettingsOpen()) renderOverlay();
@@ -277,12 +275,30 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   }
 
   // ---- Look ------------------------------------------------------------------
+  // Direction mirrors the layout, not the words: the strings stay English, and
+  // chat, documents and file names find their own direction either way.
+  const DIRECTION_OPTIONS = () => [
+    { id: 'ltr', name: t('look.ltr'), desc: t('look.ltr.desc') },
+    { id: 'rtl', name: t('look.rtl'), desc: t('look.rtl.desc') },
+  ];
+  // Language names are shown in their own language, whichever one is active.
+  const LANGUAGE_OPTIONS = () => LANGUAGES.map((id) => ({ id, name: t('look.lang.' + id), desc: t('look.lang.' + id + '.desc') }));
   function lookPaneHtml() {
-    return `<div class="field-label">appearance</div>` + getThemeOptions().map((t) =>
+    return `<div class="field-label">${esc(t('look.appearance'))}</div>` + getThemeOptions().map((t) =>
       `<button class="theme-opt set-opt${currentTheme() === t.id ? ' picked' : ''}" data-theme-id="${t.id}" aria-pressed="${currentTheme() === t.id}">
         <span class="theme-dot"></span>
         <span class="set-opt-col"><span class="theme-name">${esc(t.name)}</span>
-          <span class="set-opt-desc">${esc(t.desc)}</span></span></button>`).join('');
+          <span class="set-opt-desc">${esc(t.desc)}</span></span></button>`).join('')
+      + `<div class="field-label">${esc(t('look.language'))}</div>` + LANGUAGE_OPTIONS().map((d) =>
+      `<button class="theme-opt set-opt${getLanguage() === d.id ? ' picked' : ''}" data-lang-id="${d.id}" aria-pressed="${getLanguage() === d.id}">
+        <span class="theme-dot"></span>
+        <span class="set-opt-col"><span class="theme-name">${esc(d.name)}</span>
+          <span class="set-opt-desc">${esc(d.desc)}</span></span></button>`).join('')
+      + `<div class="field-label">${esc(t('look.direction'))}</div>` + DIRECTION_OPTIONS().map((d) =>
+      `<button class="theme-opt set-opt${currentDirection() === d.id ? ' picked' : ''}" data-dir-id="${d.id}" aria-pressed="${currentDirection() === d.id}">
+        <span class="theme-dot"></span>
+        <span class="set-opt-col"><span class="theme-name">${esc(d.name)}</span>
+          <span class="set-opt-desc">${esc(d.desc)}</span></span></button>`).join('');
   }
   function wireLookPane(modal) {
     modal.querySelectorAll('[data-theme-id]').forEach((b) => {
@@ -291,6 +307,21 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
         setTheme(theme);
         // setTheme rebuilds Settings; keep keyboard navigation on the new row.
         q(`.set-opt[data-theme-id="${theme}"]`)?.focus({ preventScroll: true });
+      };
+    });
+    modal.querySelectorAll('[data-lang-id]').forEach((b) => {
+      b.onclick = () => {
+        const lang = b.dataset.langId;
+        setLanguageUi(lang);
+        q(`.set-opt[data-lang-id="${lang}"]`)?.focus({ preventScroll: true });
+      };
+    });
+    modal.querySelectorAll('[data-dir-id]').forEach((b) => {
+      b.onclick = () => {
+        const dir = b.dataset.dirId;
+        setDirection(dir);
+        // Like setTheme, setDirection re-renders Settings; keep focus on the row.
+        q(`.set-opt[data-dir-id="${dir}"]`)?.focus({ preventScroll: true });
       };
     });
   }
@@ -351,9 +382,10 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     const d = new Date(iso);
     if (isNaN(d)) return '';
     const day = d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
-    // hour12 forced: the machine's locale decides otherwise, and "18:55" next to a
-    // handwritten heading reads as a log line rather than a date on a page.
-    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    // The machine's own locale, for the time as well as the date: forcing en-US
+    // here put "6:55pm" beside an Arabic date. Compacted either way ("6:55pm",
+    // "18:55"), so the line still reads like a note rather than a log entry.
+    const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
       .toLowerCase().replace(/\s+/g, '');
     return `updated ${day} at ${time}`;
   }
@@ -404,7 +436,7 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     });
     const act = q('#ab-act', modal);
     if (!act) return;
-    act.onclick = async () => {
+    act.onclick = guarded(async () => {
       const a = o.about;
       // Downloading from here is the same download as the bar's, not a second
       // one: re-arm the bar with what the pane is showing and let the progress
@@ -422,7 +454,11 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
       // again, or the bar could never come back for that version.
       if (res && res.state === 'update') localStorage.removeItem(updateBar.SKIPPED_UPDATE);
       if (isSettingsOpen()) { S.overlay.about = res || { state: 'offline' }; renderOverlay(); }
-    };
+    }, (err) => {
+      // The pane sat on "checking" for good when the check itself rejected.
+      toast('Could not check for updates: ' + messageOf(err));
+      if (isSettingsOpen()) { S.overlay.about = { ...(S.overlay.about || {}), state: 'offline' }; renderOverlay(); }
+    });
   }
 
   // ---- Keys — named secrets every session inherits ---------------------------
@@ -499,14 +535,14 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     modal.querySelectorAll('.key-row .k-act').forEach((b) => {
       const name = b.closest('.key-row').dataset.key;
       const act = b.dataset.act;
-      b.onclick = async () => {
+      b.onclick = guarded(async () => {
         if (act === 'add' || act === 'edit') { o.editKey = name; o.reveal = null; renderOverlay(); const i = q('#key-edit-val'); if (i) i.focus(); }
         else if (act === 'save') saveKey(name, q('#key-edit-val', modal));
         else if (act === 'cancel') { o.editKey = null; renderOverlay(); }
         else if (act === 'show') { const r = await api.keysReveal(name); o.reveal = { name, value: r.value }; renderOverlay(); }
         else if (act === 'hide') { o.reveal = null; renderOverlay(); }
         else if (act === 'remove') { o.reveal = null; await api.keysDelete(name); toast(`${name} removed.`); refreshKeys(); refreshSttInfo(); }
-      };
+      }, (err) => toast('Could not do that: ' + messageOf(err)));
     });
     const editInput = q('#key-edit-val', modal);
     if (editInput) editInput.onkeydown = (e) => {

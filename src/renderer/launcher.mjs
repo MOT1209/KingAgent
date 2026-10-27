@@ -10,6 +10,8 @@ import { createMcpSetup } from './mcp-setup.mjs';
 import { isSession as isSessionPanel } from './desk-view.mjs';
 import { OPEN_OUTPUT_COPY } from './shortcuts.mjs';
 import { tailPath } from './file-kinds.mjs';
+import { guarded, messageOf } from './guard.mjs';
+import { activateOnKey } from './a11y.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -48,7 +50,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     const recents = (S.recents || []).filter((r) => !r.missing);
     const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">＋</span>
       <span style="font-weight:700">Where should ${esc(who)} work?</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--muted)">then your session starts</span></div>
+      <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">then your session starts</span></div>
       ${recents.length
     ? `<div class="ff-lead">a session runs inside a folder. Pick one and ${esc(who)} starts there</div>
         <div class="picker-list" id="ff-list">${recents.map((r, i) => `
@@ -122,7 +124,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     const prevList = q('#lc-list');
     const prevScroll = prevList ? prevList.scrollTop : 0;
     const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">＋</span><span style="font-weight:700">New session</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--muted)">${S.project ? esc(S.project.name) : 'no folder'}</span></div>
+      <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">${S.project ? esc(S.project.name) : 'no folder'}</span></div>
       <div class="picker-list" id="lc-list"></div>`, { top: true });
     const list = q('#lc-list', modal);
     if (prevScroll) requestAnimationFrame(() => { list.scrollTop = prevScroll; });
@@ -169,6 +171,8 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         tail.innerHTML = '<button class="lc-chat">Chat<span class="lc-beta">beta</span></button>';
         row.appendChild(tail);
       }
+      const manageChev = row.querySelector('.chev');
+      if (manageChev) { manageChev.setAttribute('aria-label', 'Manage ' + a.name); activateOnKey(manageChev, () => openAgentSheet(a)); }
       row.onclick = async (e) => {
         if (manageable && e.target.closest('.chev')) { openAgentSheet(a); return; }
         if (demoAcp && e.target.closest('.lc-chat')) {
@@ -207,6 +211,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         card.innerHTML = `${chipHtml({ key: iconKeyFor(a.id), code: code2(a.name), kind: 'agent' })}
           <span class="ac-name">${esc(a.name)}</span><span class="ac-desc">${esc(a.sub)}</span><span class="ac-go">set up →</span>`;
         card.onclick = () => { closeOverlay(); openAgentSetup(a); };
+        activateOnKey(card, () => card.onclick());
         grid.appendChild(card);
       }
     }
@@ -342,8 +347,11 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
   function openAgentRemove(agent) {
     S.overlay = { type: 'agent-remove', agent, plan: null, busy: false };
     renderOverlay();
-    api.agentRemovalPlan(agent.id, agent.path).then((plan) => {
+    api.agentRemovalPlan(agent.id).then((plan) => {
       if (S.overlay && S.overlay.type === 'agent-remove') { S.overlay.plan = plan; renderOverlay(); }
+    }).catch((err) => {
+      // Without this the sheet stays on "Working out what this would delete…" forever.
+      if (S.overlay && S.overlay.type === 'agent-remove') { S.overlay.plan = { mode: 'none', reason: 'Could not work out what this would delete: ' + messageOf(err) }; renderOverlay(); }
     });
   }
   function renderAgentRemove() {
@@ -373,7 +381,8 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     if (go) go.onclick = async () => {
       if (plan.mode === 'uninstall') return runAgentCommand(a, plan.command, `remove ${a.name}`);
       o.busy = true; renderOverlay();
-      const res = await api.agentRemove(a.id, a.path);
+      let res;
+      try { res = await api.agentRemove(a.id); } catch (err) { res = { ok: false, error: messageOf(err) }; }
       o.busy = false;
       if (res.ok) { closeOverlay(); refreshAgents(); toast(`${a.name} removed.`); }
       else { renderOverlay(); toast(res.error || `Could not remove ${a.name}.`); }
@@ -755,32 +764,38 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
 
   function renderAgentPickerSheet() {
     const o = S.overlay; const agents = pickerAgents();
-    const query = o.query.toLowerCase();
-    const filtered = agents.filter((a) => (a.slug + ' ' + a.name + ' ' + (a.description || '')).toLowerCase().includes(query));
     const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">❯</span>
         <input id="ap-input" placeholder="Start a session with which agent?" value="${esc(o.query)}" /></div>
       <div class="picker-list" id="ap-list"></div>
       <div class="picker-foot"><span>click a row → a session as that agent</span>
         <span><b>›</b> → run it on another tool</span></div>`, { top: true });
-    const groups = [[], []];
-    filtered.forEach((a) => {
-      const k = sortKey(a);
-      if (k === 0 || k === 1) groups[k].push(a);
-    });
-    const visible = groups[0].concat(groups[1]);
-    if (o.hi > visible.length - 1) o.hi = Math.max(0, visible.length - 1);
+    // Typing, and the arrow keys, rebuild the list and nothing else. The sheet
+    // used to be torn down and rebuilt per keystroke, then refocused on a timer,
+    // which dropped keys typed in the gap and re-ran every row's markup (U13).
+    let visible = [];
     const input = q('#ap-input', modal); setTimeout(() => input.focus(), 30);
-    input.oninput = () => { o.query = input.value; o.hi = 0; o.open = null; renderOverlay(); };
+    input.oninput = () => { o.query = input.value; o.hi = 0; o.open = null; fill(); };
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const a = visible[o.hi]; const t = a && rowTool(a);
         if (a && t) launchAgent(a, t);
         else if (a) toast(`Nothing installed can run ${a.slug}.`);
       }
-      if (e.key === 'ArrowDown') { o.hi = Math.min(visible.length - 1, o.hi + 1); renderOverlay(); }
-      if (e.key === 'ArrowUp') { o.hi = Math.max(0, o.hi - 1); renderOverlay(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); o.hi = Math.min(visible.length - 1, o.hi + 1); fill(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); o.hi = Math.max(0, o.hi - 1); fill(); }
     });
     const list = q('#ap-list', modal);
+    const fill = () => {
+    const query = o.query.toLowerCase();
+    const filtered = agents.filter((a) => (a.slug + ' ' + a.name + ' ' + (a.description || '')).toLowerCase().includes(query));
+    const groups = [[], []];
+    filtered.forEach((a) => {
+      const k = sortKey(a);
+      if (k === 0 || k === 1) groups[k].push(a);
+    });
+    visible = groups[0].concat(groups[1]);
+    if (o.hi > visible.length - 1) o.hi = Math.max(0, visible.length - 1);
+    list.replaceChildren();
     if (!filtered.length) {
       list.innerHTML = agents.length
         ? '<div class="rail-empty" style="padding:14px">No match.</div>'
@@ -814,6 +829,9 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
           if (tool) launchAgent(a, tool);
           else toast(`Nothing installed can run ${a.slug}.`);
         };
+        // The chevron said "button" and answered no key at all (U18).
+        const toolsChev = row.querySelector('.chev');
+        if (toolsChev) { toolsChev.setAttribute('aria-label', toolsChev.title); activateOnKey(toolsChev, () => openToolList(a)); }
         list.appendChild(row);
         if (o.open === a.slug) {
           const wrap = document.createElement('div');
@@ -832,6 +850,8 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         }
       });
     });
+    };
+    fill();
   }
 
   // ---- create an agent or a skill (Library ＋ buttons) ------------------------
@@ -1133,7 +1153,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
         if (!act) return;
         qsMark(row.n);
         if (act.play) { api.openUrl(DEMOS[act.play]); return; }
-        act.run();
+        guarded(act.run, (err) => toast(messageOf(err)))();
       };
     });
     modal.querySelectorAll('.qs-link[data-url]').forEach((el) => {
@@ -1204,7 +1224,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
   // Save → clear → restore, in that order. The save has to name the *outgoing*
   // folder explicitly: savePanels() reads S.project, which is about to change.
   async function swapDesk(info) {
-    for (const p of S.panels) if (p.kind === 'browser' && browsers.hasPending(p) && !await browsers.canClose(p)) return;
+    for (const p of S.panels) if (p.kind === 'browser' && browsers.hasPending(p) && !await browsers.canClose(p)) { toast('Kept this folder open: a browser tab still has notes you have not sent.'); return; }
     const from = S.project ? S.project.path : null;
     // flushPanels() itself clears the pending debounce before writing.
     await flushPanels(from);

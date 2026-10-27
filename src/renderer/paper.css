@@ -30,8 +30,34 @@
   font-style: italic; font-weight: 400; font-display: swap;
   src: url(./vendor/fonts/courier-prime-400i-latin.woff2) format('woff2');
 }
+/* Arabic. Neither face above has a single Arabic glyph, so Arabic text used to
+   fall to whatever the OS picked, a different face on every machine and none
+   that sat well next to a typewriter mono. IBM Plex Sans Arabic was drawn to
+   pair with Plex Mono. It is listed second in every stack, and its
+   unicode-range limits it to Arabic code points, so Latin text never touches
+   it and the file is only loaded once Arabic appears. Arabic subset, SIL Open
+   Font License; see vendor/fonts/OFL.txt. */
+@font-face {
+  font-family: 'KA Arabic';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url(./vendor/fonts/ibm-plex-sans-arabic-400-arabic.woff2) format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: 'KA Arabic';
+  font-style: normal; font-weight: 700; font-display: swap;
+  src: url(./vendor/fonts/ibm-plex-sans-arabic-700-arabic.woff2) format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
 
 :root {
+  /* Where chrome text sits, as a layout decision rather than a property of the
+     text: the start edge of the layout. A logical text-align: start would ask
+     the text instead, and under rtl every English label resolves its own
+     paragraph as ltr (see the direction section at the end) and would swing
+     to the left. Content (chat, documents) uses text-align: start on purpose. */
+  --align-start: left; /* physical: the token is the mirror; [dir=rtl] swaps it */
+  --align-end: right; /* physical: see above */
   --desk: #cfc3ac;
   --sheet-hi: #faf5e8;
   --sheet-lo: #f4ecda;
@@ -39,10 +65,10 @@
   --paper-2: #fdf7e6;
   --paper-3: #fbf3e0;
   --ink: #2f2b26;
-  --muted: #8d8065;
-  --muted-2: #9c8f78;
-  --muted-3: #a0937c;
-  --faint: #b0a488;
+  --muted: #80745c;
+  --muted-2: #7f735d;
+  --muted-3: #80735d;
+  --faint: #817455;
   --line: #cdbfa2;
   --dash: #d4c7ab;
   --dash-dark: #c9b98f;
@@ -106,14 +132,14 @@
   --shadow-hard: rgba(90, 72, 44, 0.25);
   /* markdown documents read and edit in a plain text face — notes are for
      reading fast; the cursive stays on the app chrome (themes may override) */
-  --doc-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --doc-sans: -apple-system, 'KA Arabic', BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
 
 body {
-  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-family: 'Courier Prime', 'KA Arabic', 'Courier New', monospace;
   color: var(--ink);
   background:
     repeating-linear-gradient(52deg, rgba(120, 95, 60, 0.05) 0 2px, transparent 2px 5px),
@@ -143,7 +169,7 @@ input::placeholder, textarea::placeholder { color: var(--muted-3); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes toastin { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
-.caveat { font-family: 'Caveat', cursive; }
+.caveat { font-family: 'Caveat', 'KA Arabic', cursive; }
 
 /* stacked label columns are built with spans — force vertical stacking + truncation */
 .project-chip .folder-glyph, .project-chip .caret { flex: none; }
@@ -185,7 +211,7 @@ body[data-platform="darwin"] .lights-deck {
 body[data-platform="darwin"].is-fullscreen .lights-deck { height: 0; }
 /* Windows paints its own min/max/close overlay top-right (38px tall, ~140px
    wide); without this clearance it sits on NEW SESSION. */
-body[data-platform="win32"] .topbar { padding-right: 150px; }
+body[data-platform="win32"] .topbar { padding-right: 150px; } /* physical: Windows draws its window controls at the top right whatever the layout */
 /* ---- header ------------------------------------------------------------- */
 
 .topbar {
@@ -194,7 +220,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   /* The lights deck above floats the header clear of the macOS traffic
      lights, so it needs no gutter for them — the lockup hugs the sheet's
      left edge in every theme. */
-  padding: 0 18px 0 19px;
+  padding-block: 0; padding-inline: 19px 18px;
   border-bottom: 2px dashed var(--dash);
   -webkit-app-region: drag;
   overflow: hidden;   /* backstop: zooming in must never paint past the sheet */
@@ -219,7 +245,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   color: var(--mark-ink, var(--ink));
   height: 24px; width: 24px; flex: none;
 }
-.brand-name { font-family: 'Caveat', cursive; font-size: 34px; font-weight: 700; line-height: 1; flex: none; }
+.brand-name { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 34px; font-weight: 700; line-height: 1; flex: none; }
 /* The version hangs off the wordmark rather than stacking with it. A real
    column would make the lockup two lines tall, and `.brand` is 26px — the
    wordmark would rise to make room and lose its centre line with the mascot.
@@ -229,7 +255,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    tests/brand-version.test.mjs. */
 .brand-stack { position: relative; display: inline-flex; flex: none; }
 .brand-ver {
-  position: absolute; left: 2px; top: calc(100% - 3px);
+  position: absolute; inset-inline-start: 2px; top: calc(100% - 3px);
   font-size: 9px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--faint); white-space: nowrap; pointer-events: none;
 }
@@ -245,7 +271,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .viewsw .view-choice { border: 0; border-radius: 0; box-shadow: none; background: var(--paper); color: var(--ink); font: inherit;
   font-size: 11px; font-weight: 700; text-transform: uppercase; min-width: 54px;
   padding: 8px 12px; cursor: pointer; }
-.viewsw .view-choice + .view-choice { border-left: 1px solid var(--dash-dark); }
+.viewsw .view-choice + .view-choice { border-inline-start: 1px solid var(--dash-dark); }
 .viewsw .view-choice.active { background: var(--green); color: var(--paper); }
 .viewsw .view-choice:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
 
@@ -284,7 +310,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
      container — without it a long path stretches the row past the popover
      instead of ellipsing inside it. */
   display: flex; width: 100%; align-items: center; gap: 11px; padding: 9px 10px;
-  cursor: pointer; border-bottom: 1px dashed #e0d5bd; text-align: left;
+  cursor: pointer; border-bottom: 1px dashed #e0d5bd; text-align: var(--align-start);
 }
 .project-row:hover { background: var(--hover); }
 .project-row .folder-glyph { flex: none; }
@@ -300,7 +326,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    cursor. A pin is state, so it shows whenever it is on. */
 .project-row .row-age {
   font-size: 10.5px; color: var(--faint); flex: none; min-width: 28px;
-  text-align: right; font-variant-numeric: tabular-nums;
+  text-align: var(--align-end); font-variant-numeric: tabular-nums;
 }
 .project-row .row-pin {
   flex: none; width: 14px; text-align: center; font-size: 9px; line-height: 1;
@@ -326,7 +352,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 }
 .project-open-other:hover { background: var(--hover); }
 .project-open-other .plus { font-size: 15px; color: #6f6553; font-weight: 400; }
-.project-open-other .kbd { margin-left: auto; font-size: 10.5px; color: var(--muted-3); font-weight: 400; }
+.project-open-other .kbd { margin-inline-start: auto; font-size: 10.5px; color: var(--muted-3); font-weight: 400; }
 
 .live-badge {
   display: flex; align-items: center; gap: 8px; padding: 6px 12px;
@@ -368,7 +394,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 
 .rail {
   width: 282px; flex: none; display: flex; flex-direction: column;
-  border-right: 2px dashed var(--dash);
+  border-inline-end: 2px dashed var(--dash);
   background:
     repeating-linear-gradient(0deg, rgba(120, 95, 60, 0.05) 0 1px, transparent 1px 22px),
     repeating-linear-gradient(90deg, rgba(120, 95, 60, 0.05) 0 1px, transparent 1px 22px),
@@ -388,7 +414,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 /* rail-content is the fixed frame; each tab's list scrolls inside it */
 #rail-content { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .rail-head { padding: 2px 18px 8px; display: flex; align-items: baseline; justify-content: space-between; }
-.rail-head .title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 700; }
+.rail-head .title { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 22px; font-weight: 700; }
 .rail-head .action { font-size: 11px; color: var(--muted-2); cursor: pointer; text-decoration: underline; }
 .rail-head .action:hover { color: var(--ink); }
 .rail-head .racts { display: flex; gap: 10px; }
@@ -432,17 +458,17 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .nav-meta { grid-column: 2; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nav-meta .status { display: inline-flex; align-items: center; min-height: 24px; }
 .nav-card .count {
-  flex: none; display: inline-flex; align-items: center; gap: 3px; margin-left: 0; min-height: 24px; background: var(--paper); font-family: inherit;
+  flex: none; display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 0; min-height: 24px; background: var(--paper); font-family: inherit;
   padding: 2px 5px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--ink); border: 1px solid var(--dash-dark); cursor: pointer; white-space: nowrap;
 }
 .nav-card .count:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .nav-card .count:hover { color: var(--ink); border-color: var(--dash-dark); }
 .nav-card .count .tw { display: inline-block; width: 10px; }
-.nav-card .count + .status { margin-left: 0; }
+.nav-card .count + .status { margin-inline-start: 0; }
 .nav-card.drop-into, .nav-group.drop-into { background: var(--diff-add-bg); box-shadow: inset 0 0 0 1px var(--green-ok); }
-.nav-files { display: flex; flex-direction: column; margin: -4px 0 4px 20px; padding-left: 8px; border-left: 1px dashed var(--dash); }
-.nav-files--desk { margin-left: 6px; border-left: 0; padding-left: 0; }
+.nav-files { display: flex; flex-direction: column; margin-block: -4px 4px; margin-inline: 20px 0; padding-inline-start: 8px; border-inline-start: 1px dashed var(--dash); }
+.nav-files--desk { margin-inline-start: 6px; border-inline-start: 0; padding-inline-start: 0; }
 .nav-file { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 30px;
   padding: 5px 6px; font-size: 11px; cursor: pointer; border: 1px solid transparent;
   border-bottom-color: var(--dash); }
@@ -452,7 +478,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .nav-file.dragging { opacity: .4; }
 .nav-file .code { width: 18px; height: 18px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; border: 1px solid rgba(60, 45, 25, 0.3); }
 .nav-file .goal { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-file .status { flex: none; margin-left: auto; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.nav-file .status { flex: none; margin-inline-start: auto; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
 .nav-file.preview .goal { font-style: italic; opacity: 0.85; }
 .nav-group { padding: 8px 6px 2px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted-3); }
 
@@ -508,7 +534,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .tree-row .icon { flex: none; display: flex; color: var(--tree-ink); }
 .tree-row .icon svg { display: block; }
 .tree-row .name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tree-row .meta { margin-left: auto; font-size: 10px; color: var(--muted-2); white-space: nowrap; }
+.tree-row .meta { margin-inline-start: auto; font-size: 10px; color: var(--muted-2); white-space: nowrap; }
 
 .agent-row {
   display: flex; align-items: center; gap: 10px; padding: 7px 8px;
@@ -533,9 +559,9 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   width: 200px; height: 130px; background: var(--paper); border: 1px solid var(--line);
   box-shadow: 4px 5px 0 var(--shadow-mid);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Caveat', cursive; font-size: 26px; color: var(--muted);
+  font-family: 'Caveat', 'KA Arabic', cursive; font-size: 26px; color: var(--muted);
 }
-.lane-empty .big { font-family: 'Caveat', cursive; font-size: 34px; font-weight: 700; margin-bottom: 6px; }
+.lane-empty .big { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 34px; font-weight: 700; margin-bottom: 6px; }
 .lane-empty .hint { font-size: 13px; color: #7a6f5c; }
 /* Two doors out of the no-folder desk, side by side. The row carries the
    14px the single .lane-cta used to carry itself, so the buttons keep their
@@ -571,7 +597,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   box-shadow: 2px 2px 0 var(--shadow-mid);
 }
 .card-head .col { min-width: 0; flex: 1; }
-.card-head .goal { font-family: 'Caveat', cursive; font-size: 26px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-head .goal { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 26px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-head .subtitle { font-size: 11px; color: var(--muted); margin-top: 3px; }
 .status-chip {
   display: flex; align-items: center; gap: 7px; padding: 5px 11px;
@@ -591,8 +617,8 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .flow { display: flex; flex-direction: column; gap: 10px; }
 .say { font-size: 13px; line-height: 1.7; white-space: pre-wrap; user-select: text; overflow-wrap: break-word; }
 .say--user {
-  font-family: 'Caveat', cursive; font-size: 19px; line-height: 1.3; color: #4a4438;
-  padding-left: 12px; border-left: 3px solid var(--dash-dark);
+  font-family: 'Caveat', 'KA Arabic', cursive; font-size: 19px; line-height: 1.3; color: #4a4438;
+  padding-inline-start: 12px; border-inline-start: 3px solid var(--dash-dark);
 }
 
 .step { display: flex; align-items: center; gap: 11px; animation: rise 0.25s ease both; }
@@ -606,7 +632,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .step .text { font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .step.done .text { color: var(--muted); text-decoration: line-through; }
 .step.running .text { font-weight: 700; }
-.step .detail { margin-left: auto; font-size: 10.5px; color: var(--muted-2); white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+.step .detail { margin-inline-start: auto; font-size: 10.5px; color: var(--muted-2); white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
 
 .approval {
   margin-top: 6px; padding: 14px 15px;
@@ -615,7 +641,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   display: flex; align-items: center; gap: 16px;
 }
 .approval .col { flex: 1; min-width: 0; }
-.approval .title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 700; color: var(--amber-ink); }
+.approval .title { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 22px; font-weight: 700; color: var(--amber-ink); }
 .approval .body { font-size: 12.5px; color: var(--amber-body); line-height: 1.55; margin-top: 2px; user-select: text; overflow-wrap: break-word; }
 .approval .actions { display: flex; gap: 8px; }
 
@@ -626,11 +652,11 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   display: flex; align-items: center; gap: 16px;
 }
 .stopped .col { flex: 1; min-width: 0; }
-.stopped .title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 700; color: var(--red-ink); }
+.stopped .title { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 22px; font-weight: 700; color: var(--red-ink); }
 .stopped .body { font-size: 12.5px; color: var(--red-body); line-height: 1.55; margin-top: 2px; user-select: text; overflow-wrap: break-word; }
 
 .artifacts { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--dash); }
-.artifacts .title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+.artifacts .title { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 22px; font-weight: 700; margin-bottom: 10px; }
 .artifacts .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .artifact {
   display: flex; align-items: center; gap: 11px; padding: 10px 12px;
@@ -648,7 +674,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 
 .reply-row {
   margin-top: 14px; display: flex; align-items: center; gap: 10px;
-  padding: 6px 8px 6px 13px; background: var(--paper); border: 1px solid var(--dash-dark);
+  padding-block: 6px; padding-inline: 13px 8px; background: var(--paper); border: 1px solid var(--dash-dark);
   box-shadow: 3px 3px 0 rgba(90, 72, 44, 0.14);
 }
 .reply-row .prompt-mark { font-size: 13px; font-weight: 700; color: var(--green); }
@@ -671,7 +697,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   border-top: 1px dashed var(--dash); background: var(--rail);
   font-size: 10.5px; color: var(--muted);
 }
-.footer .path { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.footer .path { margin-inline-start: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- overlays ----------------------------------------------------------- */
 
@@ -690,7 +716,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 }
 .modal-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 20px; border-bottom: 2px dashed var(--dash); }
 .modal-head .col { flex: 1; min-width: 0; }
-.modal-head .title { font-family: 'Caveat', cursive; font-size: 30px; font-weight: 700; line-height: 1.1; }
+.modal-head .title { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 30px; font-weight: 700; line-height: 1.1; }
 .modal-head .sub { font-size: 11.5px; color: #7a6f5c; margin-top: 2px; }
 .modal-x {
   width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
@@ -738,11 +764,11 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .scan-row { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 3px 0; }
 .scan-row .mark { width: 14px; text-align: center; color: var(--green-ok); }
 .scan-row .label2 { font-weight: 700; }
-.scan-row .value { margin-left: auto; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.scan-row .value { margin-inline-start: auto; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 
 /* every overlay box gets a corner close button (appended by overlay()) */
 .overlay > * { position: relative; }
-.ov-x { position: absolute; top: 9px; right: 9px; z-index: 2; }
+.ov-x { position: absolute; top: 9px; inset-inline-end: 9px; z-index: 2; }
 
 /* brand/type glyphs inside the tinted code chips (icons.mjs), inked in currentColor */
 .code--icon svg { width: 62%; height: 62%; max-width: 18px; max-height: 18px; display: block; }
@@ -809,8 +835,8 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   width: 470px; background: var(--qs-pane, var(--paper)); border: 1px solid var(--dash-dark);
   box-shadow: 10px 12px 0 rgba(60, 45, 25, 0.25); animation: rise 0.18s ease both;
 }
-.qs-head { padding: 14px 44px 10px 18px; border-bottom: 2px dashed var(--dash); }
-.qs-head .title { font-family: 'Caveat', cursive; font-size: 27px; font-weight: 700; line-height: 1; }
+.qs-head { padding-block: 14px 10px; padding-inline: 18px 44px; border-bottom: 2px dashed var(--dash); }
+.qs-head .title { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 27px; font-weight: 700; line-height: 1; }
 .qs-body {
   padding: 24px 18px; max-height: 52vh; overflow-y: auto; line-height: 24px;
   background-image: repeating-linear-gradient(180deg, transparent 0 23px, rgba(120, 145, 180, 0.16) 23px 24px);
@@ -840,7 +866,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 }
 .qs-foot .qs-link { color: var(--amber-btn); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--dash-dark); }
 .qs-foot .qs-link:hover { text-decoration-color: currentColor; }
-.picker-input { display: flex; align-items: center; gap: 12px; padding: 16px 44px 16px 18px; border-bottom: 2px dashed var(--dash); }
+.picker-input { display: flex; align-items: center; gap: 12px; padding-block: 16px; padding-inline: 18px 44px; border-bottom: 2px dashed var(--dash); }
 .picker-input .prompt-mark { font-size: 14px; font-weight: 700; color: var(--green); }
 .picker-input input { flex: 1; font-size: 14px; user-select: text; }
 
@@ -851,26 +877,26 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 /* 44px on the right is not a margin choice — it is the gutter the overlay's
    close ✕ sits in. .picker-input reserves the same; dropping it to 16px ran the
    path under the button. */
-.fs-head { display: flex; align-items: baseline; gap: 10px; padding: 14px 44px 12px 18px; border-bottom: 2px dashed var(--dash); }
+.fs-head { display: flex; align-items: baseline; gap: 10px; padding-block: 14px 12px; padding-inline: 18px 44px; border-bottom: 2px dashed var(--dash); }
 .fs-head .prompt-mark { flex: none; }
 .fs-head .fs-title { flex: none; white-space: nowrap; font-weight: 700; font-size: 14px; }
 /* min-width:0 is what lets it shrink instead of shoving the title into a second
    line; the text is already tail-truncated by tailPath, and ellipsis catches
    the narrow-window case */
 .fs-head .fs-where {
-  flex: 1; min-width: 0; margin-left: auto; text-align: right;
+  flex: 1; min-width: 0; margin-inline-start: auto; text-align: var(--align-end);
   font-size: 11px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.fs-row { display: flex; align-items: center; gap: 8px; padding: 14px 16px 0 18px; }
+.fs-row { display: flex; align-items: center; gap: 8px; padding-block: 14px 0; padding-inline: 18px 16px; }
 .fs-row input {
   flex: 1; min-width: 0; padding: 10px 12px; border: 1px dashed var(--dash-dark);
-  background: var(--paper); font-family: 'Courier Prime', monospace; font-size: 14px;
+  background: var(--paper); font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 14px;
   color: var(--ink); outline: none;
 }
 .fs-row input:focus { border-style: solid; border-color: var(--amber-btn); }
 .fs-row .btn { flex: none; font-size: 12px; padding: 9px 15px; }
-.fs-hint { padding: 9px 16px 14px 18px; font-size: 11px; color: var(--muted-2); }
+.fs-hint { padding-block: 9px 14px; padding-inline: 18px 16px; font-size: 11px; color: var(--muted-2); }
 .picker-list { max-height: 340px; overflow-y: auto; padding: 8px; }
 
 /* An agent that arrived thirty seconds ago looks exactly like one that has been
@@ -878,11 +904,11 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    this list is where a finished install hands the user back to. */
 .picker-row--new { background: var(--diff-add-bg); }
 .row-new {
-  margin-left: auto; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  margin-inline-start: auto; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
   font-weight: 700; color: var(--diff-add-ink); background: var(--paper);
   border: 1px solid var(--green-ok); padding: 2px 8px; flex: 0 0 auto;
 }
-.picker-row--new .chev { margin-left: 8px; }
+.picker-row--new .chev { margin-inline-start: 8px; }
 
 .picker-row { display: flex; align-items: center; gap: 12px; padding: 10px 11px; cursor: pointer; border-bottom: 1px dotted #ded3ba; }
 .picker-row:hover, .picker-row.hilite { background: var(--hover); }
@@ -896,7 +922,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    per-theme override; operator maps the whole amber family to its red. */
 .picker-row .desc .ok--warn { color: var(--amber-btn); }
 /* the chevron manages the agent; the rest of the row still launches it */
-.picker-row .chev { flex: none; font-size: 14px; color: var(--faint); padding: 0 2px 0 6px; }
+.picker-row .chev { flex: none; font-size: 14px; color: var(--faint); padding-block: 0; padding-inline: 6px 2px; }
 .picker-row:hover .chev { color: var(--muted); }
 
 /* folder-first: the card that asks where a session should run when no folder
@@ -906,10 +932,10 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .ff-pin { flex: none; font-size: 10.5px; color: var(--faint); }
 .ff-other { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 19px;
   cursor: pointer; font-size: 12.5px; color: var(--amber-ink); border: 0;
-  border-top: 1px dashed var(--dash); background: none; text-align: left; font-family: inherit; }
+  border-top: 1px dashed var(--dash); background: none; text-align: var(--align-start); font-family: inherit; }
 .ff-other:hover { text-decoration: underline; }
 .ff-other .plus { font-weight: 700; }
-.ff-other .kbd { margin-left: auto; font-size: 10.5px; color: var(--faint); }
+.ff-other .kbd { margin-inline-start: auto; font-size: 10.5px; color: var(--faint); }
 .ff-empty { display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 30px 24px 28px; text-align: center; }
 .ff-msg { font-size: 14px; font-weight: 700; }
@@ -935,7 +961,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .setup-box { width: 460px; background: var(--paper); border: 1px solid var(--dash-dark);
   box-shadow: 10px 12px 0 rgba(60, 45, 25, 0.25);
   animation: rise 0.18s ease both; padding: 18px 20px; }
-.setup-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; padding-right: 22px; }
+.setup-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; padding-inline-end: 22px; }
 .setup-head .code { width: 30px; height: 30px; flex: none; display: flex; align-items: center;
   justify-content: center; font-size: 10px; font-weight: 700; border: 1px solid rgba(60, 45, 25, 0.3); }
 .setup-head .name { font-size: 14px; font-weight: 700; display: block; }
@@ -950,11 +976,11 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 /* installed-agent sheet: where identity came from, the links row, and the
    danger zone kept below a rule wearing the quietest button on the sheet */
 .scan-box .label { display: flex; align-items: center; gap: 8px; }
-.scan-box .scan-src { margin-left: auto; font-size: 10.5px; letter-spacing: 0; text-transform: none; color: var(--muted-3); }
+.scan-box .scan-src { margin-inline-start: auto; font-size: 10.5px; letter-spacing: 0; text-transform: none; color: var(--muted-3); }
 /* identity values are read, not scanned past — a wrapped model slug or path
    beats an ellipsis that hides which account a session would actually run as */
 .ag-scan .scan-row { align-items: baseline; }
-.ag-scan .value { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; text-align: right; }
+.ag-scan .value { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; text-align: var(--align-end); }
 .ag-links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11px; margin-top: 11px; }
 .ag-links .action { color: var(--muted-2); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .ag-links .action:hover { color: var(--ink); }
@@ -967,7 +993,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 /* removal confirm — names the real paths before anything is touched */
 .warn-box { background: var(--red-bg); border: 1px solid var(--red-line); padding: 11px 13px; margin-bottom: 13px; }
 .warn-box .wb-head { font-size: 11.5px; font-weight: 700; color: var(--red-ink); margin-bottom: 7px; }
-.warn-box ul { margin: 0; padding-left: 16px; font-size: 11.5px; color: var(--red-body); line-height: 1.65; }
+.warn-box ul { margin: 0; padding-inline-start: 16px; font-size: 11.5px; color: var(--red-body); line-height: 1.65; }
 .warn-box li { margin: 1px 0; }
 
 /* Switching folders while sessions are live. Not a warning sheet — neither exit
@@ -1001,11 +1027,11 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 
 .ql-lines { background: repeating-linear-gradient(0deg, transparent 0 25px, rgba(120, 145, 180, 0.14) 25px 26px); }
 .ql-row { display: flex; gap: 14px; font-size: 12px; line-height: 26px; user-select: text; }
-.ql-row .n { color: #b3a894; width: 30px; text-align: right; flex: none; }
+.ql-row .n { color: #b3a894; width: 30px; text-align: var(--align-end); flex: none; }
 .ql-row .t { white-space: pre-wrap; overflow-wrap: break-word; min-width: 0; }
 
 .toast {
-  position: absolute; left: 50%; bottom: 130px; z-index: 70;
+  position: absolute; left: 50%; bottom: 130px; z-index: 70; /* physical: centred with translateX(-50%) */
   display: flex; align-items: center; gap: 10px; padding: 10px 18px;
   background: var(--amber-bg); border: 1px solid var(--amber-line);
   box-shadow: 4px 5px 0 var(--shadow-hard);
@@ -1025,7 +1051,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .update-note {
   /* clear of the footer, not on top of it: at full width the hints are all
      showing and sitting on the footer row buried four of the five */
-  position: absolute; left: 14px; bottom: 38px; z-index: 60;
+  position: absolute; inset-inline-start: 14px; bottom: 38px; z-index: 60;
   display: flex; align-items: center; gap: 7px;
   padding: 5px 10px; background: var(--paper);
   border: 1px dashed var(--dash-dark); box-shadow: 2px 2px 0 var(--shadow-mid);
@@ -1092,7 +1118,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   color: var(--ink); padding-top: 6px; margin-top: 2px; border-top: 1px dashed var(--dash);
 }
 .update-note .un-why { margin: 0 0 6px; color: var(--muted); }
-.update-note .un-highlights { margin: 0 0 8px; padding-left: 16px; }
+.update-note .un-highlights { margin: 0 0 8px; padding-inline-start: 16px; }
 .update-note .un-highlights li { margin: 2px 0; }
 .update-note .un-stats { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 10.5px; color: var(--muted); }
 .update-note .un-stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1125,14 +1151,14 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    two cards inside are whole tiles, re-parented, so the head and body rules
    above apply untouched; only their placement changes. */
 .main.is-split > .grid { display: none; }
-.paneview { flex: 1; min-height: 0; display: flex; padding: 12px 36px 24px 26px; }
+.paneview { flex: 1; min-height: 0; display: flex; padding-block: 12px 24px; padding-inline: 26px 36px; }
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .pane-agent { flex: 0 0 var(--split, 46%); }
 .pane-files { flex: 1; }
 .pane > .tile { flex: 1; min-height: 0; height: auto; grid-area: auto; }
 .pane > .tile .tile-grip { display: none; }
 .pane-divider { flex: none; width: 20px; cursor: col-resize; position: relative; }
-.pane-divider::after { content: ""; position: absolute; left: 9px; top: 44px; bottom: 8px; width: 2px; background: var(--dash-dark); }
+.pane-divider::after { content: ""; position: absolute; inset-inline-start: 9px; top: 44px; bottom: 8px; width: 2px; background: var(--dash-dark); }
 .pane-divider:hover::after { background: var(--green); }
 .paneview.full-agent .pane-files, .paneview.full-agent .pane-divider,
 .paneview.full-files .pane-agent, .paneview.full-files .pane-divider { display: none; }
@@ -1178,7 +1204,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    goes to ellipsis on a narrow tile; a sixth button there would be the first
    thing to disappear on exactly the cards most worth resizing. A grip is also
    the thing itself rather than a control that opens a way to do the thing.
-   Inset from the true corner: on a rounded theme (glass is 22px) right:0/bottom:0
+   Inset from the true corner: on a rounded theme (glass is 22px) inset-inline-end:0/bottom:0
    is empty space outside the curve, and the mark floated off the card. Two
    strokes rather than a filled ◢ — reads on a square card and a round one alike. */
 /* The hit area straddles the true corner — 10px outside the card, 16px inside —
@@ -1187,7 +1213,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    on an editor tile that exact spot is the Save button, and the two fought.
    The mark is only a visual; the box is the control. */
 .tile-grip {
-  position: absolute; right: -10px; bottom: -10px; width: 26px; height: 26px; z-index: 6;
+  position: absolute; inset-inline-end: -10px; bottom: -10px; width: 26px; height: 26px; z-index: 6;
   cursor: nwse-resize; opacity: 0;
   transition: opacity 0.12s ease;
   -webkit-user-select: none; user-select: none; touch-action: none;
@@ -1195,7 +1221,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 /* The strokes hug the corner: 2px in on a square tile. Glass rounds its tiles,
    so its override below tucks them inside the curve instead. */
 .tile-grip::before {
-  content: ''; position: absolute; right: 12px; bottom: 12px;
+  content: ''; position: absolute; inset-inline-end: 12px; bottom: 12px;
   width: 11px; height: 11px; color: var(--muted);
   background:
     linear-gradient(135deg, transparent 0 42%, currentColor 42% 58%, transparent 58% 100%) no-repeat 0 0/11px 11px,
@@ -1206,6 +1232,11 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .tile-grip:focus-visible { outline: 2px solid var(--dash-dark); outline-offset: -8px; opacity: 1; }
 .tile-grip:focus-visible::before { color: var(--ink); }
 .tile.focused .tile-grip { display: none; }   /* focus already owns the canvas */
+/* Mirrored desk: the grip sits on the bottom-left corner (inset-inline-end above)
+   and the card grows leftwards from there, so the cursor and the strokes turn
+   with it. tile-shell.mjs flips the drag to match. */
+[dir="rtl"] .tile-grip { cursor: nesw-resize; }
+[dir="rtl"] .tile-grip::before { transform: scaleX(-1); }
 
 /* The drag: the card lifts out of the grid and follows the hand — live content,
    no scrim, its own theme material untouched. The slot is a real grid item
@@ -1222,14 +1253,14 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
      every theme's slot matches every theme's card — including ones added later */
 }
 .desk-slot .ds-size {
-  position: absolute; right: 9px; bottom: 8px;
-  font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 0.06em;
+  position: absolute; inset-inline-end: 9px; bottom: 8px;
+  font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11px; letter-spacing: 0.06em;
   color: var(--ink); background: var(--paper); border: 1px solid var(--dash);
   border-radius: 6px; padding: 1px 7px; white-space: nowrap;
 }
 
 .tile-head {
-  flex: none; display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 12px;
+  flex: none; display: flex; align-items: center; gap: 10px; padding-block: 9px; padding-inline: 12px 10px;
   border-bottom: 1px dashed var(--dash); cursor: grab; user-select: none;
   /* the backstop: whatever else goes wrong, controls can never cross the
      card's edge again — they vanish under it instead of sitting on a
@@ -1263,7 +1294,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .tile-head .col { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .tile-head .t-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-head .t-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-.tile-head .t-status { display: flex; align-items: center; gap: 6px; margin-right: 4px; }
+.tile-head .t-status { display: flex; align-items: center; gap: 6px; margin-inline-end: 4px; }
 .tile-head .t-status .dot { width: 7px; height: 7px; border-radius: 50%; background: #4a7a4a; }
 .tile.attention .t-status .dot { animation: pulse 1.2s ease-in-out infinite; }
 .tile-head .t-status .lbl { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2); }
@@ -1303,7 +1334,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   animation: rise 0.22s ease both;
 }
 .tile-note .tn-tx { min-width: 0; }
-.tile-note .tn-bt { margin-left: auto; display: flex; gap: 6px; flex: 0 0 auto; }
+.tile-note .tn-bt { margin-inline-start: auto; display: flex; gap: 6px; flex: 0 0 auto; }
 .tile-note--ok { background: var(--diff-add-bg); border-top-color: var(--green-ok); color: var(--diff-add-ink); }
 .tile-note--warn { background: var(--amber-bg); border-top-color: var(--amber-line); color: var(--amber-body); }
 .tile-note--warn b, .tile-note--ok b { color: inherit; }
@@ -1350,7 +1381,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .picker-row--go.dead { cursor: default; }
 .picker-row--go.dead .name { color: var(--muted-2); }
 .picker-row .row-tool {
-  flex: none; display: flex; align-items: center; gap: 6px; margin-right: 2px;
+  flex: none; display: flex; align-items: center; gap: 6px; margin-inline-end: 2px;
   font-size: 10px; letter-spacing: 0.04em; color: var(--muted-2);
 }
 .picker-row .row-tool svg { width: 12px; height: 12px; opacity: 0.75; }
@@ -1371,9 +1402,9 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   padding: 9px 14px; border-top: 2px dashed var(--dash);
   font-size: 10.5px; color: var(--muted-2); display: flex; gap: 14px; flex-wrap: wrap;
 }
-.tool-list { padding: 2px 0 6px 42px; border-bottom: 1px dotted var(--dash-dark); background: var(--u-bg); }
+.tool-list { padding-block: 2px 6px; padding-inline: 42px 0; border-bottom: 1px dotted var(--dash-dark); background: var(--u-bg); }
 .tool-row {
-  display: flex; align-items: center; gap: 9px; padding: 6px 12px 6px 0;
+  display: flex; align-items: center; gap: 9px; padding-block: 6px; padding-inline: 0 12px;
   cursor: pointer; font-size: 11.5px; border-bottom: 1px dotted var(--dash);
 }
 .tool-row:last-of-type { border-bottom: 0; }
@@ -1385,7 +1416,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .tool-row .tl-mark svg { width: 13px; height: 13px; }
 .tool-row .tl-name { font-weight: 700; min-width: 92px; flex: none; }
 .tool-row .tl-note { color: var(--muted-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tool-row .tl-dot { margin-left: auto; flex: none; font-size: 10px; }
+.tool-row .tl-dot { margin-inline-start: auto; flex: none; font-size: 10px; }
 .tool-row .tl-dot.on { color: var(--green-ok); }
 .tool-row .tl-dot.soon { color: var(--amber-btn); }
 /* Somebody's own file, in the way and winning. Not a fault and not a success —
@@ -1399,7 +1430,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .tool-row.dead .tl-mark, .tool-row.dead .tl-name { color: var(--muted-3); font-weight: 400; }
 .tool-row.dead:hover { background: none; }
 .tool-row.picked .tl-name { color: var(--green); }
-.tool-foot { padding: 8px 12px 2px 0; font-size: 10.5px; color: var(--muted-3); line-height: 1.5; }
+.tool-foot { padding-block: 8px 2px; padding-inline: 0 12px; font-size: 10.5px; color: var(--muted-3); line-height: 1.5; }
 /* ---- paper editor ----
    Read and Edit are two panes in one column; only one is ever displayed. */
 .editor { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
@@ -1421,7 +1452,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .fmp-slim {
   display: flex; align-items: baseline; gap: 7px; min-width: 0; padding: 2px 0;
   cursor: pointer; user-select: none;
-  font-family: 'Courier Prime', monospace; font-size: 10.5px; letter-spacing: 0.08em;
+  font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 10.5px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--muted);
 }
 .fmp-slim:hover { color: var(--ink); }
@@ -1431,22 +1462,22 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 }
 .fmp-slim .fmp-slim-hint {
   /* --muted-3, not --faint: at 10.5px on dusk's ground, --faint is a smudge */
-  margin-left: auto; flex: none; text-transform: none; letter-spacing: 0.03em; color: var(--muted-3);
+  margin-inline-start: auto; flex: none; text-transform: none; letter-spacing: 0.03em; color: var(--muted-3);
 }
 .fmp-slim--bare { cursor: default; }
 .fmp { max-width: none; border: 1px dashed var(--dash-dark); background: var(--paper-3); }
 .fmp-head {
   display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; user-select: none;
-  font-family: 'Courier Prime', monospace; font-size: 10.5px; letter-spacing: 0.08em;
+  font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 10.5px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--muted);
 }
 .fmp-arr { display: inline-block; }
-.fmp-count { margin-left: auto; color: var(--faint); text-transform: none; letter-spacing: 0; }
+.fmp-count { margin-inline-start: auto; color: var(--faint); text-transform: none; letter-spacing: 0; }
 .fmp-body { padding: 2px 12px 10px; }
 .fmp-row { display: flex; align-items: flex-start; gap: 10px; padding: 3px 0; border-top: 1px dotted var(--dash); position: relative; }
 .fmp-row:first-child { border-top: none; }
 .fmp-key {
-  flex: none; width: 110px; font-family: 'Courier Prime', monospace; font-size: 11.5px; color: var(--muted);
+  flex: none; width: 110px; font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11.5px; color: var(--muted);
   padding-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .fmp-val { flex: 1; min-width: 0; font-family: var(--doc-sans); font-size: calc(12.5px * var(--doc-scale, 1)); }
@@ -1475,7 +1506,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .fmp-chips > input::placeholder { color: var(--faint); }
 .fmp-locked {
   display: flex; align-items: center; gap: 8px; min-width: 0;
-  font-family: 'Courier Prime', monospace; font-size: 11.5px; color: var(--muted); padding-top: 4px; cursor: not-allowed;
+  font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11.5px; color: var(--muted); padding-top: 4px; cursor: not-allowed;
 }
 .fmp-pad {
   background: var(--paper); border: 1px dashed var(--dash); padding: 1px 8px; border-radius: 2px;
@@ -1489,7 +1520,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .fmp-rm:hover { color: var(--red-ink); }
 .fmp-add {
   display: block; width: 100%; padding: 5px 0; text-align: center; cursor: pointer;
-  font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 0.05em; color: var(--muted);
+  font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11px; letter-spacing: 0.05em; color: var(--muted);
   background: none; border: 1px dashed var(--dash-dark); opacity: 0.65; transition: opacity 0.12s;
 }
 .fmp-add { margin-top: 8px; }
@@ -1501,14 +1532,14 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   width: 100%; font-size: inherit; color: var(--ink); background: var(--paper);
   border: 1px dashed var(--amber-line); border-radius: 2px; padding: 3px 6px; outline: none;
 }
-.fmp-draft .fmp-key input { font-family: 'Courier Prime', monospace; font-size: 11.5px; }
+.fmp-draft .fmp-key input { font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11.5px; }
 .fmp-draft .fmp-key input:focus, .fmp-draft .fmp-val input:focus { border-style: solid; border-color: var(--field-line); }
-.fmp-hint { flex: none; font-family: 'Courier Prime', monospace; font-size: 10.5px; color: var(--amber-ink); padding-top: 7px; white-space: nowrap; }
+.fmp-hint { flex: none; font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 10.5px; color: var(--amber-ink); padding-top: 7px; white-space: nowrap; }
 .fmp-flash { animation: fmp-flash 1.2s ease-out; }
 @keyframes fmp-flash { 0%, 60% { background: var(--amber-bg); } 100% { background: transparent; } }
 .fmp-broken {
   max-width: none; padding: 7px 12px; border: 1px dashed var(--amber-line); background: var(--amber-bg);
-  color: var(--amber-ink); font-family: 'Courier Prime', monospace; font-size: 11.5px;
+  color: var(--amber-ink); font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11.5px;
 }
 
 /* Rich Markdown is loaded only after Edit opens. The editor library gets
@@ -1522,7 +1553,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   flex-direction: column;
   --crepe-font-default: var(--doc-sans);
   --crepe-font-title: var(--doc-sans);
-  --crepe-font-code: 'Courier Prime', monospace;
+  --crepe-font-code: 'Courier Prime', 'KA Arabic', monospace;
   --crepe-base-font-size: calc(13px * var(--doc-scale, 1));
   --crepe-color-background: transparent;
   --crepe-color-on-background: var(--ink);
@@ -1553,7 +1584,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   position: relative; inset: auto; display: block; flex: 1 0 auto;
   /* Read's padding exactly — Edit and Read are the same page, and a 22px
      shift between tabs reads as two documents. Crepe's block handle hangs
-     in this same 22px gutter (margin-left below). */
+     in this same 22px gutter (margin-inline-start below). */
   max-width: none; margin: 0;
   padding: 16px 22px 24px; line-height: 1.72; caret-color: var(--ink);
 }
@@ -1581,7 +1612,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   table-layout: auto; width: max-content; max-width: 100%; font-size: 0.962em;
 }
 .ed-rich .milkdown .milkdown-table-block th, .ed-rich .milkdown .milkdown-table-block td {
-  border: 1px dashed var(--dash); padding: 4px 10px; text-align: left; vertical-align: top;
+  border: 1px dashed var(--dash); padding: 4px 10px; text-align: start; vertical-align: top;
 }
 .ed-rich .milkdown .milkdown-table-block th { color: var(--ink); background: var(--paper-2); font-weight: 700; }
 .ed-rich .milkdown .milkdown-table-block td { color: var(--ink); background: transparent; }
@@ -1590,7 +1621,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
   position: absolute; width: 9px; cursor: col-resize; z-index: 30; touch-action: none;
 }
 .ed-rich .nami-col-resize::after {
-  content: ''; position: absolute; top: 0; bottom: 0; left: 3.5px; width: 2px;
+  content: ''; position: absolute; top: 0; bottom: 0; inset-inline-start: 3.5px; width: 2px;
   background: var(--green); opacity: 0; transition: opacity 0.12s;
 }
 .ed-rich .nami-col-resize:hover::after, .ed-rich .nami-col-resize.live::after { opacity: 1; }
@@ -1599,7 +1630,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    the old 44px gutter, all but 10px of it). Stack the two buttons vertically
    at gutter width and walk the float back, so the whole handle lives in the
    22px between pane edge and text. */
-.ed-rich .milkdown .milkdown-block-handle { margin-left: 0; flex-direction: column; }
+.ed-rich .milkdown .milkdown-block-handle { margin-inline-start: 0; flex-direction: column; }
 .ed-rich .milkdown .milkdown-block-handle .operation-item { width: 22px; height: 22px; padding: 3px; }
 .ed-rich .milkdown .milkdown-block-handle .operation-item svg { width: 16px; height: 16px; }
 .ed-rich .milkdown .milkdown-toolbar { max-width: calc(100% - 12px); overflow-x: auto; }
@@ -1612,12 +1643,12 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .ed-rich-error small { max-width: 52ch; color: var(--faint); text-align: center; }
 
 .ed-pane { flex: 1; min-height: 0; display: grid; grid-template-columns: 48px 1fr; }
-.ed-gutter { overflow: hidden; padding: 10px 8px 10px 0; text-align: right;
-  font-family: 'Courier Prime', monospace;
+.ed-gutter { overflow: hidden; padding-block: 10px; padding-inline: 0 8px; text-align: end;
+  font-family: 'Courier Prime', 'KA Arabic', monospace;
   /* the third layer: line numbers have to grow with the lines they number, or
      line 40 stops sitting beside line 40 */
   font-size: calc(12.5px * var(--doc-scale, 1)); line-height: calc(22px * var(--doc-scale, 1)); color: #b3a894;
-  border-right: 1px dashed var(--dash); background: repeating-linear-gradient(0deg, transparent 0 calc(21px * var(--doc-scale, 1)), rgba(120,145,180,0.10) calc(21px * var(--doc-scale, 1)) calc(22px * var(--doc-scale, 1))); }
+  border-inline-end: 1px dashed var(--dash); background: repeating-linear-gradient(0deg, transparent 0 calc(21px * var(--doc-scale, 1)), rgba(120,145,180,0.10) calc(21px * var(--doc-scale, 1)) calc(22px * var(--doc-scale, 1))); }
 /* the underlay and the textarea are the same box, stacked; the textarea's own
    glyphs stay visible and the layer behind only supplies colour and weight */
 /* the ruled lines are the line height — scaled with it, or the text drifts off
@@ -1632,7 +1663,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    termLetterSpacing() in app.js, zero in every theme for the same reason. */
 .ed-hl, .ed-area, .ed-measure {
   position: absolute; inset: 0; margin: 0; padding: 10px 12px; border: none; outline: none;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Courier Prime', 'KA Arabic', monospace;
   font-size: calc(12.5px * var(--doc-scale, 1)); line-height: calc(22px * var(--doc-scale, 1));
   letter-spacing: 0; word-spacing: 0;
   white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; tab-size: 2;
@@ -1678,7 +1709,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 /* Split view goes to 320px, where the message and two buttons will not share a
    line. The actions wrap as a pair — one button dropping below the other reads
    as two unrelated choices. */
-.disk-bar .dk-acts { flex: 0 0 auto; display: flex; gap: 6px; margin-left: auto; }
+.disk-bar .dk-acts { flex: 0 0 auto; display: flex; gap: 6px; margin-inline-start: auto; }
 /* Ink on a border, never white on a solid --amber-btn: glass's amber is a mid
    yellow and white on it comes out around 2.6:1. */
 .disk-bar .btn { flex: none; font-size: 10.5px; padding: 4px 9px; color: var(--amber-ink); border-color: var(--amber-btn-line); }
@@ -1719,16 +1750,16 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .md-read h3 { font-size: 1.154em; }   /* 15/13 */
 .md-read h4, .md-read h5, .md-read h6 { font-size: 1em; color: var(--muted); }
 .md-read p { margin: 0 0 11px; overflow-wrap: break-word; }
-.md-read ul, .md-read ol { margin: 0 0 11px; padding-left: 22px; }
+.md-read ul, .md-read ol { margin: 0 0 11px; padding-inline-start: 22px; }
 .md-read li { margin-bottom: 3px; }
 .md-read code {
-  font-family: 'Courier Prime', monospace; font-size: 0.923em;   /* 12/13 */
+  font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 0.923em;   /* 12/13 */
   background: var(--paper-2); border: 1px dashed var(--dash); padding: 1px 5px; border-radius: 2px;
 }
 .md-read .md-pre {
   margin: 0 0 12px; padding: 10px 12px; overflow-x: auto;
   background: #f6efdd; border: 1px dashed var(--dash);
-  font-family: 'Courier Prime', monospace; font-size: 0.923em; line-height: 1.667;   /* 12/13, 20/12 */
+  font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 0.923em; line-height: 1.667;   /* 12/13, 20/12 */
 }
 .md-read .md-pre code { background: none; border: none; padding: 0; font-size: inherit; }
 /* ---- the blocks real markdown has ------------------------------------------
@@ -1737,7 +1768,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    every theme follows. */
 .md-read .md-fm {
   margin: 0 0 14px; padding: 8px 12px; border: 1px dashed var(--dash);
-  background: var(--paper-3); font-family: 'Courier Prime', monospace;
+  background: var(--paper-3); font-family: 'Courier Prime', 'KA Arabic', monospace;
   /* em, not px: .md-read's ± dial scales its base */
   font-size: 0.846em; color: var(--muted); line-height: 1.7;   /* 11/13 */
 }
@@ -1745,12 +1776,12 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .md-read .md-tablewrap { overflow-x: auto; margin: 0 0 12px; max-width: 100%; }
 .md-read table { border-collapse: collapse; font-size: 0.962em; }   /* 12.5/13 */
 .md-read th, .md-read td {
-  border: 1px dashed var(--dash); padding: 4px 10px; text-align: left; vertical-align: top;
+  border: 1px dashed var(--dash); padding: 4px 10px; text-align: start; vertical-align: top;
 }
 .md-read th { font-weight: 700; background: var(--paper-2); }
-.md-read li.md-task { list-style: none; margin-left: -18px; }
+.md-read li.md-task { list-style: none; margin-inline-start: -18px; }
 .md-read li.md-task input {
-  accent-color: var(--green); margin-right: 6px; vertical-align: -1px; pointer-events: none;
+  accent-color: var(--green); margin-inline-end: 6px; vertical-align: -1px; pointer-events: none;
 }
 .md-read li > ul, .md-read li > ol { margin: 3px 0 0; }
 .md-read blockquote > :last-child { margin-bottom: 0; }
@@ -1764,13 +1795,13 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .md-pre .tok-del { color: var(--tok-del-ink); background: var(--tok-del-bg); display: block; }
 .md-pre .tok-hunk { color: var(--muted); display: block; }
 .md-read .md-lang {
-  position: absolute; top: 4px; right: 8px; font-size: 0.769em; color: var(--muted);   /* 10/13 */
+  position: absolute; top: 4px; inset-inline-end: 8px; font-size: 0.769em; color: var(--muted);   /* 10/13 */
   text-transform: uppercase; letter-spacing: 0.08em; user-select: none;
 }
 .md-read img { max-width: 100%; border: 1px solid var(--dash); display: block; margin: 0 0 11px; }
 .md-read blockquote {
-  margin: 0 0 11px; padding: 2px 0 2px 12px;
-  border-left: 3px solid var(--dash-dark); color: var(--muted);
+  margin: 0 0 11px; padding-block: 2px; padding-inline: 12px 0;
+  border-inline-start: 3px solid var(--dash-dark); color: var(--muted);
 }
 .md-read hr { border: none; border-top: 1px dashed var(--dash); margin: 20px 0; }
 .md-read a { text-decoration: underline; }
@@ -1832,7 +1863,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 
 /* ---- library rail + card editor ---- */
 .lib-top { flex: none; padding: 0 14px 10px; }
-.lib-search { width: 100%; padding: 7px 10px; border: 1px dashed var(--dash-dark); background: var(--paper); font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--ink); outline: none; }
+.lib-search { width: 100%; padding: 7px 10px; border: 1px dashed var(--dash-dark); background: var(--paper); font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 12px; color: var(--ink); outline: none; }
 .lib-search:focus { border-style: solid; }
 .lib-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 14px 16px; }
 .lib-group {
@@ -1843,14 +1874,14 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 }
 .lib-sect:first-child .lib-group { margin-top: 0; border-top: none; }
 .lib-group.sub {
-  padding-left: 10px; margin-top: 4px; font-size: 10px; letter-spacing: 0.08em;
+  padding-inline-start: 10px; margin-top: 4px; font-size: 10px; letter-spacing: 0.08em;
   border-top: none; background: var(--rail);
 }
 .lib-group:hover { color: var(--ink); }
 .lib-group .lg-caret { width: 10px; font-size: 10px; color: var(--muted-3); }
-.lib-group .lg-count { margin-left: auto; font-weight: 700; color: var(--muted-3); letter-spacing: 0; }
+.lib-group .lg-count { margin-inline-start: auto; font-weight: 700; color: var(--muted-3); letter-spacing: 0; }
 .lib-list .agent-row { margin-bottom: 5px; }
-.scope-tag { margin-left: auto; flex: none; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+.scope-tag { margin-inline-start: auto; flex: none; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--muted-2); border: 1px dashed var(--dash); padding: 2px 6px; border-radius: 2px; white-space: nowrap; }
 .agent-row .tools .ok { color: var(--green-ok); }
 /* A skill's tag answers "can a session started here use it?" — green when yes,
@@ -1891,7 +1922,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .svc-custom .col { display: flex; flex-direction: column; gap: 2px; }
 .svc-custom .sv-name { font-weight: 700; font-size: 12px; }
 .svc-custom .sv-desc { font-size: 10.5px; color: var(--muted); }
-.svc-custom .sv-go { margin-left: auto; font-size: 11px; color: var(--amber-ink); white-space: nowrap; }
+.svc-custom .sv-go { margin-inline-start: auto; font-size: 11px; color: var(--amber-ink); white-space: nowrap; }
 .sv-help { font-size: 11px; color: var(--amber-ink); margin: 4px 0 10px; cursor: pointer; }
 .sv-fold { border: 1px dashed var(--dash); background: var(--paper-2); border-radius: 2px; margin: 12px 0; }
 .sv-fold summary { cursor: pointer; padding: 8px 11px; font-size: 11.5px; color: var(--muted); list-style: none; }
@@ -1907,7 +1938,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .sv-okline .ok { color: var(--green-ok); }
 .setup-head .desc .ok { color: var(--green-ok); } /* connected dot on the service details sheet */
 .ni-agent { font-size: 11.5px; color: var(--muted); margin: 10px 0 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.agent-pick { font-family: 'Courier Prime', monospace; font-size: 11.5px; color: var(--ink);
+.agent-pick { font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11.5px; color: var(--ink);
   background: var(--paper); border: 1px dashed var(--dash); border-radius: 2px; padding: 3px 6px; cursor: pointer; }
 .agent-pick:hover, .agent-pick:focus-visible { border-style: solid; outline: none; }
 .card-del { color: var(--red-ink); }
@@ -1930,35 +1961,35 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .ctx-item.off:hover { background: none; }
 .ctx-item.off .ctx-kb { color: var(--red-ink); }
 /* the shortcut a row already has, printed where people look for it */
-.ctx-item .ctx-kb { margin-left: auto; font-size: 11px; color: var(--faint); }
+.ctx-item .ctx-kb { margin-inline-start: auto; font-size: 11px; color: var(--faint); }
 .ctx-sep { border-top: 1px dashed var(--dash); margin: 4px 6px; }
 .ed-path { cursor: pointer; }
 .ed-path:hover { text-decoration: underline; }
 
 .card-ed { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
 .card-tabs { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px dashed var(--dash); }
-.card-tab { padding: 4px 12px; font-family: 'Courier Prime', monospace; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--paper); border: 1px dashed var(--dash); cursor: pointer; }
+.card-tab { padding: 4px 12px; font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--paper); border: 1px dashed var(--dash); cursor: pointer; }
 .card-tab.active { color: var(--ink); border-style: solid; border-color: var(--dash-dark); background: rgba(255,253,246,0.9); }
-.card-src { margin-left: auto; font-size: 10px; color: var(--muted-2); letter-spacing: 0.05em; }
+.card-src { margin-inline-start: auto; font-size: 10px; color: var(--muted-2); letter-spacing: 0.05em; }
 .card-form { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 12px 14px; }
-.card-lbl { font-family: 'Caveat', cursive; font-size: 17px; font-weight: 700; color: var(--muted); margin: 8px 0 3px; }
+.card-lbl { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 17px; font-weight: 700; color: var(--muted); margin: 8px 0 3px; }
 .card-lbl:first-child { margin-top: 0; }
-.card-in { padding: 7px 10px; border: 1px dashed var(--dash-dark); background: var(--paper); font-family: 'Courier Prime', monospace; font-size: 12.5px; color: var(--ink); outline: none; }
+.card-in { padding: 7px 10px; border: 1px dashed var(--dash-dark); background: var(--paper); font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 12.5px; color: var(--ink); outline: none; }
 .card-in:focus { border-style: solid; }
 .card-in:disabled { opacity: 0.7; }
 .card-body { flex: 1; min-height: 120px; resize: none; margin-top: 2px; padding: 8px 10px; border: 1px dashed var(--dash-dark); outline: none;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Courier Prime', 'KA Arabic', monospace;
   font-size: calc(12.5px * var(--doc-scale, 1)); line-height: calc(22px * var(--doc-scale, 1)); color: var(--ink);
   background: repeating-linear-gradient(0deg, transparent 0 calc(21px * var(--doc-scale, 1)), rgba(120,145,180,0.10) calc(21px * var(--doc-scale, 1)) calc(22px * var(--doc-scale, 1))); white-space: pre-wrap; }
 .card-raw { flex: 1; min-height: 0; display: flex; }
 .card-raw .raw-area { flex: 1; resize: none; border: none; outline: none; padding: 10px 12px;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Courier Prime', 'KA Arabic', monospace;
   font-size: calc(12.5px * var(--doc-scale, 1)); line-height: calc(22px * var(--doc-scale, 1)); color: var(--ink);
   background: repeating-linear-gradient(0deg, transparent 0 calc(21px * var(--doc-scale, 1)), rgba(120,145,180,0.10) calc(21px * var(--doc-scale, 1)) calc(22px * var(--doc-scale, 1))); white-space: pre; overflow: auto; }
 .card-ed .ed-bar .btn { font-size: 11px; padding: 6px 12px; }
 .ni-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; }
 .ni-row:last-child { padding-bottom: 14px; }
-.ni-row input { flex: 1; padding: 8px 10px; border: 1px dashed var(--dash-dark); background: var(--paper); font-family: 'Courier Prime', monospace; font-size: 12.5px; color: var(--ink); outline: none; }
+.ni-row input { flex: 1; padding: 8px 10px; border: 1px dashed var(--dash-dark); background: var(--paper); font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 12.5px; color: var(--ink); outline: none; }
 .ni-row input:focus { border-style: solid; }
 .ni-row .btn { font-size: 11px; padding: 7px 12px; }
 .ni-row .lbl { flex: none; width: 44px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
@@ -1981,7 +2012,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .ni-field .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .ni-field .lbl .opt { font-weight: 400; text-transform: none; letter-spacing: 0.02em; color: var(--muted-2); }
 .ni-field input, .ni-field textarea { width: 100%; padding: 10px 12px; border: 1px dashed var(--field-line);
-  background: var(--field); font-family: 'Courier Prime', monospace; font-size: 13.5px; line-height: 22px;
+  background: var(--field); font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 13.5px; line-height: 22px;
   color: var(--ink); outline: none; }
 /* one token up from the global --muted-3: this sheet is mostly placeholder
    text at rest, so its quiet is everyone's first impression of it */
@@ -1999,9 +2030,9 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .picker-box.create .ni-where { font-size: 12px; }
 .picker-box.create .ni-agent { font-size: 12px; }
 
-.ni-step { margin-left: auto; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.ni-step { margin-inline-start: auto; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .ni-ask { padding: 13px 18px 0; font-size: 12.5px; font-weight: 700; color: var(--ink); }
-.ni-back { margin: 10px 0 0 18px; padding: 0; font-family: inherit; font-size: 11px; color: var(--muted-2);
+.ni-back { margin-block: 10px 0; margin-inline: 18px 0; padding: 0; font-family: inherit; font-size: 11px; color: var(--muted-2);
   background: none; border: 0; cursor: pointer; text-decoration: underline; }
 .ni-back:hover { color: var(--ink); }
 .ni-back:focus-visible { color: var(--ink); outline: 1px solid var(--dash-dark); outline-offset: 2px; }
@@ -2023,9 +2054,9 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 
 /* ---- card connections ---- */
 .card-links { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px 12px; border-top: 1px dashed var(--dash); background: rgba(255,253,246,0.55); }
-.card-links .lk-lbl { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted-2); margin-right: 2px; }
-.card-links .lk-lbl:not(:first-child) { margin-left: 10px; }
-.link-chip { padding: 3px 8px; font-family: 'Courier Prime', monospace; font-size: 10.5px; font-weight: 700; color: var(--ink); background: var(--paper); border: 1px dashed var(--dash-dark); cursor: pointer; }
+.card-links .lk-lbl { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted-2); margin-inline-end: 2px; }
+.card-links .lk-lbl:not(:first-child) { margin-inline-start: 10px; }
+.link-chip { padding: 3px 8px; font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 10.5px; font-weight: 700; color: var(--ink); background: var(--paper); border: 1px dashed var(--dash-dark); cursor: pointer; }
 .link-chip:hover { border-style: solid; box-shadow: 2px 2px 0 var(--shadow-mid); }
 
 
@@ -2061,7 +2092,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .theme-opt {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px;
   border: 1px solid transparent; background: transparent; cursor: pointer;
-  font-family: inherit; font-size: 12.5px; color: var(--ink); text-align: left;
+  font-family: inherit; font-size: 12.5px; color: var(--ink); text-align: var(--align-start);
 }
 .theme-opt:hover { background: var(--hover); }
 .theme-opt:focus, .theme-opt:focus-visible { outline: none; background: var(--hover); }
@@ -2070,7 +2101,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .theme-opt .theme-dot { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 1.5px solid var(--muted-3); }
 .theme-opt.picked .theme-dot { border-color: var(--green); background: radial-gradient(circle, var(--green) 0 3.5px, transparent 4px); }
 .theme-opt .theme-name { font-weight: 700; }
-.theme-opt .theme-desc { margin-left: auto; font-size: 10.5px; color: var(--muted-2); }
+.theme-opt .theme-desc { margin-inline-start: auto; font-size: 10.5px; color: var(--muted-2); }
 
 /* ---- settings sheet ----
    Uses the .modal shell; the radio rows are .theme-opt so the picker in here
@@ -2079,7 +2110,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .set-wrap { display: flex; gap: 20px; align-items: flex-start; }
 .set-nav { flex: 0 0 118px; display: flex; flex-direction: column; gap: 5px; padding: 0; }
 /* left-aligned words need their own side padding — the base rule has almost none */
-.set-nav .rail-tab { text-align: left; padding: 7px 10px; }
+.set-nav .rail-tab { text-align: var(--align-start); padding: 7px 10px; }
 .set-pane { flex: 1; min-width: 0; }
 .set-opt-wrap + .set-opt-wrap { margin-top: 2px; }
 .set-opt { border: 1px dashed transparent; align-items: flex-start; padding: 8px 10px; }
@@ -2088,12 +2119,12 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .set-opt .theme-dot { margin-top: 2px; }
 .set-opt-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .set-opt-desc { font-size: 10.5px; color: var(--muted-2); }
-.set-flag { margin-left: auto; padding-left: 12px; font-size: 10.5px; white-space: nowrap; }
+.set-flag { margin-inline-start: auto; padding-inline-start: 12px; font-size: 10.5px; white-space: nowrap; }
 .set-flag.ok { color: var(--green-ok); }
 .set-flag.wait { color: var(--muted-2); }
 /* the open body hangs off the picked row, so the rule ties them together */
 .set-opt-body { display: flex; flex-direction: column; gap: 7px;
-  margin: 0 0 10px 21px; padding: 9px 0 2px 11px; border-left: 1px dashed var(--dash-dark); }
+  margin-block: 0 10px; margin-inline: 21px 0; padding-block: 9px 2px; padding-inline: 11px 0; border-inline-start: 1px dashed var(--dash-dark); }
 .set-opt-body .setup-note { margin: 0; }
 .modal-foot .btn.rec { color: var(--red-btn); border-color: var(--red-line); background: var(--red-bg); }
 
@@ -2101,7 +2132,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    The date is when the bundle landed in Applications, not when it was built:
    one release installs on two machines weeks apart, and "when did I last
    update" is the question people actually ask. */
-.ab-name { font-family: 'Caveat', cursive; font-size: 34px; font-weight: 700; line-height: 1; }
+.ab-name { font-family: 'Caveat', 'KA Arabic', cursive; font-size: 34px; font-weight: 700; line-height: 1; }
 .ab-built { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
 .ab-rule { border: 0; border-top: 2px dashed var(--dash); margin: 16px 0; }
 .ab-state { display: flex; align-items: center; gap: 14px; }
@@ -2135,7 +2166,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .set-result { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere;
   max-height: 34px; overflow-y: auto; }
 /* .ni-row carries the create sheet's 14px gutter; the pane supplies its own */
-.set-pane .ni-row { padding-left: 0; padding-right: 0; }
+.set-pane .ni-row { padding-inline-start: 0; padding-inline-end: 0; }
 .set-pane .setup-actions { margin-top: 16px; }
 
 /* link hint for cmd-clickable paths */
@@ -2222,7 +2253,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
    that reads as chat, not paper. Prototype only; never ships from this file. */
 .cw-body { padding: 0; display: flex; flex-direction: column; }
 .cw-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-.cw-u { align-self: flex-end; max-width: 82%; background: var(--u-bg); border: 1px solid var(--line); padding: 8px 13px; border-radius: 14px 14px 4px 14px; font-size: 13px; }
+.cw-u { align-self: flex-end; max-width: 82%; background: var(--u-bg); border: 1px solid var(--line); padding: 8px 13px; border-radius: 14px; border-end-end-radius: 4px; font-size: 13px; }
 .cw-a { max-width: 72ch; font-size: 13.5px; line-height: 1.6; }
 .cw-h4 { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 4px; }
 .cw-file { font-family: inherit; font-size: 12px; color: var(--mode-plan); background: var(--paper-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; cursor: pointer; }
@@ -2233,7 +2264,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .cw-card-hd { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); font-size: 11.5px; }
 .cw-card-hd .k { font-weight: 700; letter-spacing: 0.08em; color: var(--mode-plan); font-size: 10.5px; }
 .cw-card-hd .add { color: var(--diff-add-ink); } .cw-card-hd .del { color: var(--diff-del-ink); }
-.cw-open { margin-left: auto; font-family: inherit; font-size: 11px; color: var(--mode-plan); border: 1px solid var(--line); border-radius: 6px; padding: 2px 9px; background: transparent; cursor: pointer; }
+.cw-open { margin-inline-start: auto; font-family: inherit; font-size: 11px; color: var(--mode-plan); border: 1px solid var(--line); border-radius: 6px; padding: 2px 9px; background: transparent; cursor: pointer; }
 .cw-open:hover { border-color: var(--mode-plan); }
 .cw-diff { margin: 0; padding: 7px 0; font-size: 12px; line-height: 1.55; overflow-x: auto; }
 .cw-diff span { display: block; padding: 0 12px; white-space: pre; }
@@ -2241,7 +2272,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .cw-diff .d { background: var(--diff-del-bg); color: var(--diff-del-ink); }
 .cw-diff .c { color: var(--muted); }
 .cw-media { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 640px; }
-.cw-m { font-family: inherit; text-align: left; padding: 0; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; }
+.cw-m { font-family: inherit; text-align: var(--align-start); padding: 0; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; }
 .cw-m:hover { border-color: var(--mode-plan); }
 .cw-m-img { display: block; height: 84px; overflow: hidden; }
 .cw-m-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -2249,7 +2280,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .cw-m-doc i { display: block; font-style: normal; font-weight: 700; font-size: 11px; color: var(--ink); margin-bottom: 3px; }
 .cw-m-f { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 10.5px; border-top: 1px solid var(--line); }
 .cw-m-f span { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cw-m-f b { margin-left: auto; font-size: 9px; letter-spacing: 0.08em; color: var(--faint); }
+.cw-m-f b { margin-inline-start: auto; font-size: 9px; letter-spacing: 0.08em; color: var(--faint); }
 .cw-perm { border: 2px dashed var(--amber-line); background: var(--amber-bg); border-radius: 10px; padding: 11px 14px; max-width: 480px; }
 .cw-perm .q { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--amber-ink); margin-bottom: 6px; }
 .cw-perm code { display: block; font-family: inherit; font-size: 12.5px; background: var(--paper); border: 1px solid var(--amber-line); border-radius: 7px; padding: 6px 10px; margin-bottom: 9px; }
@@ -2279,16 +2310,16 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .cw-tools { display: flex; gap: 6px; align-items: center; padding-top: 7px; }
 .cw-tool { font-family: inherit; font-size: 11px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 7px; padding: 3px 9px; cursor: pointer; }
 .cw-tool:hover { color: var(--ink); border-color: var(--field-line); }
-.cw-drop { margin-left: auto; font-size: 10px; color: var(--faint); }
-.cw-pop { position: absolute; bottom: calc(100% + 8px); left: 12px; width: 300px; background: var(--menu-sheet); border: 1px solid var(--line); border-radius: 10px; box-shadow: 5px 6px 0 var(--shadow-mid); overflow: hidden; z-index: 30; -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
+.cw-drop { margin-inline-start: auto; font-size: 10px; color: var(--faint); }
+.cw-pop { position: absolute; bottom: calc(100% + 8px); inset-inline-start: 12px; width: 300px; background: var(--menu-sheet); border: 1px solid var(--line); border-radius: 10px; box-shadow: 5px 6px 0 var(--shadow-mid); overflow: hidden; z-index: 30; -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
 .cw-pop .hd { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); padding: 9px 12px 5px; }
-.cw-pop .r { display: flex; align-items: baseline; gap: 10px; width: 100%; font-family: inherit; text-align: left; padding: 7px 12px; font-size: 12px; background: transparent; border: 0; cursor: pointer; color: var(--ink); }
+.cw-pop .r { display: flex; align-items: baseline; gap: 10px; width: 100%; font-family: inherit; text-align: var(--align-start); padding: 7px 12px; font-size: 12px; background: transparent; border: 0; cursor: pointer; color: var(--ink); }
 .cw-pop .r:hover { background: var(--hover); }
 .cw-pop .r b { font-weight: 700; }
-.cw-pop .r span { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+.cw-pop .r span { margin-inline-start: auto; font-size: 10.5px; color: var(--muted); }
 .cw-pop .ft { font-size: 9.5px; color: var(--faint); padding: 6px 12px 9px; border-top: 1px dashed var(--dash); }
 /* launcher badge (demo only) */
-.lc-acp { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+.lc-acp { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; flex: none; }
 
 
 
@@ -2301,13 +2332,13 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .cw-a a { color: var(--mode-plan); text-decoration: none; border-bottom: 1px solid var(--mode-plan); cursor: pointer; }
 .cw-think { font-family: inherit; background: transparent; border: 0; cursor: pointer; padding: 0; font-size: 11.5px; color: var(--muted); font-style: italic; }
 .cw-think:hover { color: var(--ink); }
-.cw-think-body { font-size: 12px; color: var(--muted); font-style: italic; border-left: 2px solid var(--dash); padding: 2px 0 2px 10px; max-width: 64ch; }
-.cw-run { margin-left: auto; font-size: 10.5px; color: var(--amber-btn); }
+.cw-think-body { font-size: 12px; color: var(--muted); font-style: italic; border-inline-start: 2px solid var(--dash); padding-block: 2px; padding-inline: 10px 0; max-width: 64ch; }
+.cw-run { margin-inline-start: auto; font-size: 10.5px; color: var(--amber-btn); }
 .cw-run.ok { color: var(--green-ok); } .cw-run.bad { color: var(--red-ink); }
-.cw-card-hd .cw-run + .cw-open { margin-left: 8px; }
+.cw-card-hd .cw-run + .cw-open { margin-inline-start: 8px; }
 .cw-bash { margin: 0; padding: 7px 12px; font-size: 11.5px; line-height: 1.55; color: var(--muted); overflow-x: auto; white-space: pre; }
 .cw-err { border: 1px solid var(--red-line); background: var(--red-bg); color: var(--red-ink); border-radius: 9px; padding: 8px 12px; font-size: 12px; max-width: 64ch; }
-.cw-hint { font-size: 11.5px; color: var(--muted); border-left: 2px solid var(--dash); padding-left: 10px; max-width: 70ch; }
+.cw-hint { font-size: 11.5px; color: var(--muted); border-inline-start: 2px solid var(--dash); padding-inline-start: 10px; max-width: 70ch; }
 
 
 
@@ -2330,7 +2361,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 
 .cw-tools { flex-wrap: nowrap; min-width: 0; }
 .cw-tool { white-space: nowrap; flex: none; }
-.cw-drop { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.cw-drop { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: var(--align-end); }
 @container (max-width: 640px) { .cw-drop { display: none; } }
 @container (max-width: 480px) { .cw-ctx { display: none; } }
 @container (max-width: 390px) { .cw-mode b, .cw-model b { display: none; } }
@@ -2357,7 +2388,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .cw-filelink { font-family: inherit; font-size: 11px; color: var(--mode-plan); background: transparent; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .cw-codewrap { position: relative; max-width: 100%; }
 .cw-code { background: var(--paper-2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 12px; line-height: 1.55; overflow-x: auto; margin: 6px 0; }
-.cw-copy { position: absolute; top: 8px; right: 8px; font-family: inherit; font-size: 10px; color: var(--muted); background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; cursor: pointer; }
+.cw-copy { position: absolute; top: 8px; inset-inline-end: 8px; font-family: inherit; font-size: 10px; color: var(--muted); background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; cursor: pointer; }
 .cw-copy:hover { color: var(--ink); }
 /* menu rows stay one line, like the design */
 .cw-pop .r { align-items: baseline; }
@@ -2380,7 +2411,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 @media (prefers-reduced-motion: reduce) { .cw-busy i { animation: none; } }
 /* review round 2 */
 .cw-perm .col { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-.cw-btn.row { background: var(--paper); border-color: var(--line); color: var(--ink); text-align: left; font-weight: 500; }
+.cw-btn.row { background: var(--paper); border-color: var(--line); color: var(--ink); text-align: var(--align-start); font-weight: 500; }
 .cw-btn.row:hover { border-color: var(--field-line); background: var(--hover); }
 .cw-btn { white-space: normal; line-height: 1.35; }
 .cw-u code { white-space: nowrap; }
@@ -2418,7 +2449,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .lc-chat:hover { background: var(--green-ok); color: #fdfbf3; }
 
 .cw-inrow .cw-plus { align-self: center; }
-.cw-act-btn { font-family: inherit; font-size: 11px; font-weight: 700; color: var(--green-dark); background: transparent; border: 1px solid var(--green-ok); border-radius: 7px; padding: 2px 10px; cursor: pointer; margin-left: 6px; }
+.cw-act-btn { font-family: inherit; font-size: 11px; font-weight: 700; color: var(--green-dark); background: transparent; border: 1px solid var(--green-ok); border-radius: 7px; padding: 2px 10px; cursor: pointer; margin-inline-start: 6px; }
 .cw-act-btn:hover { background: var(--green-ok); color: #fdfbf3; }
 .lc-chat { display: inline-flex; align-items: center; gap: 6px; font-size: 9.5px; padding: 3px 9px; }
 .lc-beta { font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-ink); background: var(--amber-bg); border: 1px solid var(--amber-line); border-radius: 999px; padding: 0px 5px; }
@@ -2443,18 +2474,18 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .cw-md h1 { font-size: 15px; }
 .cw-md h2 { border-bottom: 1px dashed var(--dash); padding-bottom: 3px; }
 .cw-md h4 { font-size: 12.5px; color: var(--muted); }
-.cw-md ul, .cw-md ol { margin: 0 0 10px; padding-left: 22px; }
+.cw-md ul, .cw-md ol { margin: 0 0 10px; padding-inline-start: 22px; }
 .cw-md li ul, .cw-md li ol { margin-bottom: 0; }
 .cw-md li { margin: 2px 0; }
-.cw-md li.task { list-style: none; margin-left: -18px; }
-.cw-md li.task input { accent-color: var(--green-ok); margin: 0 5px 0 0; vertical-align: -1px; pointer-events: none; }
-.cw-md blockquote { margin: 0 0 10px; padding: 2px 0 2px 12px; border-left: 3px solid var(--line); color: var(--muted); }
+.cw-md li.task { list-style: none; margin-inline-start: -18px; }
+.cw-md li.task input { accent-color: var(--green-ok); margin-block: 0; margin-inline: 0 5px; vertical-align: -1px; pointer-events: none; }
+.cw-md blockquote { margin: 0 0 10px; padding-block: 2px; padding-inline: 12px 0; border-inline-start: 3px solid var(--line); color: var(--muted); }
 .cw-md blockquote > :last-child { margin-bottom: 0; }
 .cw-md hr { border: 0; border-top: 1px dashed var(--dash); margin: 12px 0; }
 .cw-md del { color: var(--muted); }
 .cw-md .cw-tablewrap { width: max-content; max-width: 100%; overflow-x: auto; margin: 6px 0 10px; }
 .cw-md table { border-collapse: collapse; font-size: 12.5px; line-height: 1.5; }
-.cw-md th, .cw-md td { border: 1px solid var(--line); padding: 5px 11px; text-align: left; white-space: nowrap; }
+.cw-md th, .cw-md td { border: 1px solid var(--line); padding: 5px 11px; text-align: start; white-space: nowrap; }
 .cw-md th { background: var(--paper-2); font-size: 11px; letter-spacing: 0.06em; }
 .cw-md tr:nth-child(even) td { background: var(--paper-2); }
 .cw-u.cw-md th, .cw-u.cw-md tr:nth-child(even) td { background: var(--paper); }
@@ -2463,7 +2494,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .pane-switch { display: none; flex: none; gap: 0; margin-bottom: 10px; border: 1px solid var(--dash-dark); border-radius: 2px; overflow: hidden; }
 .paneview .pane-switch button { flex: 1; padding: 8px; font: inherit; font-size: 11px;
   border: 0; background: var(--paper); color: var(--ink); cursor: pointer; }
-.paneview .pane-switch button + button { border-left: 1px solid var(--dash-dark); }
+.paneview .pane-switch button + button { border-inline-start: 1px solid var(--dash-dark); }
 .paneview .pane-switch button[aria-pressed="true"] { background: var(--green); color: var(--paper); }
 .paneview .pane-switch button:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
 .paneview .pane-switch button:disabled { opacity: .5; cursor: default; }
@@ -2477,7 +2508,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 @media (max-width: 1100px) { .paneview { padding: 10px 12px 16px; } }
 @media (max-width: 760px) {
   .split { position: relative; }
-  .sheet.rail-peek .rail { position: absolute; inset: 0 auto 0 0; width: 282px; z-index: 30; background: var(--menu-sheet); }
+  .sheet.rail-peek .rail { position: absolute; inset-block: 0; inset-inline: 0 auto; width: 282px; z-index: 30; background: var(--menu-sheet); }
   .sheet.rail-peek .rail-tabs, .sheet.rail-peek #rail-content { display: flex; }
   .sheet.rail-peek .rail-strip { display: none; }
 }
@@ -2488,7 +2519,7 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .selection-sheet label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
 .selection-sheet select, .selection-sheet textarea { padding: 8px; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--dash); }
 .selection-preview { white-space: pre-wrap; overflow: auto; max-height: 220px; font-size: 12px; padding: 10px; background: var(--paper-2); }
-.session-images, .selection-actions { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
+.session-images, .selection-actions { border-end-start-radius: inherit; border-end-end-radius: inherit; }
 .image-strip { display: flex; gap: 8px; overflow-x: auto; max-height: 118px; margin-bottom: 8px; }
 .image-strip[hidden] { display: none; }
 .image-attachment { display: flex; flex: none; flex-direction: column; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--dash); border-radius: 2px; }
@@ -2505,18 +2536,18 @@ body[data-platform="win32"] .topbar { padding-right: 150px; }
 .set-nav .rail-tab { display: flex; align-items: center; gap: 9px; }
 body .modal.modal--settings .set-nav .rail-tab.active { color: var(--menu-sheet); background: var(--green); border-color: var(--green-dark); box-shadow: none; }
 .modal--settings:focus, .qs-box:focus { outline: none; }
-.footer-shortcuts { display:inline-flex; align-items:center; gap:7px; flex:none; margin-left:auto; white-space:nowrap; }
+.footer-shortcuts { display:inline-flex; align-items:center; gap:7px; flex:none; margin-inline-start:auto; white-space:nowrap; }
 .footer-shortcuts svg { width:14px; height:14px; }
 .footer-shortcuts:focus-visible, .shortcuts-link:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .modal--shortcuts { width: 870px; }
 .modal--shortcuts .set-wrap { align-items: flex-start; }
 .modal--shortcuts .set-nav { position: sticky; top: 0; }
-.shortcuts-title { margin: 0 0 5px; font: 700 30px 'Caveat', cursive; }
+.shortcuts-title { margin: 0 0 5px; font: 700 30px 'Caveat', 'KA Arabic', cursive; }
 .shortcuts-intro, .shortcuts-note { margin: 0 0 18px; font-size: 12px; line-height: 1.65; color: var(--muted); }
 .shortcuts-note { margin: 12px 0 0; font-size: 11.5px; }
 .shortcuts-hero { display: flex; align-items: flex-start; gap: 16px; padding: 16px; background: var(--paper-2); border: 1px dashed var(--dash-dark); }
 .shortcuts-hero > .help-icon { width: 26px; height: 26px; color: var(--green); }
-.shortcuts-hero h2, .shortcut-group h2 { font: 700 23px 'Caveat', cursive; margin: 0 0 8px; }
+.shortcuts-hero h2, .shortcut-group h2 { font: 700 23px 'Caveat', 'KA Arabic', cursive; margin: 0 0 8px; }
 .shortcuts-hero p { font-size: 12px; line-height: 1.65; margin: 0 0 12px; }
 .shortcuts-link { border: 0; padding: 0; background: none; color: var(--green-dark); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
 .shortcut-group { margin-top: 22px; }
@@ -2557,3 +2588,59 @@ body .modal.modal--settings .set-nav .rail-tab.active { color: var(--menu-sheet)
 
 /* Secondary help copy needs to remain readable at its compact size. */
 .shortcuts-intro, .shortcuts-note, .shortcut-row small, .term-link-hint span { color: color-mix(in srgb, var(--muted) 75%, var(--ink)); }
+
+/* ---- direction ------------------------------------------------------------
+   Two separate things. The layout's direction is <html dir>, a setting
+   (Settings → Look), and every rule in these stylesheets is written in logical
+   properties so the layout mirrors with it. The content's direction is
+   per-paragraph and follows its own text: an Arabic reply in a chat, an Arabic
+   heading in a README, an Arabic file name each read right to left even on a
+   left-to-right desk, and English inside them still reads left to right.
+   `plaintext` takes each paragraph's direction from its first strong character,
+   which is what a person mixing the two scripts expects. */
+:is(.cw-md, .cw-blk, .md-read, .ed-rich .ProseMirror) :is(p, li, h1, h2, h3, h4, h5, h6, blockquote, td, th, dt, dd, figcaption) {
+  unicode-bidi: plaintext; text-align: start;
+}
+/* Typing: prose fields follow what is typed into them. The code editor
+   (.ed-area) is deliberately absent — it is drawn over a highlighted <pre>
+   that has to line up glyph for glyph, and code reads left to right. */
+:is(.cw-in, .card-body, #ni-desc, #selection-note, #browser-comment) { unicode-bidi: plaintext; text-align: start; }
+/* Names: a file, session or skill called in Arabic sits the right way round
+   inside an English row, without dragging the row's punctuation with it. */
+:is(.name, .t-title, .t-sub, .ac-name, .ac-desc, .goal) { unicode-bidi: plaintext; }
+/* Code, paths and terminals are left to right in any layout. */
+:is(.cw-md, .md-read, .ed-rich .ProseMirror) :is(pre, code), .cw-pathlink, .ed-pane, .term-body, .xterm {
+  direction: ltr; unicode-bidi: isolate;
+  text-align: left; /* physical: these are left-to-right in every layout, so they do not inherit a mirrored desk's alignment */
+}
+/* Glyphs that point. ‹ › « » mirror on their own in a right-to-left line
+   (Unicode marks them Bidi_Mirrored); the triangles do not, so a closed folder
+   would point into the row instead of along it. */
+[dir="rtl"] .tw { transform: scaleX(-1); }
+[dir="rtl"] .sv-fold:not([open]) summary::before { content: '◂ '; }
+/* A mirrored desk with English words. The layout is rtl, but the strings are
+   still English, and an English string laid out with an rtl base direction
+   moves its neutral characters to the wrong end: "~/work/atlas" turns into
+   "work/atlas/~" and "Done." into ".Done". So every element takes its text
+   direction from its own content, while `direction` (flex order, the grid,
+   every logical property) stays rtl. Plaintext also lets a paragraph's own
+   direction pick where `start` is, so chrome alignment comes from the layout
+   instead: the --align-* tokens, and right as the inherited default. Zero
+   specificity, so the code and terminal rules above still win. Only under rtl:
+   a left-to-right desk renders exactly as it did before this existed. */
+[dir="rtl"] { --align-start: right; --align-end: left; } /* physical: the rtl half of the tokens */
+[dir="rtl"] body { text-align: right; } /* physical: the inherited default for chrome, see above */
+[dir="rtl"] body :where(*) { unicode-bidi: plaintext; }
+[dir="rtl"] :is(.cw-md, .md-read) { text-align: start; }
+[dir="rtl"] ::placeholder { unicode-bidi: plaintext; }
+
+/* ---- confirmation sheet (confirm-sheet.mjs) ------------------------------
+   Its own layer on the body, above every other sheet and the context menu, so
+   it can be asked from inside one. Replaces window.confirm(), which stops the
+   renderer painting while it is open. */
+.overlay--confirm { position: fixed; z-index: 400; }
+.modal--confirm { width: min(420px, calc(100vw - 32px)); }
+.modal--confirm .confirm-msg { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+.modal--confirm .modal-foot { justify-content: flex-end; }
+.btn--danger { background: var(--red-ink); color: var(--paper); border-color: var(--red-ink); }
+.btn--danger:hover { filter: brightness(1.08); }

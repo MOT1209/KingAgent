@@ -26,10 +26,11 @@ function validateWorkflow(wf) {
 
   const byId = new Map();
   for (const n of wf.nodes) {
+    if (!n || typeof n !== 'object' || Array.isArray(n)) return fail(['every node must be an object']);
     if (!validId(n.id)) return fail([`node id must match [a-z0-9._-]: ${JSON.stringify(n.id)}`]);
     if (byId.has(n.id)) return fail([`duplicate node id: ${n.id}`]);
     byId.set(n.id, n);
-    if (!Array.isArray(NODE_TYPES) ? false : !NODE_TYPES.includes(n.type)) {
+    if (!NODE_TYPES.includes(n.type)) {
       return fail([`node ${n.id} has unknown type: ${n.type}`]);
     }
   }

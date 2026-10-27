@@ -22,7 +22,7 @@ body[data-theme="operator"] {
   --muted: #aaa79f;
   --muted-2: #98958e;
   --muted-3: #8a8781;
-  --faint: #6e6c66;
+  --faint: #88867f;
   --line: #424242;
   --dash: #3a3a3a;
   --dash-dark: #4f4f4f;
@@ -71,7 +71,7 @@ body[data-theme="operator"] {
      Chrome stays Courier Prime — the desk keeps its typewriter voice; only
      text you open a file to read gets the denser, screen-first mono. Matches
      termFontFamily() in app.js. */
-  --op-mono: 'SF Mono', ui-monospace, Menlo, monospace;
+  --op-mono: 'SF Mono', 'KA Arabic', ui-monospace, Menlo, monospace;
   --op-accent-dim: rgba(245, 165, 36, 0.12);
   --op-glow: 0 0 0 1px var(--op-accent), 0 0 14px rgba(245, 165, 36, 0.16);
   --op-grid: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1.4px);
@@ -104,7 +104,7 @@ body[data-theme="operator"] .modal-head .title,
 body[data-theme="operator"] .qs-head .title,
 body[data-theme="operator"] .card-lbl,
 body[data-theme="operator"] .ab-name,
-body[data-theme="operator"] .board-title { font-family: 'Courier Prime', 'Courier New', monospace; }
+body[data-theme="operator"] .board-title { font-family: 'Courier Prime', 'KA Arabic', 'Courier New', monospace; }
 
 /* The update note is already mono; operator only drops paper's offset shadow
    and takes the accent for the action, since paper's green reads as dead here. */
@@ -132,7 +132,7 @@ body[data-theme="operator"] .brand-sub { align-self: center; padding-bottom: 0; 
    The caption is meant to be quiet, not invisible, so it steps one rung up
    the same scale (4.6:1). Paper and graphite keep --faint; only this theme's
    ground is dark enough to need it. */
-body[data-theme="operator"] .brand-ver { color: var(--muted-3); left: 0; }
+body[data-theme="operator"] .brand-ver { color: var(--muted-3); inset-inline-start: 0; }
 body[data-theme="operator"] .brand::before {
   content: ''; width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center;
   background: var(--op-accent); box-shadow: 0 0 8px var(--op-accent);
@@ -142,7 +142,7 @@ body[data-theme="operator"] .rail-head .title { font-size: 13px; letter-spacing:
 body[data-theme="operator"] .lane-empty .big { font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; }
 body[data-theme="operator"] .lane-empty .polaroid { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; transform: none; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border-radius: 6px; }
 body[data-theme="operator"] .card-head .goal { font-size: 14px; letter-spacing: 0.06em; }
-body[data-theme="operator"] .say--user { font-size: 13px; line-height: 1.6; color: #dbd8d2; border-left-color: var(--op-accent); }
+body[data-theme="operator"] .say--user { font-size: 13px; line-height: 1.6; color: #dbd8d2; border-inline-start-color: var(--op-accent); }
 body[data-theme="operator"] .approval .title,
 body[data-theme="operator"] .stopped .title,
 body[data-theme="operator"] .artifacts .title,
@@ -177,7 +177,7 @@ body[data-theme="operator"] .btn--go:hover { background: var(--op-accent); box-s
 body[data-theme="operator"] .btn--amber, body[data-theme="operator"] .btn--red { box-shadow: none; }
 
 /* ---- rail ----------------------------------------------------------------- */
-body[data-theme="operator"] .rail { border-right: 1px solid var(--dash); background: var(--rail); }
+body[data-theme="operator"] .rail { border-inline-end: 1px solid var(--dash); background: var(--rail); }
 body[data-theme="operator"] .rail-tab { border-radius: 6px; }
 body[data-theme="operator"] .rail-tab.active { box-shadow: none; color: var(--op-accent-hi); border-color: var(--op-accent); background: var(--op-accent-dim); }
 body[data-theme="operator"] .nav-card { border-radius: 6px; }
@@ -320,7 +320,7 @@ body[data-theme="operator"] .card-body,
 body[data-theme="operator"] .card-raw .raw-area { font-family: var(--op-mono); }
 body[data-theme="operator"] .md-read code { background: var(--paper-2); border-color: var(--dash-dark); }
 body[data-theme="operator"] .md-read .md-pre { background: var(--rail); border-color: var(--dash); border-radius: 6px; }
-body[data-theme="operator"] .md-read blockquote { border-left-color: var(--op-accent); }
+body[data-theme="operator"] .md-read blockquote { border-inline-start-color: var(--op-accent); }
 body[data-theme="operator"] .ed-area, body[data-theme="operator"] .card-body,
 body[data-theme="operator"] .card-raw .raw-area { background: none; caret-color: var(--op-accent); }
 body[data-theme="operator"] .ed-bar { border-top: 1px solid var(--dash); background: var(--paper-2); }
@@ -378,7 +378,7 @@ body[data-theme="operator"] .qs-box {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
 }
 /* .tile-head's treatment: a step of surface under a hairline, not a dashed rule */
-body[data-theme="operator"] .qs-head { padding: 15px 44px 13px 18px; border-bottom: 1px solid var(--dash); background: var(--paper-2); }
+body[data-theme="operator"] .qs-head { padding-block: 15px 13px; padding-inline: 18px 44px; border-bottom: 1px solid var(--dash); background: var(--paper-2); }
 body[data-theme="operator"] .qs-foot { padding: 12px 18px; border-top: 1px solid var(--dash); background: var(--paper-2); }
 /* Ruled paper is paper's texture, and the 24px baseline it served goes with it.
    The rows carry the rhythm in line-heights instead. */
@@ -450,7 +450,7 @@ body[data-theme="operator"] .theme-opt.picked .theme-dot { border-color: var(--o
 body[data-theme="operator"] .svc-card, body[data-theme="operator"] .svc-custom, body[data-theme="operator"] .sv-fold { border-radius: 6px; }
 body[data-theme="operator"] .svc-card:hover, body[data-theme="operator"] .svc-custom:hover { box-shadow: none; border-color: var(--dash-dark); }
 body[data-theme="operator"] .svc-card:focus-visible, body[data-theme="operator"] .svc-custom:focus-visible { box-shadow: none; border-color: var(--op-accent); }
-body[data-theme="operator"] .sv-bigok-t { font-family: 'Courier Prime', 'Courier New', monospace; letter-spacing: 0.1em; text-transform: uppercase; font-size: 18px; }
+body[data-theme="operator"] .sv-bigok-t { font-family: 'Courier Prime', 'KA Arabic', 'Courier New', monospace; letter-spacing: 0.1em; text-transform: uppercase; font-size: 18px; }
 body[data-theme="operator"] .agent-pick { border-radius: 5px; background: var(--paper-2); }
 body[data-theme="operator"] .agent-pick:focus-visible { border-color: var(--op-accent); }
 body[data-theme="operator"] .ctx-menu { border-radius: 8px; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.6); }
@@ -466,5 +466,5 @@ body[data-theme="operator"] .image-attachment { border-radius: 6px; }
 body[data-theme="operator"] .image-insert, body[data-theme="operator"] .image-remove { border-radius: 6px; }
 
 /* Shortcut reference follows this theme’s type and link treatment. */
-body[data-theme="operator"] :is(.shortcuts-title, .shortcuts-hero h2, .shortcut-group h2) { font-family: 'Courier Prime', monospace; font-size: 18px; text-transform: uppercase; }
+body[data-theme="operator"] :is(.shortcuts-title, .shortcuts-hero h2, .shortcut-group h2) { font-family: 'Courier Prime', 'KA Arabic', monospace; font-size: 18px; text-transform: uppercase; }
 body[data-theme="operator"] .shortcuts-link { color: var(--ink); text-decoration-color: var(--green); }

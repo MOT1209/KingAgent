@@ -21,7 +21,7 @@ function escapeHtml(s) {
 function showBootError(err) {
   const el = document.createElement('div');
   el.className = 'agent-platform-boot-error';
-  el.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:9999;max-width:360px;'
+  el.style.cssText = 'position:fixed;inset-inline-start:14px;bottom:14px;z-index:9999;max-width:360px;'
     + 'padding:10px 14px;border-radius:8px;background:rgba(120,20,20,.95);color:#fdeaea;'
     + 'font:12px/1.4 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.4);';
   el.innerHTML = bannerHtml(err);

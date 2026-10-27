@@ -1,4 +1,6 @@
 import { fileKind, fileUrl, docUrl } from './file-kinds.mjs';
+import { guarded, messageOf } from './guard.mjs';
+import { t } from './i18n.mjs';
 import { parseDoc, getField, setField, serializeDoc, editsAsFrontmatter, listItems, setListField, removeField } from './frontmatter.mjs';
 import { resolveOpen } from './peek-core.mjs';
 import { feedNameDraft, adoptTitle } from './session-name.mjs';
@@ -441,7 +443,9 @@ export function createTileContent({
     sync(); applyMode();
   }
   async function saveEditor(p) {
-    const res = await api.saveFile({ file: p.filePath, text: p.text });
+    let res;
+    try { res = await api.saveFile({ file: p.filePath, text: p.text }); }
+    catch (err) { res = { ok: false, error: messageOf(err) }; }
     if (res && res.ok) {
       // The echo guard. Our own write is about to come back off the watcher, and
       // without this the panel treats it as somebody else's change — which on a
@@ -449,7 +453,7 @@ export function createTileContent({
       p.lastHash = res.hash || hashText(p.text || '');
       p.diskText = null;
       p.dirty = false; refreshTileHead(p); refreshRail(); refreshBrowserButtons(p);
-      toast('Saved ' + baseNameOf(p.filePath));
+      toast(t('toast.saved', { name: baseNameOf(p.filePath) }));
       return true;
     }
     toast('Save failed: ' + (res && res.error || '?'));
@@ -537,7 +541,8 @@ export function createTileContent({
     await loadLibrary();
     const r = resolveOpen(S.panels, 'card', item.filePath);
     if (r.action === 'focus') { focusPanel(r.id); return; }
-    const res = await api.rawFile(item.filePath);
+    let res;
+    try { res = await api.rawFile(item.filePath); } catch (err) { res = { ok: false, error: messageOf(err) }; }
     if (!res.ok) { toast(res.error || 'Could not open'); loadLibrary(true); return; }
     const doc = parseDoc(res.text);
     const chip = TYPE_CHIP[item.type] || TYPE_CHIP.agent;
@@ -648,7 +653,8 @@ export function createTileContent({
       launchAgent(p.item, tool);
     };
     const adoptBtn = q('.card-adopt', wrap);
-    if (adoptBtn) adoptBtn.onclick = async () => {
+    const adoptLabel = adoptBtn && adoptBtn.textContent;
+    if (adoptBtn) adoptBtn.onclick = guarded(async () => {
       if (p.dirty) { toast('Save the card first — the master is lifted from the file.'); return; }
       adoptBtn.disabled = true; adoptBtn.textContent = 'Lifting…';
       const res = await api.adoptAgent({ filePath: p.item.filePath, platform: p.item.platform, projectPath: S.project.path, agentIds: installedAgentIds() });
@@ -658,10 +664,14 @@ export function createTileContent({
       const master = S.library.items.find((i) => i.filePath === res.masterPath);
       toast('Now everyone’s — the master lives in agents/.');
       if (master) openCard(master);
-    };
+    }, (err) => {
+      // The button stayed disabled on "Lifting…" when the request itself rejected.
+      toast('Could not lift it: ' + messageOf(err));
+      adoptBtn.disabled = false; adoptBtn.textContent = adoptLabel;
+    });
     const saveBtn = q('.card-save', wrap); if (saveBtn) saveBtn.onclick = () => saveCard(p);
     const dupBtn = q('.card-dup', wrap);
-    if (dupBtn) dupBtn.onclick = async () => {
+    if (dupBtn) dupBtn.onclick = guarded(async () => {
       if (!S.project) { toast('Open a folder first — the copy lands in the project.'); return; }
       const res = await api.libraryDuplicate({ filePath: p.item.filePath, type: p.item.type, projectPath: S.project.path });
       if (!res.ok) { toast(res.error || 'Copy failed'); return; }
@@ -676,14 +686,14 @@ export function createTileContent({
       } else toast('Copied into this project — opening your editable copy.');
       loadLibrary(true);
       openCard(res.item);
-    };
+    }, (err) => toast('Copy failed: ' + messageOf(err)));
     const impBtn = q('.card-improve', wrap);
     if (impBtn) impBtn.onclick = () => {
       if (p.dirty) { toast('Save the card first so your agent sees your latest.'); return; }
       openImproveItem(p.item);
     };
     const delBtn = q('.card-del', wrap);
-    if (delBtn) delBtn.onclick = async () => {
+    if (delBtn) delBtn.onclick = guarded(async () => {
       if (!delBtn.dataset.armed) { delBtn.dataset.armed = '1'; delBtn.textContent = 'Really move to Trash?'; delBtn.classList.add('armed'); return; }
       const res = await api.libraryDelete({ filePath: p.item.filePath, projectPath: S.project && S.project.path });
       if (!res.ok) { toast(res.error || 'Could not delete'); return; }
@@ -691,9 +701,13 @@ export function createTileContent({
       loadLibrary(true); toast('Moved to Trash.');
       // and stop advertising it, along with any native link that pointed at it
       if (p.item.type === 'skill' && p.item.scope === 'project' && S.project) {
-        api.pointerWrite({ dir: S.project.path, agentIds: installedAgentIds() }).then(() => refreshPointer(true));
+        api.pointerWrite({ dir: S.project.path, agentIds: installedAgentIds() }).then(() => refreshPointer(true)).catch(() => {});
       }
-    };
+    }, (err) => {
+      // Stood on "Really move to Trash?" for good when the delete rejected.
+      toast('Could not delete: ' + messageOf(err));
+      delete delBtn.dataset.armed; delBtn.textContent = 'Delete'; delBtn.classList.remove('armed');
+    });
     // clicking or tabbing anywhere else stands the armed Delete back down
     if (delBtn) delBtn.onblur = () => {
       if (!delBtn.dataset.armed) return;
@@ -704,11 +718,13 @@ export function createTileContent({
   async function saveCard(p) {
     if (p.item.readOnly) return;
     if (p.mode === 'form') p.raw = serializeDoc(p.doc);
-    const res = await api.saveFile({ file: p.filePath, text: p.raw });
+    let res;
+    try { res = await api.saveFile({ file: p.filePath, text: p.raw }); }
+    catch (err) { res = { ok: false, error: messageOf(err) }; }
     if (res && res.ok) {
       p.dirty = false;
       p.title = getField(p.doc, 'name') || p.item.slug;
-      refreshTileHead(p); refreshRail(); toast('Saved ' + p.title);
+      refreshTileHead(p); refreshRail(); toast(t('toast.saved', { name: p.title }));
       loadLibrary(true);
       // The block publishes each skill's description, so editing one here is a
       // reason to rewrite it — the announcement should not lag the file.
@@ -838,7 +854,7 @@ export function createTileContent({
     if (p.kind === 'acp') {
       const t = tileEls.get(p.id); if (!t || !t.aiInput) return;
       t.aiInput.value += (t.aiInput.value && !t.aiInput.value.endsWith(' ') ? ' ' : '') + text;
-      t.aiInput.dispatchEvent(new Event('input'));
+      t.aiInput.dispatchEvent(new Event('input', { bubbles: true }));
       t.aiInput.focus();
       return;
     }

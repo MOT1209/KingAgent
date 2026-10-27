@@ -14,6 +14,7 @@
 const crypto = require('node:crypto');
 const { createPlan, createStep } = require('./plan');
 const { TYPES } = require('../events/event-bus');
+const { generateWithin } = require('../ai/provider');
 
 // Deterministic plans are *analysis skeletons* that run productively offline:
 // they scan, read, search and report — never pretend to write code. The
@@ -147,7 +148,7 @@ class Planner {
   async _fromProvider({ request, signal }) {
     if (!this._provider) return null;
     try {
-      const result = await this._provider.generate({
+      const result = await generateWithin(this._provider, {
         system:
           'Return a JSON object with "steps": array. Each step must have id, title, ' +
           'tool: {id}, and optionally verify:{pattern:string}. No prose.',

@@ -305,6 +305,9 @@ async function expandWithProvider({ task, classification, existing, provider, av
   const room = Math.max(0, Math.min(limit, task.limits.maxQueries - existing.length));
   if (room === 0) return [];
 
+  // Nothing retrieved reaches this prompt — only the user's question and the
+  // queries already derived from it — so, unlike the synthesizer, reviewer and
+  // extractor, there is no web text here to fence with wrapUntrusted.
   let text;
   try {
     const out = await provider.generate({

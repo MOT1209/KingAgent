@@ -6,6 +6,10 @@ import { SHELF_GROUPS, MAC_GROUP_KEYS, CLI_ORDER, shelfOf, cliKey, serviceShelf,
 import { receiversOf } from './receivers.mjs';
 import { shortAge } from './rel-time.mjs';
 import { chipHtml, iconKeyFor, treeIcon, pixIcon } from './icons.mjs';
+import { isRtl, alignStart, alignEnd } from './dir-axis.mjs';
+import { guarded, messageOf } from './guard.mjs';
+import { t } from './i18n.mjs';
+import { activateOnKey } from './a11y.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -25,7 +29,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const chip = document.createElement('div'); chip.className = 'project-chip';
     chip.innerHTML = p
       ? `<span class="folder-glyph">${treeIcon('', 'dir', true)}</span><span class="name">${esc(p.name)}</span><span class="path">${esc(p.pathShort)}</span><span class="caret">▼</span>`
-      : `<span class="folder-glyph">${treeIcon('', 'dir', false)}</span><span class="name">Open a folder</span><span class="caret">▼</span>`;
+      : `<span class="folder-glyph">${treeIcon('', 'dir', false)}</span><span class="name">${esc(t('topbar.openFolder'))}</span><span class="caret">▼</span>`;
     chip.onclick = (e) => { e.stopPropagation(); toggleProjectsPop(); };
     els.topbarCenter.appendChild(chip);
     // An errand whose command has landed is not a live session — its shell is
@@ -34,7 +38,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const live = S.panels.filter((x) => x.status === 'live' && isSessionPanel(x)
       && !(x.oneShot && x.commandDone)).length;
     const attn = S.panels.filter((x) => x.attention).length;
-    if (live > 0) { els.liveBadge.style.display = ''; els.liveLabel.textContent = attn ? `${attn} needs you` : `${live} live`; els.liveBadge.classList.toggle('attn', attn > 0); }
+    if (live > 0) { els.liveBadge.style.display = ''; els.liveLabel.textContent = attn ? t('live.attention', { n: attn }) : t('live.count', { n: live }); els.liveBadge.classList.toggle('attn', attn > 0); }
     else els.liveBadge.style.display = 'none';
   }
   function projectRowHtml(r) {
@@ -72,7 +76,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     // its descendants (overflow backstop for ⌘+ zoom), and renderHeader() rebuilds
     // topbar-center's innerHTML, which would silently eat the pop.
     const anchor = els.topbarCenter.getBoundingClientRect();
-    pop.style.left = (anchor.left + anchor.width / 2) + 'px';
+    pop.style.left = (anchor.left + anchor.width / 2) + 'px'; // physical: centred on the anchor
     pop.style.top = (anchor.top + 46) + 'px';
     document.body.appendChild(pop);
     const reopen = () => { const p = q('.projects-pop'); if (p) p.remove(); toggleProjectsPop(); };
@@ -115,8 +119,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const pop = q('.theme-pop'), zone = q('#theme-zone');
     if (!pop || !zone) return;
     const anchor = zone.getBoundingClientRect();
-    const right = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, window.innerWidth - anchor.right));
-    pop.style.right = right + 'px';
+    pop.style.left = alignEnd(anchor, pop.offsetWidth, window.innerWidth, isRtl()) + 'px'; // physical: computed from a rect
     pop.style.top = (anchor.bottom + 8) + 'px';
     pop.style.maxHeight = Math.max(80, window.innerHeight - anchor.bottom - 16) + 'px';
     pop.style.overflowY = 'auto';
@@ -202,6 +205,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
         <span class="col"><span class="goal" title="${esc(p.title)} — double-click to rename">${esc(p.title)}</span><span class="sid">${esc(kindLabel(p))}</span></span>
         <span class="nav-meta"><span class="status" style="color:${m.color}">${p.attention ? '● ' : ''}${esc(m.label)}</span>${count}</span>`;
       row.onclick = () => focusPanel(p.id);
+      row.setAttribute('aria-pressed', String(isActive(p)));
+      activateOnKey(row, () => focusPanel(p.id));
       q('.goal', row).addEventListener('dblclick', (e) => { e.stopPropagation(); beginRename(p, q('.goal', row)); });
       const cnt = q('.count', row);
       if (cnt) cnt.onclick = (e) => { e.stopPropagation(); if (folded) S.railFold.delete(p.id); else S.railFold.add(p.id); refreshRail(); q(`.nav-card[data-id="${p.id}"] .count`)?.focus({ preventScroll: true }); };
@@ -230,12 +235,17 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const toggle = document.createElement('span'); toggle.className = 'action';
     toggle.textContent = S.treeAll ? 'essentials' : 'show all';
     toggle.title = S.treeAll ? 'Hide build output, dotfiles and node_modules' : 'Show every file, including hidden and ignored ones';
-    toggle.onclick = () => {
+    const flipTree = () => {
       S.treeAll = !S.treeAll;
       localStorage.setItem('kingagent-tree-all', S.treeAll ? '1' : '0');
       S.tree = {};
-      api.listDir(p.path, S.treeAll).then((rows) => { S.tree[p.path] = rows; refreshRail(); });
+      api.listDir(p.path, S.treeAll).then((rows) => { S.tree[p.path] = rows; refreshRail(); }).catch((err) => toast('Could not list the folder: ' + messageOf(err)));
     };
+    toggle.onclick = flipTree;
+    // The only control in this header besides "+", and the only one the
+    // keyboard could not reach (U15).
+    toggle.setAttribute('aria-pressed', String(!!S.treeAll));
+    activateOnKey(toggle, flipTree);
     // Creating a file has always worked — it was just right-click-only, which for
     // most people means it did not exist. Same menu the header's context menu
     // opens, on something you can see. Both glyphs, because glass and graphite
@@ -248,10 +258,10 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       { label: 'New file…', run: () => openFsName('file', newTargetDir()) },
       { label: 'New folder…', run: () => openFsName('folder', newTargetDir()) },
     ]);
-    plus.onclick = (e) => { e.stopPropagation(); const r = plus.getBoundingClientRect(); openNewMenu(r.left, r.bottom + 4); };
+    plus.onclick = (e) => { e.stopPropagation(); const r = plus.getBoundingClientRect(); openNewMenu(r, r.bottom + 4); };
     plus.onkeydown = (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      e.preventDefault(); const r = plus.getBoundingClientRect(); openNewMenu(r.left, r.bottom + 4);
+      e.preventDefault(); const r = plus.getBoundingClientRect(); openNewMenu(r, r.bottom + 4);
     };
     head.appendChild(pathSpan); head.appendChild(plus); head.appendChild(toggle); wrap.appendChild(head);
     head.oncontextmenu = (e) => {
@@ -290,7 +300,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       const row = document.createElement('div'); row.className = 'tree-row';
       if (n.path === S.treeSel) row.classList.add('sel');
       if (S.treeFresh.has(n.path)) row.classList.add('landed');
-      row.style.paddingLeft = (6 + depth * 13) + 'px';
+      row.style.paddingInlineStart = (6 + depth * 13) + 'px';
       row.style.setProperty('--d', String(depth));
       row.dataset.path = n.path; row.dataset.kind = n.kind; row.dataset.dir = dir;
       const isOpen = S.expanded.has(n.path);
@@ -457,12 +467,15 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       // reason in the shortcut column and does nothing when clicked. Removing it
       // instead would leave the question unanswered.
       if (it.off) row.onclick = (e) => e.stopPropagation();
-      else row.onclick = (e) => { e.stopPropagation(); hideMenu(); it.run(e); };
+      else row.onclick = guarded((e) => { e.stopPropagation(); hideMenu(); return it.run(e); }, (err) => toast(messageOf(err)));
       m.appendChild(row);
     }
     document.body.appendChild(m);
     const r = m.getBoundingClientRect();
-    m.style.left = Math.min(x, window.innerWidth - r.width - 8) + 'px';
+    // x is a pointer position, or the rect of the button the menu drops from —
+    // then it lines up with that button's start edge, whichever side that is.
+    const left = typeof x === 'object' ? alignStart(x, r.width, window.innerWidth, isRtl()) : Math.min(x, window.innerWidth - r.width - 8);
+    m.style.left = left + 'px'; // physical: computed from a pointer or a rect
     m.style.top = Math.min(y, window.innerHeight - r.height - 8) + 'px';
     setTimeout(() => {
       window.addEventListener('click', hideMenu, { once: true });
@@ -761,6 +774,14 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const openGroups = new Set(MAC_GROUP_KEYS.filter((k) => !S.library.collapsed.has(k)));
     if (shouldLoadMac({ openGroups, query: S.library.q, macLoaded: false })) loadMacLibrary();
   }
+  // The list refill of the library rail currently on screen, so a scan that
+  // lands while someone is typing in the filter updates the rows without
+  // replacing the box they are typing in.
+  let libFill = null, libFillHost = null;
+  function refreshLibraryInPlace() {
+    if (S.railTab !== 'library') return;
+    if (libFill && libFillHost && libFillHost.isConnected) libFill(); else refreshRail();
+  }
   async function loadMacLibrary() {
     if (S.library.macLoaded || S.library.macLoading) return;
     S.library.macLoading = true;
@@ -774,7 +795,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       S.library.macLoaded = true;
     } catch (_) {}
     if (gen === S.library.macGen) S.library.macLoading = false;
-    if (S.railTab === 'library') refreshRail();
+    refreshLibraryInPlace();
   }
   async function refreshServices() {
     if (S.services.loading) return;
@@ -929,6 +950,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       <span class="col"><span class="name">${esc(i.name)}</span><span class="tools">${esc(path)}</span></span>
       ${libItemTag(i)}<span class="chev">›</span>`;
     row.onclick = () => openCard(i);
+    activateOnKey(row, () => openCard(i));
     sect.appendChild(row);
   }
   function appendServiceRow(sect, sv) {
@@ -942,13 +964,14 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       <span class="tools">${serviceCovLine(sv)}</span></span>
       ${missing.length ? '<button class="btn sv-tell">tell them</button>' : `<span class="scope-tag">${sv.scopes && sv.scopes.includes('project') ? 'project' : 'this Mac'}</span>`}`;
     row.onclick = () => openServiceDetails(sv);
+    activateOnKey(row, () => openServiceDetails(sv));
     const tell = row.querySelector('.sv-tell');
-    if (tell) tell.onclick = async (e) => {
+    if (tell) tell.onclick = guarded(async (e) => {
       e.stopPropagation();
       tell.disabled = true; tell.textContent = 'telling…';
       await api.deliverServices({ projectPath: S.project && S.project.path, agentIds: installedAgentIds() });
       refreshServices();
-    };
+    }, (err) => { toast('Could not tell them: ' + messageOf(err)); tell.disabled = false; tell.textContent = 'tell them'; });
     sect.appendChild(row);
   }
   function refreshLibraryRail(c) {
@@ -976,9 +999,14 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     const top = document.createElement('div'); top.className = 'lib-top';
     const search = document.createElement('input');
     search.className = 'lib-search'; search.placeholder = 'Filter the library…'; search.value = S.library.q;
-    search.oninput = () => { S.library.q = search.value; maybeLoadMac(); refreshRail(); const s = q('.lib-search', c); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } };
+    // Typing refills the list and leaves the search box — the same node, with
+    // its focus, caret and IME composition — alone. The whole rail used to be
+    // torn down and rebuilt per keystroke, then the caret put back by hand (U12).
+    search.oninput = () => { S.library.q = search.value; maybeLoadMac(); fillList(); };
     top.appendChild(search); c.appendChild(top);
     const list = document.createElement('div'); list.className = 'lib-list'; c.appendChild(list);
+    const fillList = () => {
+    list.replaceChildren();
     if (!S.library.loaded) { const e = document.createElement('div'); e.className = 'rail-empty'; e.textContent = 'Scanning…'; list.appendChild(e); return; }
     const ql = S.library.q.trim().toLowerCase();
     const match = (i) => !ql || (i.name + ' ' + i.description + ' ' + i.slug + ' ' + (i.filePath || '')).toLowerCase().includes(ql);
@@ -997,6 +1025,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       const count = pendingMac ? macCountLabel({ loaded: false, n: items.length }) : items.length;
       lab.innerHTML = `<span class="lg-caret">${open ? '▾' : '▸'}</span><span>${esc(g.label)}</span><span class="lg-count">${esc(String(count))}</span>`;
       lab.onclick = () => toggleLibGroup(g.key);
+      lab.setAttribute('aria-expanded', String(!!open));
+      activateOnKey(lab, () => toggleLibGroup(g.key));
       sect.appendChild(lab);
       if (!open) continue;
       if (pendingMac) {
@@ -1012,6 +1042,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
           add.innerHTML = `<span class="code" data-kind="service">⚡</span>
             <span class="col"><span class="name">connect MCP</span><span class="tools">Notion, Slack, a folder…</span></span><span class="chev">›</span>`;
           add.onclick = () => openConnect();
+          activateOnKey(add, () => openConnect());
           sect.appendChild(add);
         }
         continue;
@@ -1030,6 +1061,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
           const sub = document.createElement('div'); sub.className = 'lib-group sub';
           sub.innerHTML = `<span class="lg-caret">${subOpen ? '▾' : '▸'}</span><span>${esc(agentNameOf(k))}</span><span class="lg-count">${buckets.get(k).length}</span>`;
           sub.onclick = () => toggleLibGroup(subKey);
+          sub.setAttribute('aria-expanded', String(!!subOpen));
+          activateOnKey(sub, () => toggleLibGroup(subKey));
           sect.appendChild(sub);
           if (subOpen) for (const i of buckets.get(k)) appendLibItem(sect, i);
         }
@@ -1039,13 +1072,16 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       if (g.key === 'skills') appendPointerBar(sect);
     }
     if (!shown) { const e = document.createElement('div'); e.className = 'rail-empty'; e.textContent = ql ? 'No match.' : 'Nothing here yet — the buttons above make your first.'; list.appendChild(e); }
+    };
+    libFill = fillList; libFillHost = list;
+    fillList();
   }
   // With no folder there is exactly one thing worth saying, and it is the thing
   // the screen is asking you to fix. This used to announce "claude ready" when the
   // Claude CLI happened to be installed — from when the app only ran that one
   // agent. It named a single agent on the first screen a new user sees, and said
   // it on a screen where no agent can start: every action here needs a folder.
-  function renderFooter() { els.footerPath.textContent = S.project ? S.project.pathShort : 'no folder open'; }
+  function renderFooter() { els.footerPath.textContent = S.project ? S.project.pathShort : t('footer.noFolder'); }
 
   return {
     renderHeader, renderRail, refreshRail, renderFooter, watchProject, refreshServices,

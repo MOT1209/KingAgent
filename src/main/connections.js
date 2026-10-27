@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const { APP_DATA_DIRNAME } = require('./platform.js');
+const { escapeRe } = require('./text-util.js');
 
 const fsIo = {
   read: (f) => fs.readFileSync(f, 'utf8'),
@@ -166,7 +167,6 @@ function writeCodexBlock({ file, masters, io = fsIo }) {
 
 // ---- presence detection: read-only, regex on structure, no parser deps ------
 
-function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 function presentInToml(text, id) {
   return new RegExp('^\\s*\\[mcp_servers\\.' + escapeRe(id) + '[\\].]', 'm').test(text || '');

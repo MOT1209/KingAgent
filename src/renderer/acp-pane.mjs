@@ -10,19 +10,11 @@ import { chipHtml, iconKeyFor } from './icons.mjs';
 import { createSessionContextRecorder } from './session-context.mjs';
 import { appendDraft } from './session-draft.mjs';
 
-const CLAUDE_ADAPTER = decodeURIComponent(new URL('../../acp-tools/node_modules/.bin/claude-agent-acp', location.href).pathname);
-// One launch line per agent — probed on this machine (tools/acp-probe.mjs)
-// before its row earns the Chat badge. Everything else about the pane is
-// agent-agnostic: same renderer, same composer, same router.
-const AGENT_LAUNCH = {
-  claude: { command: CLAUDE_ADAPTER, args: [] },
-  kimi: { command: 'kimi', args: ['acp'] },
-  codex: { command: 'npx', args: ['-y', '@zed-industries/codex-acp'] },
-  opencode: { command: 'opencode', args: ['acp'] },
-  grok: { command: 'grok', args: ['agent', 'stdio'] },
-  hermes: { command: 'hermes', args: ['acp'] },
-};
-export const CHAT_READY = Object.keys(AGENT_LAUNCH);
+// The agents with a probed ACP launch line. The lines themselves live in main
+// (src/main/acp-live.js, AGENT_LAUNCH): the pane names an agent and main decides
+// what runs. Everything else about the pane is agent-agnostic: same renderer,
+// same composer, same router.
+export const CHAT_READY = ['claude', 'kimi', 'codex', 'opencode', 'grok', 'hermes'];
 
 export function mountChatPane(p, rec, hooks) {
   const api = window.kingagent;
@@ -321,7 +313,7 @@ export function mountChatPane(p, rec, hooks) {
     },
   });
 
-  rec.disposeRo = () => { disposed = true; clearTimeout(contextTimer); offMsg && offMsg(); offErr && offErr(); offExit && offExit(); api.acpKill({ id: p.id }); };
+  rec.disposeRo = () => { disposed = true; composer.dispose(); clearTimeout(contextTimer); offMsg && offMsg(); offErr && offErr(); offExit && offExit(); api.acpKill({ id: p.id }); };
   rec.cwFeed = (ev) => { transcript.apply(ev); if (contextRecord.event(ev)) publishContext(); }; // scenes/screenshots replay events without an agent
   if (p.sceneStatic) return;
 
@@ -329,8 +321,10 @@ export function mountChatPane(p, rec, hooks) {
   // watches that store for this id and reports the name over session:title.
   const watchTitle = () => { if (api.sessionWatchTitle && p.acpSid) api.sessionWatchTitle({ id: p.id, agent: p.agentId || 'claude', cwd: p.cwd, sid: p.acpSid }); };
   (async () => {
-    const launch = AGENT_LAUNCH[p.agentId] || AGENT_LAUNCH.claude;
-    const started = await api.acpStart({ id: p.id, cwd: p.cwd, command: launch.command, args: launch.args });
+    const agentId = CHAT_READY.includes(p.agentId) ? p.agentId : 'claude';
+    let started;
+    try { started = await api.acpStart({ id: p.id, cwd: p.cwd, agentId }); }
+    catch (err) { started = { ok: false, error: (err && err.message) || 'the request was refused' }; }
     if (!started.ok) { transcript.error((p.title || 'The agent') + ' could not start' + (started.error ? ' — ' + started.error : '')); return; }
     try {
       const { session } = await client.connect(p.cwd, await mcpOptions());

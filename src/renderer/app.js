@@ -3,6 +3,8 @@ import { createUpdateBar } from './update-bar.mjs';
 import { createTerminalLinkTracking } from './terminal-link-tracking.mjs';
 import { createPanelLifecycle } from './panel-lifecycle.mjs';
 import { createSettingsPanes } from './settings-panes.mjs';
+import { makeDialog } from './dialog.mjs';
+import { confirmDiscard } from './confirm-sheet.mjs';
 import { createLauncher } from './launcher.mjs';
 import { createWorkspaceLibrary } from './workspace-library.mjs';
 // KingAgent — the agent workbench, by Dainami (renderer, terminal-first).
@@ -20,6 +22,7 @@ import { isFile as isFilePanel, isSession as isSessionPanel, ownerFor, keep as k
 import { createBrowserPane } from './browser-pane.mjs';
 import { createTileShell } from './tile-shell.mjs';
 import { createTileContent } from './tile-content.mjs';
+import { t, setLanguage, getLanguage, applyI18n } from './i18n.mjs';
 
 const api = window.kingagent;
 // The renderer's own view of the OS, straight from the preload bridge (a string
@@ -99,6 +102,10 @@ const XTERM_THEME = {
 
 // ---- themes (paper default · operator dark) --------------------------------
 const THEME_KEY = 'kingagent-theme';
+// The interface language is known before the shell is drawn (localStorage, as
+// for the theme); boot data corrects it once it arrives.
+const LANG_KEY = 'kingagent-lang';
+try { setLanguage(localStorage.getItem(LANG_KEY)); } catch (_) {}
 const XTERM_THEME_OPERATOR = {
   // Transparent over the operator panel; minimumContrastRatio re-inks
   // cream-tuned TUI text for the dark ground.
@@ -212,6 +219,34 @@ function setView(name, persistIt = true) {
 }
 function applyViewAttrs() {
   document.querySelectorAll('#viewsw .view-choice').forEach((b) => { const active = b.dataset.view === S.view; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
+}
+// Which edge the interface reads from. Persisted like the view: localStorage
+// for frame one of this window (theme-boot.js reads it before first paint),
+// settings.json so every window agrees. lang follows so the browser shapes and
+// hyphenates for the script the layout was mirrored for.
+const DIR_KEY = 'kingagent-dir';
+function currentDirection() { return document.documentElement.dir === 'rtl' ? 'rtl' : 'ltr'; }
+function setDirection(name, persistIt = true) {
+  const dir = name === 'rtl' ? 'rtl' : 'ltr';
+  document.documentElement.dir = dir;
+  document.documentElement.lang = getLanguage();
+  if (persistIt && !S.demo && !S.review) {
+    try { localStorage.setItem(DIR_KEY, dir); } catch (_) {}
+    if (api.settingsSet) Promise.resolve(api.settingsSet({ direction: dir })).catch(() => toast('Direction changed, but could not be saved for next launch.'));
+  }
+  if (els.grid) renderAll();
+}
+// Choosing a language mirrors the layout with it (Arabic reads right to left),
+// which can still be changed on its own afterwards in Settings → Look.
+function setLanguageUi(name, persistIt = true) {
+  const lang = setLanguage(name);
+  if (persistIt && !S.demo && !S.review) {
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    if (api.settingsSet) Promise.resolve(api.settingsSet({ language: lang })).catch(() => toast('Language changed, but could not be saved for next launch.'));
+  }
+  applyI18n();
+  setDirection(lang === 'ar' ? 'rtl' : 'ltr', persistIt);
+  if (els.grid) renderAll();
 }
 let themeSaveVersion = 0;
 function setTheme(name, persistIt = true) {
@@ -330,7 +365,7 @@ const settingsPanes = createSettingsPanes({ api, state: S, toast, esc, helpIcon,
   // refreshSttInfo/setSttInfo/transcribeBlob are thunks: they now live in
   // tile-content.mjs, constructed last, same reasoning as elsewhere.
   refreshSttInfo: (...a) => refreshSttInfo(...a), setSttInfo: (...a) => setSttInfo(...a), transcribeBlob: (...a) => transcribeBlob(...a),
-  setTheme, currentTheme, getThemeOptions: () => THEME_OPTIONS,
+  setTheme, currentTheme, getThemeOptions: () => THEME_OPTIONS, setDirection, currentDirection, setLanguageUi,
   browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl });
 const { openSettings, renderSettings, wireHelpDialog } = settingsPanes;
 const launcher = createLauncher({ api, state: S, tiles: tileEls, browsers, toast, overlay, closeOverlay, renderOverlay, rememberHelpFocus,
@@ -553,6 +588,10 @@ function dropPathOnPanel(p, path, isDir) {
   if (b.collapsed) S.railCollapsed = true;
   setTheme(b.themeArg || b.theme || DEFAULT_THEME, false);
   if (!S.review) { try { localStorage.setItem(THEME_KEY, currentTheme()); } catch (_) {} }
+  setLanguage(b.langArg || b.language || 'en'); applyI18n();
+  if (!S.review && !b.langArg) { try { localStorage.setItem(LANG_KEY, getLanguage()); } catch (_) {} }
+  setDirection(b.dirArg || b.direction || (b.langArg === 'ar' ? 'rtl' : 'ltr'), false);
+  if (!S.review && !b.dirArg) { try { localStorage.setItem(DIR_KEY, currentDirection()); } catch (_) {} }
   // The view you left the app in. localStorage is this window's memory,
   // settings.json the shared one; a --scene may force one for a screenshot.
   let view = null; if (!S.demo) { try { view = localStorage.getItem(VIEW_KEY); } catch (_) {} }
@@ -1036,30 +1075,30 @@ function buildShell() {
               <span class="brand-ver" id="brand-ver"></span>
             </span>
           </span>
-          <span class="brand-sub">AI Agent Operating Platform</span>
+          <span class="brand-sub" data-i18n="shell.tagline">${t('shell.tagline')}</span>
         </div>
         <div class="topbar-center" id="topbar-center"></div>
         <div class="topbar-right">
           <div class="live-badge" id="live-badge" style="display:none"><span class="dot"></span><span id="live-label"></span></div>
-          <button class="btn btn-help" id="btn-help" title="Quick start"><span class="uni-i">?</span><span class="pix-i">${pixIcon('help')}</span></button>
-          <div class="theme-zone" id="theme-zone"><button class="btn" id="btn-theme" title="Theme"><span class="uni-i">◐</span><span class="pix-i">${pixIcon('theme')}</span></button></div>
-          <button class="btn btn-set" id="btn-settings" title="Settings ⌘,"><span class="uni-i">⚙</span><span class="pix-i">${pixIcon('settings')}</span></button>
-          <div class="viewsw" id="viewsw" role="group" aria-label="Workspace view" title="Desk: every card on a grid. Split: one session beside one of its files.">
-            <button class="view-choice" data-view="desk">Desk</button>
-            <button class="view-choice" data-view="split">Split</button>
+          <button class="btn btn-help" id="btn-help" title="${t('topbar.quickstart')}" data-i18n-title="topbar.quickstart"><span class="uni-i">?</span><span class="pix-i">${pixIcon('help')}</span></button>
+          <div class="theme-zone" id="theme-zone"><button class="btn" id="btn-theme" title="${t('topbar.theme')}" data-i18n-title="topbar.theme"><span class="uni-i">◐</span><span class="pix-i">${pixIcon('theme')}</span></button></div>
+          <button class="btn btn-set" id="btn-settings" title="${t('topbar.settings')}" data-i18n-title="topbar.settings"><span class="uni-i">⚙</span><span class="pix-i">${pixIcon('settings')}</span></button>
+          <div class="viewsw" id="viewsw" role="group" aria-label="${t('topbar.view')}" data-i18n-aria="topbar.view" title="${t('topbar.viewHint')}" data-i18n-title="topbar.viewHint">
+            <button class="view-choice" data-view="desk" data-i18n="view.desk">${t('view.desk')}</button>
+            <button class="view-choice" data-view="split" data-i18n="view.split">${t('view.split')}</button>
           </div>
-          <button class="btn" id="btn-agents">Agents<span class="kb"> ⌘K</span></button>
-          <button class="btn btn--go" id="btn-new"><span class="uni-i">＋ </span><span class="pix-i">${pixIcon('plus')}</span>New<span class="kb2"> session</span><span class="kb"> ⌘N</span></button>
+          <button class="btn" id="btn-agents"><span data-i18n="topbar.agents">${t('topbar.agents')}</span><span class="kb"> ⌘K</span></button>
+          <button class="btn btn--go" id="btn-new"><span class="uni-i">＋ </span><span class="pix-i">${pixIcon('plus')}</span><span data-i18n="topbar.new">${t('topbar.new')}</span><span class="kb2" data-i18n="topbar.newSession">${t('topbar.newSession')}</span><span class="kb"> ⌘N</span></button>
         </div>
       </div>
       <div class="split">
         <div class="rail" id="rail">
-          <button class="rail-strip" id="rail-strip" title="Show sidebar">›</button>
+          <button class="rail-strip" id="rail-strip" title="${t('rail.show')}" data-i18n-title="rail.show">›</button>
           <div class="rail-tabs">
-            <button class="rail-tab active" data-tab="sessions">Sessions</button>
-            <button class="rail-tab" data-tab="workspace">Workspace</button>
-            <button class="rail-tab" data-tab="library">Library</button>
-            <button class="rail-collapse" id="rail-collapse" title="Hide sidebar">‹</button>
+            <button class="rail-tab active" data-tab="sessions" data-i18n="rail.sessions">${t('rail.sessions')}</button>
+            <button class="rail-tab" data-tab="workspace" data-i18n="rail.workspace">${t('rail.workspace')}</button>
+            <button class="rail-tab" data-tab="library" data-i18n="rail.library">${t('rail.library')}</button>
+            <button class="rail-collapse" id="rail-collapse" title="${t('rail.hide')}" data-i18n-title="rail.hide">‹</button>
           </div>
           <div id="rail-content"></div>
         </div>
@@ -1067,13 +1106,13 @@ function buildShell() {
           <div class="grid" id="grid"></div>
           <div id="update-root"></div>
           <div class="footer">
-            <span>⌘N new session</span><span>⌘K agents</span><span>⌘O folder</span>
-            <span>⌘W close pane</span><span>⌘S save</span><span class="path" id="footer-path"></span>
-            <button class="btn btn--small footer-shortcuts" id="btn-shortcuts">${helpIcon('shortcuts')} Shortcuts</button>
+            <span data-i18n="footer.newSession">${t('footer.newSession')}</span><span data-i18n="footer.agents">${t('footer.agents')}</span><span data-i18n="footer.folder">${t('footer.folder')}</span>
+            <span data-i18n="footer.closePane">${t('footer.closePane')}</span><span data-i18n="footer.save">${t('footer.save')}</span><span class="path" id="footer-path"></span>
+            <button class="btn btn--small footer-shortcuts" id="btn-shortcuts">${helpIcon('shortcuts')} <span data-i18n="footer.shortcuts">${t('footer.shortcuts')}</span></button>
           </div>
         </div>
       </div>
-      <div id="overlay-root"></div><div id="toast-root"></div>
+      <div id="overlay-root"></div><div id="toast-root" role="status" aria-live="polite" aria-atomic="true"></div>
     </div></div>`;
 
   // Object.assign onto the existing object, not a fresh one: updateBar (and
@@ -1178,7 +1217,11 @@ function buildShell() {
 function initGlassTilt() {
   let pane = null, raf = 0, lastEvent = null;
   const reset = (el) => { if (el) { el.style.setProperty('--rx', '0deg'); el.style.setProperty('--ry', '0deg'); } };
+  // A 3-D tilt that follows the pointer is exactly the motion the setting asks
+  // to be spared. Read at the event, so changing the OS setting takes effect now.
+  const calm = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.addEventListener('pointermove', (e) => {
+    if (calm()) { if (pane) { reset(pane); pane = null; } return; }
     if (!document.body.hasAttribute('data-glass')) { if (pane) { reset(pane); pane = null; } return; }
     const hit = e.target instanceof Element ? e.target.closest('.nav-card') : null;
     if (hit !== pane) { reset(pane); pane = hit; }
@@ -1219,7 +1262,7 @@ function syncDeskColumns() {
   if (!els.grid) return;
   const cs = getComputedStyle(els.grid);
   const inner = els.grid.clientWidth
-    - parseFloat(cs.paddingLeft || '0') - parseFloat(cs.paddingRight || '0');
+    - parseFloat(cs.paddingInlineStart || '0') - parseFloat(cs.paddingInlineEnd || '0');
   const cols = deskColumns(inner);
   if (syncDeskColumns.last === cols) return;
   syncDeskColumns.last = cols;
@@ -1334,8 +1377,11 @@ function closeOverlay() { S.overlay = null; renderOverlay(); }
 // ---- peek: float a file or card above the desk without touching the tiles --
 function openPeek(p) {
   const cur = S.overlay && S.overlay.type === 'peek' && S.overlay.panel;
-  if (cur && (cur.kind === 'editor' || cur.kind === 'card') && cur.dirty
-      && !confirm(`Discard unsaved changes to ${baseNameOf(cur.filePath)}?`)) return;
+  if (cur && (cur.kind === 'editor' || cur.kind === 'card') && cur.dirty) {
+    confirmDiscard(baseNameOf(cur.filePath))
+      .then((ok) => { if (ok) { S.overlay = { type: 'peek', panel: p }; renderOverlay(); } });
+    return;
+  }
   S.overlay = { type: 'peek', panel: p }; renderOverlay();
 }
 function renderPeek() {
@@ -1380,8 +1426,11 @@ async function pinPeek() {
 function requestClosePeek() {
   const o = S.overlay; if (!o || o.type !== 'peek') { closeOverlay(); return; }
   const p = o.panel;
-  if ((p.kind === 'editor' || p.kind === 'card') && p.dirty
-      && !confirm(`Discard unsaved changes to ${baseNameOf(p.filePath)}?`)) return;
+  if ((p.kind === 'editor' || p.kind === 'card') && p.dirty) {
+    confirmDiscard(baseNameOf(p.filePath))
+      .then((ok) => { if (ok && S.overlay && S.overlay.panel === p) closeOverlay(); });
+    return;
+  }
   closeOverlay();
 }
 
@@ -1391,6 +1440,7 @@ function overlay(cls, inner, opts) {
   if (overlayStill) modal.style.animation = 'none';
   const x = document.createElement('button'); x.className = 't-btn ov-x'; x.title = 'Close'; x.innerHTML = `<span class="uni-i">✕</span><span class="pix-i">${pixIcon('close')}</span>`; x.onclick = closeOverlay;
   modal.appendChild(x);
+  makeDialog(modal);
   wrap.appendChild(modal); els.overlayRoot.appendChild(wrap); return modal;
 }
 

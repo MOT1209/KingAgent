@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('kingagent', {
   readFile: (file) => ipcRenderer.invoke('file:read', file),
   listDir: (dir, all) => ipcRenderer.invoke('dir:list', { dir, all: !!all }),
   rawFile: (file) => ipcRenderer.invoke('file:raw', file),
+  fileEditable: (file) => ipcRenderer.invoke('file:editable', file),
   // Answers { ok, hash } — the hash of the bytes just written, which the
   // panel keeps so the watcher event this save is about to cause is
   // recognised as its own and dropped.
@@ -89,8 +90,8 @@ contextBridge.exposeInMainWorld('kingagent', {
   onMenuCommand: (cb) => { const h = (_e, cmd) => cb(cmd); ipcRenderer.on('menu:command', h); return () => ipcRenderer.removeListener('menu:command', h); },
   detectAgents: () => ipcRenderer.invoke('agents:detect'),
   agentStatus: (id) => ipcRenderer.invoke('agents:status', { id }),
-  agentRemovalPlan: (id, binPath) => ipcRenderer.invoke('agents:removalPlan', { id, binPath }),
-  agentRemove: (id, binPath) => ipcRenderer.invoke('agents:remove', { id, binPath }),
+  agentRemovalPlan: (id) => ipcRenderer.invoke('agents:removalPlan', { id }),
+  agentRemove: (id) => ipcRenderer.invoke('agents:remove', { id }),
   listServices: (args) => ipcRenderer.invoke('services:list', args),
   connectService: (args) => ipcRenderer.invoke('services:connect', args),
   deliverServices: (args) => ipcRenderer.invoke('services:deliver', args),

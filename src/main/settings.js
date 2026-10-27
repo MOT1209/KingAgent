@@ -106,6 +106,13 @@ function normalizeTheme(name) { return THEMES.includes(name) ? name : DEFAULT_TH
 // Desk or Split (specs/2026-09-08-split-view.md): anything else is the desk.
 const VIEWS = ['desk', 'split'];
 function normalizeView(name) { return VIEWS.includes(name) ? name : 'desk'; }
+// Which edge the interface reads from. The strings stay English either way;
+// rtl mirrors the layout for someone who reads Arabic first. Content (chat,
+// documents, file names) finds its own direction regardless of this.
+const LANGUAGES = ['en', 'ar'];
+function normalizeLanguage(l) { return LANGUAGES.includes(l) ? l : 'en'; }
+const DIRECTIONS = ['ltr', 'rtl'];
+function normalizeDirection(d) { return DIRECTIONS.includes(d) ? d : 'ltr'; }
 function themeBackground(name) { return THEME_BG[normalizeTheme(name)]; }
 
 // --- research settings (Phase 7 §50) ----------------------------------------
@@ -178,6 +185,6 @@ function researchConfig(settings) {
 
 module.exports = {
   readSettings, writeSettings, fsIo, normalizeTheme, themeBackground, THEMES, DEFAULT_THEME,
-  normalizeView, VIEWS, researchConfig, RESEARCH_DEFAULTS, RESEARCH_MODES,
+  normalizeView, VIEWS, normalizeDirection, DIRECTIONS, normalizeLanguage, LANGUAGES, researchConfig, RESEARCH_DEFAULTS, RESEARCH_MODES,
   SECRET_KEYS, ENC_PREFIX,
 };

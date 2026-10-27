@@ -16,6 +16,7 @@
 // second runtime nobody can reconcile with the first.
 
 const { TYPES } = require('../events/event-bus');
+const { ORCHESTRATION_LIMITS } = require('../orchestration-limits');
 const { identityRefs, createIdentity } = require('../workspace/identity');
 const { TRACE_EVENTS } = require('../trace/events');
 const { EXECUTION_MODES, createPolicies } = require('./policies');
@@ -176,6 +177,7 @@ class Orchestrator {
       outcome: null,
     };
     this._runs.set(record.id, record);
+    this._pruneRuns();
 
     const job = this._scheduler.submit({
       taskId: workspace.taskId,
@@ -187,6 +189,20 @@ class Orchestrator {
     record.jobId = job.id;
     record.result = job.result;
     return record;
+  }
+
+  // Every handle() leaves a record holding the request and the whole outcome,
+  // and list({limit}) only filtered what it showed. Beyond MAX_RUNS the oldest
+  // finished runs are dropped (insertion order is start order); a run still
+  // queued or running is never removed.
+  _pruneRuns() {
+    let over = this._runs.size - Orchestrator.MAX_RUNS;
+    if (over <= 0) return;
+    for (const [id, run] of this._runs) {
+      if (over <= 0) break;
+      if (run.status === 'queued' || run.status === 'running') continue;
+      this._runs.delete(id); over--;
+    }
   }
 
   get(runId) {
@@ -453,7 +469,7 @@ class Orchestrator {
         this._runtime.cancel(taskId, 'orchestration timed out');
         return { ok: false, error: `task timed out after ${timeoutMs}ms`, taskId };
       }
-      await sleep(40);
+      await sleep(ORCHESTRATION_LIMITS.pollMs.task);
     }
   }
 
@@ -564,5 +580,8 @@ function publicRun(run) {
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+// Finished runs kept for list()/get(); see _pruneRuns.
+Orchestrator.MAX_RUNS = 200;
 
 module.exports = { Orchestrator, EXECUTION_MODES, PRIORITY };

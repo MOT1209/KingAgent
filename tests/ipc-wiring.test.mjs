@@ -49,7 +49,8 @@ test('agents:status hands stored Keys to grok so an API key counts as signed in'
 
 test('Chat spawn uses the scanned program and the login PATH', () => {
   const acpLive = fs.readFileSync(path.join(root, 'src/main/acp-live.js'), 'utf8');
-  assert.match(acpLive, /resolveSpawnProgram\(command\)/);
+  assert.match(acpLive, /resolveSpawnProgram\(launch\.command\)/);
+  assert.doesNotMatch(acpLive, /'acp:start', async \(e, \{[^}]*\bcommand\b/, 'the renderer names an agent; main picks the program');
   assert.match(acpLive, /userPath\(\)/);
   assert.doesNotMatch(
     acpLive,
@@ -89,4 +90,11 @@ test('fs:* handlers never trust a renderer-supplied root — they overwrite it w
     assert.match(m[0], /root:\s*trustedRoot\(e\)/, `${ch} must set root from trustedRoot(e), not from the renderer's payload`);
   }
   assert.match(mainSrc, /function trustedRoot\(e\)\s*\{\s*return winFolders\.get\(e\.sender\.id\)/);
+});
+
+test('an outside-project text file is explained up front, not offered and then refused', () => {
+  assert.match(preloadSrc, /fileEditable:\s*\(file\)\s*=>\s*ipcRenderer\.invoke\('file:editable', file\)/);
+  assert.match(mainSrc, /ipcMain\.handle\('file:editable'/);
+  const life = fs.readFileSync(path.join(root, 'src/renderer/panel-lifecycle.mjs'), 'utf8');
+  assert.match(life, /async function confirmOutsideOpen[\s\S]*?api\.fileEditable\(abs\)[\s\S]*?return false;[\s\S]*?askConfirm/);
 });

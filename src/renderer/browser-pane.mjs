@@ -1,6 +1,7 @@
 import { createBrowserAnnotations } from './browser-annotations.mjs';
 import { browserSettingsHtml, wireBrowserSettings } from './browser-settings.mjs';
 import { createBrowserOverlays } from './browser-overlays.mjs';
+import { isRtl, alignEnd } from './dir-axis.mjs';
 // Native page content; all chrome remains the same DOM tile as other files.
 export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFile, isSession, pin, focus, refresh, save,
   show, dialog, close, closePanel, toast, selection, settings, dictation, insertAnnotation, sessions, panelIcon, tileMenu, showMenu, openOutside }) {
@@ -34,7 +35,14 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
   window.addEventListener('resize', schedule); window.addEventListener('scroll', schedule, true);
   // Menus, rail folding, pane moves and zoom can move a native child without
   // resizing the browser viewport itself. Observe geometry-affecting DOM state.
-  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-glass', 'data-soft'] });
+  // The glass tilt (initGlassTilt in app.js) rewrites --rx/--ry on a session card
+  // on every frame the pointer moves over it, which is a `style` mutation, which
+  // used to run layout() — two rect reads per browser view and a JSON of the
+  // result — sixty times a second for nothing: a card's tilt moves no viewport.
+  // Those records are skipped; any other style change still counts.
+  new MutationObserver((records) => {
+    if (records.some((r) => !(r.type === 'attributes' && r.attributeName === 'style' && r.target.classList && r.target.classList.contains('nav-card')))) schedule();
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-glass', 'data-soft'] });
   function open(url = 'about:blank', filePath = null, owner = null, id = null, deferred = false, profileId = null) {
     const p = { id: id || uid('p_'), kind: 'browser', chipKind: 'viewer', code: 'WEB', title: filePath ? filePath.split('/').pop() : 'Browser', url, filePath, status: 'live', browserDeferred: deferred, profileId };
     pin(p, owner ? { owner } : {}); if (owner) { p.owner = owner; refresh(); } return p;
@@ -134,7 +142,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     }
     for (const [label, run] of actions) { const b = document.createElement('button'); b.type='button'; b.setAttribute('role','menuitem'); b.textContent=label; b.onclick=()=>{closeMenu();run();}; menu.appendChild(b); }
     document.body.appendChild(menu); const r=anchor.getBoundingClientRect();
-    menu.style.left=Math.max(8,Math.min(r.right-menu.offsetWidth,innerWidth-menu.offsetWidth-8))+'px'; menu.style.top=Math.max(8,Math.min(r.bottom+4,innerHeight-menu.offsetHeight-8))+'px';
+    menu.style.left=alignEnd(r,menu.offsetWidth,innerWidth,isRtl())+'px'; menu.style.top=Math.max(8,Math.min(r.bottom+4,innerHeight-menu.offsetHeight-8))+'px'; // physical: left is computed from a rect
     menu.onkeydown=e=>{ const buttons=[...menu.querySelectorAll('button')]; let i=buttons.indexOf(document.activeElement); if(e.key==='Escape'){closeMenu();anchor.focus();} else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();buttons[(i+(e.key==='ArrowDown'?1:buttons.length-1))%buttons.length].focus();} };
     menu.querySelector('button').focus(); schedule();
   }

@@ -12,6 +12,195 @@ always the newest one below.
 
 ## [Unreleased]
 
+### Added
+
+- Arabic support, batch P2 of the audit fix plan in `docs/audit/`. The
+  interface strings are still English. What changed:
+  - **Arabic text renders correctly everywhere.** IBM Plex Sans Arabic
+    (regular and bold, Arabic subset, OFL) is bundled and listed second in
+    every font stack. Its `unicode-range` limits it to Arabic code points, so
+    Latin text is unchanged and the file only loads once Arabic appears. Chat
+    messages, documents, the block editor, prose fields and file/session names
+    each take their direction from their own text: an Arabic reply reads right
+    to left on a left-to-right desk. Code, paths and terminals stay left to
+    right.
+  - **Settings → Look → Layout direction** mirrors the whole desk (sidebar,
+    rows, the resize grip, the split divider, popovers). It is stored in
+    settings.json as `direction` and applied before first paint.
+    `--dir=rtl` forces it for screenshots.
+  - **Every horizontal rule is now logical.** About 150 physical declarations
+    across the stylesheets were converted (`margin-inline-*`, `inset-inline-*`,
+    tokenised alignment), along with the JS that measured from a fixed edge:
+    tree indent, tile resize, split-divider drag, and popovers anchored to a
+    button, which now go through `src/renderer/dir-axis.mjs`. The few lines
+    that are genuinely physical (page coordinates, the Windows caption-button
+    inset, the terminal's edge) say so with a `physical:` comment.
+    `tests/rtl-logical.test.mjs` fails on any new physical property without
+    that comment, on a font stack that cannot draw Arabic, and on a missing
+    `lang`/`dir`.
+  - With left to right selected, the demo screenshot is pixel-identical to the
+    one taken before this change.
+- The Agent Platform and research panel styles moved out of injected
+  `<style>` blocks into `agent-platform.css` and `research-panel.css`, so the
+  checks above cover them (U25). Their colours are unchanged: both are a dark
+  sheet that looks the same on every theme by design. The skills pane's
+  hard-coded red is now the `--red-body` token.
+
+### Added
+
+- **Arabic interface, first slice.** `src/renderer/i18n.mjs` with English and
+  Arabic dictionaries (`locales/en.mjs`, `locales/ar.mjs`). Settings → Look has a
+  Language picker; choosing Arabic also mirrors the layout, and the direction can
+  still be changed on its own. Translated: the app shell (tabs, top bar, footer,
+  live badge, view switch), Settings (title, every section name and lead, the Look
+  pane, Done and the footer note), the unsaved-changes and outside-project
+  confirmations, and the "Saved" toast. Everything else is still English and falls
+  back to it; `tests/i18n.test.mjs` fails if Arabic lacks a key English has, if a
+  placeholder differs, or if the app draws a key that does not exist. Commands,
+  file names, agent output and the terminal are never translated. `--lang=ar`
+  forces it for screenshots. Setting: `language` in settings.json.
+
+### Changed
+
+- **Orchestration limits in one place (C7).** Depth, task and delegation
+  timeouts, fan-out and poll intervals for the two orchestrators and two
+  coordinators now come from `src/core/orchestration-limits.js`, frozen, with the
+  reason for each difference written beside it. The values are the ones each
+  module used before, so nothing behaves differently; a test fails if a module
+  stops importing it or a number drifts.
+- The unused `mountOrgView` and its tests are removed (U23); the organization
+  view is drawn in `agent-platform.mjs`.
+- **Defences that were written and never called (C1, C3, C9).** Model calls in
+  the reasoner, evaluator and planner go through `generateWithin()`: a 60 s
+  deadline, and the task's cancel signal now reaches the request, so a hung
+  provider no longer stalls the run loop and cancelling stops the call. A search
+  provider that implements `fetch()` must declare `ssrfChecked: true` to be
+  registered. The synthesizer, the reviewer's question-drift check and the
+  evidence extractor's ranking pass fence the retrieved text they put in front
+  of a model with `wrapUntrusted` (the query planner never sees retrieved text). No model or search provider is registered in the
+  shipped app today, so none of this changes behaviour yet; it is in place for
+  the day one is.
+- **No more native `confirm()` (U14).** Discarding unsaved edits and opening a
+  file from outside the project use a themed sheet (`confirm-sheet.mjs`) with
+  its own layer, Escape = no, and focus on the safe answer. The system dialog
+  stopped the renderer painting, so every live terminal froze while it was up.
+  `confirmOutsideOpen` now returns a promise.
+- **Filtering no longer rebuilds what you are typing in (U12, U13).** The
+  library filter and the ⌘K agent picker refill their lists in place; the input
+  keeps its focus, caret and IME composition, and a background scan landing
+  mid-typing no longer replaces it.
+- **Contrast (U26).** `--muted`, `--muted-2`, `--muted-3` and `--faint` now
+  reach 4.5:1 against their theme's surface in all six themes (the worst were
+  glass `--faint` at 1.9:1 and paper at 2.4:1). The cost is visible and
+  intended: the four tones sit closer together, so "secondary" and "tertiary"
+  text differ less than before.
+- **Memory caps (C8, S14).** `TaskManager` keeps at most 500 tasks, evicting the
+  oldest finished first; `Orchestrator` keeps 200 runs; the harness
+  orchestrator's write-only run map is gone; the agent-discovery `claimed` set is
+  capped at 500. Live work is never evicted.
+- `escapeRe` and `safeRead`, each written twice, live in `src/main/text-util.js`
+  (S25); the unused `defaultTerminalShell` re-export is removed (S24).
+
+Small items from batches P11–P13 of the audit fix plan.
+
+- Toasts are announced to screen readers (`role="status"`, `aria-live`) (U27),
+  and the glass tilt stays still under `prefers-reduced-motion` (U29).
+- The "updated …" line in Settings → About uses the machine's own time
+  format instead of forcing en-US next to a localised date (U36).
+- A repeated `agent:authorizeResponse` can no longer resolve an approval twice
+  (S15), and `session:watch-title` stops adding watchers past 200 (S12).
+- `defineWorkflow` reports a non-object node as an invalid workflow instead of
+  throwing a `TypeError` (C13); a dead `&& false` clause is removed from
+  "close finished" (U21).
+
+Batch P8 + P6 + P7 of the audit fix plan.
+
+- **A failed request no longer leaves a control stuck.** About twenty click
+  handlers awaited an `api.*` call with nothing to catch a rejection, so the
+  remove sheet sat on "Working out what this would delete…", the Delete button
+  on "Really move to Trash?", the editor button on "Lifting…", Connect on
+  "Connecting…" and the voice download button disabled for good. They go
+  through `guarded()` (`src/renderer/guard.mjs`) or a local try/catch, say what
+  failed, and put the control back (U20, U8). The context-menu and Quick Start
+  runners are guarded once for every item. A tile that cannot be restored is
+  now counted and reported once (U38); a rejected unsaved-notes check no longer
+  makes a tile unclosable (U39); and a folder switch refused by a browser
+  holding unsent notes says so (U40).
+- **Everything in the sidebar and library is reachable from the keyboard.**
+  Session rows, the show-all/essentials toggle, library groups and rows,
+  service rows, the "connect MCP" row, the agent-picker chevrons and cards, and
+  the connect catalog now share `activateOnKey()` (`a11y.mjs`): Tab reaches
+  them, a screen reader says "button", Enter and Space act (U15–U18, U46).
+- **Every sheet is a dialog.** `overlay()` applies `role="dialog"`,
+  `aria-modal`, a name and a Tab trap through `dialog.mjs`, where only the two
+  help sheets had them. A sheet with no `.title` no longer throws while being
+  built (U9, U22).
+- Checked and left alone: U33 (every place that bumps the scan generation
+  already resets `macLoading`), U14 (native `confirm()` needs `closePanel` and
+  `swapDesk` to become async, a change of its own).
+- `docs/audit/README.md` now records what happened to every finding.
+
+Batch P10 + P4 + P5 of the audit fix plan.
+
+- **Keychain reads no longer stop the app.** `security find-generic-password`
+  ran with `execFileSync` on Electron's main thread, so an unanswered Keychain
+  dialog froze every window and terminal for up to 25 s (browser cookie import)
+  or 4 s (Claude usage). Both are asynchronous now (S9).
+- **Electron 43.3.0 → 43.8.3**, which carries the fix for the
+  corsEnabled-less custom-scheme read (S6), and `npm audit fix` for the
+  non-breaking transitive advisories (21 → 7: the remaining seven are in
+  `@huggingface/transformers`'s tree and need `--force`, so they are left for a
+  deliberate upgrade). The comment on `DOC_CSP` now says that `connect-src
+  'none'`, not the cross-origin wall, is what that page's isolation rests on.
+- **Closing a chat tile removes its document click listener** (U3). The dead
+  `session-sources.mjs` and its leaking interval are deleted (U4, U24).
+- **Less forced layout while typing, dragging and moving the pointer:** the
+  chat input measures once per frame instead of once per keystroke (U7);
+  terminal fits read every tile before writing to any, so a window-edge drag is
+  two layouts a frame instead of up to two per tile (U19); and the glass tilt's
+  per-frame `--rx/--ry` writes no longer wake the browser-view layout pass (U6).
+- Not changed after checking: U5. The gutter loop only reads, after a single
+  write, so the browser lays out once, not once per line. U12/U13 (filter
+  rebuilds the whole list per keystroke) are left for their own change: they
+  restructure how the lists render and want their own tests.
+
+### Fixed
+
+- Dictating into a tile's AI input now sends a bubbling `input` event, like
+  the other three dictation paths, so delegated listeners see it (U34).
+
+### Security
+
+First batch from the audit in `docs/audit/` (fix plan P1): every IPC handler
+that ran, deleted, read or wrote a path the renderer chose now checks it against
+something main knows itself.
+
+- `acp:start` no longer takes a program and argv from the renderer. The Chat
+  launch table moved to `src/main/acp-live.js`; the pane sends an agent id and an
+  unknown id spawns nothing (S1). Sends after the window closes no longer throw
+  inside the child's event handlers, a line with no newline is dropped past
+  4 MB, and closing a window ends its ACP children (S20, S21).
+- `agents:remove` and `agents:removalPlan` ignore the renderer's `binPath` and
+  use the path the last scan found. The plan also refuses a path whose name is
+  not the agent's program, and removal refuses a folder. Before this,
+  `~/Documents` passed every check for Claude Code (S3).
+- `file:raw`, `file:save` and `file:read` only accept paths inside the window's
+  folder, the Library's locations (`libraryRoots`, now shared with
+  `deleteItem`), `~/.claude`, `~/.kingagent` and each agent's own settings file.
+  Anything else gets an error, which the panel shows as a card. A test checks
+  that every file the Library lists stays editable (S4, S5).
+- `services:connect` only runs a KIE checkout under `~/.kingagent/connectors/`,
+  and `services:connectCustom` only takes a bundle folder that
+  `services:pickBundle` unpacked under `~/.kingagent/bundles/` (S7, S8).
+- Every `shell.openExternal` call now goes through `httpHref`, which parses the
+  URL and passes on the re-serialised `href` instead of the raw string (S10).
+- `shortHome` in `main.js` turned `/Users/alice-proj` into `~-proj`. It now
+  uses the `agents-detect.js` version, which checks for a full path segment
+  (S23).
+- Not changed: S2 (`term:create` with `harness`/`run`). KingAgent is a terminal,
+  so the renderer can already open a shell and type into it with `term:write`.
+  Limiting `program` would close nothing.
+
 ### Fixed
 
 - The `kingagent-doc://` HTML/browser viewer never rendered anything on

@@ -155,5 +155,5 @@ export function splitLayout(width, ratio = .46) {
   const available = Math.max(0, Number(width) || 0);
   const preferred = Number.isFinite(ratio) ? ratio : .46;
   return { compact: available < 660,
-    left: Math.round(Math.max(320, Math.min(available - 340, (available - 20) * preferred))) };
+    left: Math.round(Math.max(320, Math.min(available - 340, (available - 20) * preferred))) }; // physical: a field (the first pane's width), not a CSS property
 }

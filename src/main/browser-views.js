@@ -421,11 +421,11 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings, getControl = n
         // into a single KingAgent profile — a blast radius that grew the moment more
         // browsers were detected. Pick the one asked for, or the first.
         const source = sources[Number(args.sourceIndex)] || sources[0];
-        const { execFileSync } = require('node:child_process');
+        const { execFile } = require('node:child_process');
         const result = await importChromiumCookies({
           session: record.session,
           sources: [source],
-          passwordFor: () => chromeKeychainPassword(source.browser, execFileSync),
+          passwordFor: () => chromeKeychainPassword(source.browser, execFile),
         });
         const message = result.imported
           ? 'Copied ' + result.imported + ' cookies from ' + source.browser + ' into this KingAgent profile. Google cookies skipped. ' + source.browser + ' is unchanged.' + (result.decryptUnavailable ? ' Some cookies used newer encryption and were skipped.' : '')
@@ -443,8 +443,8 @@ function wireBrowserViews(ipcMain, { readSettings, writeSettings, getControl = n
         const sources = detectChromiumProfiles();
         const source = sources[Number(args.sourceIndex)] || sources[0];
         if (!source) return { message: 'No Chrome, Edge, Brave, Arc, Vivaldi or Opera profile was found.' };
-        const { execFileSync } = require('node:child_process');
-        const password = chromeKeychainPassword(source.browser, execFileSync);
+        const { execFile } = require('node:child_process');
+        const password = await chromeKeychainPassword(source.browser, execFile);
         const key = password ? deriveChromeKey(password) : null;
         const record = getPartition(w, profileId);
         const parts = [];

@@ -67,7 +67,7 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
   }
   function outlines(rec, value, className = '') {
     if (value.stale) return '';
-    return scaled(rec, value).rects.map((r) => `<span class="browser-annotation-highlight ${className}" style="left:${r.x}px;top:${r.y}px;width:${Math.max(0, r.width)}px;height:${Math.max(0, r.height)}px"></span>`).join('');
+    return scaled(rec, value).rects.map((r) => `<span class="browser-annotation-highlight ${className}" style="left:${r.x}px;top:${r.y}px;width:${Math.max(0, r.width)}px;height:${Math.max(0, r.height)}px"></span>`).join(''); // physical: page coordinates over the browser view
   }
   function render(p) {
     const rec = mounts.get(p.id); if (!rec) return;
@@ -78,7 +78,7 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
       if (!rec.active || n.stale || !r || r.x + r.width < 0 || r.y + r.height < 0 || r.x > rec.host.clientWidth || r.y > rec.host.clientHeight) return '';
       const x = Math.min(Math.max(2, r.x + r.width - 10), Math.max(2, rec.host.clientWidth - 24));
       const y = Math.min(Math.max(2, r.y - 10), Math.max(2, rec.host.clientHeight - 24));
-      return outlines(rec, n) + `<button class="browser-annotation-pin browser-annotation-surface" data-note-id="${esc(n.id)}" style="left:${x}px;top:${y}px" aria-label="Edit annotation ${number}" title="Edit annotation ${number}">${number}</button>`;
+      return outlines(rec, n) + `<button class="browser-annotation-pin browser-annotation-surface" data-note-id="${esc(n.id)}" style="left:${x}px;top:${y}px" aria-label="Edit annotation ${number}" title="Edit annotation ${number}">${number}</button>`; // physical: page coordinates over the browser view
     }).join('');
     rec.pins.querySelectorAll('[data-note-id]').forEach((b) => b.onclick = () => edit(p, store.tab(p.id).find((n) => n.id === b.dataset.noteId)));
     touch();
@@ -93,7 +93,7 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
     const geometry = scaled(rec, editing);
     const size = { width: 280, height: rec.bubble.offsetHeight || 190 };
     const position = annotationPosition(geometry.rect, { width: rec.host.clientWidth, height: rec.host.clientHeight }, size);
-    Object.assign(rec.bubble.style, { left: position.x + 'px', top: position.y + 'px', width: position.width + 'px', maxHeight: Math.max(64, rec.host.clientHeight - 16) + 'px' });
+    Object.assign(rec.bubble.style, { left: position.x + 'px', top: position.y + 'px', width: position.width + 'px', maxHeight: Math.max(64, rec.host.clientHeight - 16) + 'px' }); // physical: page coordinates
     rec.draftHighlight.innerHTML = outlines(rec, editing, 'is-editing');
   }
   function edit(p, value) {
