@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('kingagent', {
   readFile: (file) => ipcRenderer.invoke('file:read', file),
   listDir: (dir, all) => ipcRenderer.invoke('dir:list', { dir, all: !!all }),
   rawFile: (file) => ipcRenderer.invoke('file:raw', file),
+  fileEditable: (file) => ipcRenderer.invoke('file:editable', file),
   // Answers { ok, hash } — the hash of the bytes just written, which the
   // panel keeps so the watcher event this save is about to cause is
   // recognised as its own and dropped.

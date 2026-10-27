@@ -1247,6 +1247,9 @@ const OUTSIDE_EDITABLE = 'outside this project — open it from Finder or Explor
 function editableFile(e, file) {
   return allowedFile({ file, projectPath: trustedRoot(e), homeDir: os.homedir() });
 }
+// Whether file:raw/save/read would accept this path, so the renderer can say
+// "outside the project" before offering to open something main will refuse.
+ipcMain.handle('file:editable', (e, file) => !!editableFile(e, file));
 ipcMain.handle('file:raw', (e, file) => {
   if (!editableFile(e, file)) return { ok: false, error: OUTSIDE_EDITABLE };
   try {

@@ -191,8 +191,18 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
   // silently surface an SSH key or credentials file into a tile.
   // Resolves to whether to go ahead; callers `.then` it (U14: it was a blocking
   // window.confirm that froze every live terminal while it was up).
-  function confirmOutsideOpen(abs) {
-    if (!isOutsideProject(S.project && S.project.path, abs)) return Promise.resolve(true);
+  async function confirmOutsideOpen(abs) {
+    if (!isOutsideProject(S.project && S.project.path, abs)) return true;
+    // The editor only reads and writes inside the project, the Library and the
+    // agents' own settings (main refuses the rest). Asking "open it anyway?" and
+    // then showing an error card is worse than saying so up front; the file is
+    // revealed in the file manager instead. Media opens through its own viewer.
+    const kind = fileKind(abs);
+    if ((kind === 'text' || kind === 'html') && !(await api.fileEditable(abs))) {
+      toast('That file is outside your project, so the editor will not open it. Showing it in the file manager.');
+      try { await api.revealFile(abs); } catch (_) { /* the toast already said what to do */ }
+      return false;
+    }
     return askConfirm({ title: 'Open a file outside your project?', message: shortHome(abs), confirmLabel: 'Open it', cancelLabel: 'Cancel', safe: 'cancel' });
   }
   // Looking at a file floats it above the desk; only pinning (or an explicit
