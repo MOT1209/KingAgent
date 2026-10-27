@@ -313,7 +313,7 @@ export function mountChatPane(p, rec, hooks) {
     },
   });
 
-  rec.disposeRo = () => { disposed = true; clearTimeout(contextTimer); offMsg && offMsg(); offErr && offErr(); offExit && offExit(); api.acpKill({ id: p.id }); };
+  rec.disposeRo = () => { disposed = true; composer.dispose(); clearTimeout(contextTimer); offMsg && offMsg(); offErr && offErr(); offExit && offExit(); api.acpKill({ id: p.id }); };
   rec.cwFeed = (ev) => { transcript.apply(ev); if (contextRecord.event(ev)) publishContext(); }; // scenes/screenshots replay events without an agent
   if (p.sceneStatic) return;
 

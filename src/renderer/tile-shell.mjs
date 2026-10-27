@@ -686,7 +686,7 @@ export function createTileShell({
   function drainFits() {
     const batch = [...dirtyFits];
     dirtyFits.clear();
-    for (const rec of batch) fitCanvas(rec);
+    fitBatch(batch);
   }
 
   // How long a gesture has to be still before the agent is told. The settle is
@@ -707,42 +707,61 @@ export function createTileShell({
     clockB.notify(p.id, rec.term.cols, rec.term.rows);
   }
 
-  function fitCanvas(rec) {
-    if (!rec || !rec.term || !rec.fit) return;
-    // A hidden terminal measures zero. addon-fit would round that up to its
-    // minimum and resize the pty to a couple of columns — and claude reflows to
-    // whatever it is told, so the session would come back from the card view
-    // wrapped one word per line.
-    //
-    // Left marked rather than dropped, so it is redrawn on the frame it becomes
-    // visible. Dropping it is why a tile came back from a collapse at the size it
-    // held before the expand, and stayed there until something else nudged it.
-    // No frame is scheduled here — the ResizeObserver fires the moment the tile
-    // has a size, and that is what drains this.
-    if (!rec.body.clientWidth || !rec.body.clientHeight) { dirtyFits.add(rec); return; }
-    // One resize from FitAddon's proposal, then at most one overflow clip.
-    // Both happen in this turn; Clock B coalesces them into one pty notify.
-    let dim;
-    try { dim = rec.fit.proposeDimensions(); } catch (_) { return; }
-    if (!dim || isNaN(dim.cols) || isNaN(dim.rows)) return;
-    const term = rec.term;
-    if (term.cols !== dim.cols || term.rows !== dim.rows) {
-      try { term.resize(dim.cols, dim.rows); } catch (_) { return; }
+  function fitCanvas(rec) { fitBatch([rec]); }
+  // Every dirty tile in one frame, in phases: all the reads, then all the
+  // writes. A tile's resize invalidates layout, so doing read→write→read→write
+  // per tile made the next tile's read (and the overflow read after each
+  // resize) force a synchronous layout: four tiles, eight forced layouts a
+  // frame while a window edge was dragged. Phased, it is one layout to measure
+  // the proposals and one to measure the overflow, however many tiles there are.
+  function fitBatch(recs) {
+    // 1 · read: what each visible terminal should become.
+    const planned = [];
+    for (const rec of recs) {
+      if (!rec || !rec.term || !rec.fit) continue;
+      // A hidden terminal measures zero. addon-fit would round that up to its
+      // minimum and resize the pty to a couple of columns — and claude reflows to
+      // whatever it is told, so the session would come back from the card view
+      // wrapped one word per line.
+      //
+      // Left marked rather than dropped, so it is redrawn on the frame it becomes
+      // visible. Dropping it is why a tile came back from a collapse at the size it
+      // held before the expand, and stayed there until something else nudged it.
+      // No frame is scheduled here — the ResizeObserver fires the moment the tile
+      // has a size, and that is what drains this.
+      if (!rec.body.clientWidth || !rec.body.clientHeight) { dirtyFits.add(rec); continue; }
+      let dim;
+      try { dim = rec.fit.proposeDimensions(); } catch (_) { continue; }
+      if (!dim || isNaN(dim.cols) || isNaN(dim.rows)) continue;
+      planned.push({ rec, dim });
     }
-    try {
-      const body = rec.body;
-      const screen = body.querySelector('.xterm-screen'); if (!screen) return;
-      const cs = getComputedStyle(body);
-      // physical: the terminal is left-to-right in every layout, so its right edge is its end
-      const limit = body.getBoundingClientRect().right
-        - parseFloat(cs.borderRightWidth || '0') - parseFloat(cs.paddingRight || '0'); // physical: see above
-      const sr = screen.getBoundingClientRect();
-      const overflow = sr.right - limit;
-      if (overflow > 0 && term.cols > 20) {
-        const cell = sr.width / term.cols;
-        term.resize(term.cols - Math.ceil(overflow / cell), term.rows);
+    // 2 · write: one resize from FitAddon's proposal. Clock B coalesces the
+    // notifications into one pty notify.
+    const resized = [];
+    for (const item of planned) {
+      const { rec, dim } = item, term = rec.term;
+      if (term.cols !== dim.cols || term.rows !== dim.rows) {
+        try { term.resize(dim.cols, dim.rows); } catch (_) { continue; }
       }
-    } catch (_) {}
+      resized.push(item);
+    }
+    // 3 · read: how far each screen overflows its body, after the resizes.
+    const clips = [];
+    for (const { rec } of resized) {
+      try {
+        const body = rec.body;
+        const screen = body.querySelector('.xterm-screen'); if (!screen) continue;
+        const cs = getComputedStyle(body);
+        // physical: the terminal is left-to-right in every layout, so its right edge is its end
+        const limit = body.getBoundingClientRect().right
+          - parseFloat(cs.borderRightWidth || '0') - parseFloat(cs.paddingRight || '0'); // physical: see above
+        const sr = screen.getBoundingClientRect();
+        const overflow = sr.right - limit;
+        if (overflow > 0 && rec.term.cols > 20) clips.push({ rec, drop: Math.ceil(overflow / (sr.width / rec.term.cols)) });
+      } catch (_) {}
+    }
+    // 4 · write: at most one overflow clip each.
+    for (const { rec, drop } of clips) { try { rec.term.resize(rec.term.cols - drop, rec.term.rows); } catch (_) {} }
   }
 
   function mountTerminal(p, rec) {

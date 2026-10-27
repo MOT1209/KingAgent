@@ -46,6 +46,32 @@ always the newest one below.
   sheet that looks the same on every theme by design. The skills pane's
   hard-coded red is now the `--red-body` token.
 
+### Changed
+
+Batch P10 + P4 + P5 of the audit fix plan.
+
+- **Keychain reads no longer stop the app.** `security find-generic-password`
+  ran with `execFileSync` on Electron's main thread, so an unanswered Keychain
+  dialog froze every window and terminal for up to 25 s (browser cookie import)
+  or 4 s (Claude usage). Both are asynchronous now (S9).
+- **Electron 43.3.0 → 43.8.3**, which carries the fix for the
+  corsEnabled-less custom-scheme read (S6), and `npm audit fix` for the
+  non-breaking transitive advisories (21 → 7: the remaining seven are in
+  `@huggingface/transformers`'s tree and need `--force`, so they are left for a
+  deliberate upgrade). The comment on `DOC_CSP` now says that `connect-src
+  'none'`, not the cross-origin wall, is what that page's isolation rests on.
+- **Closing a chat tile removes its document click listener** (U3). The dead
+  `session-sources.mjs` and its leaking interval are deleted (U4, U24).
+- **Less forced layout while typing, dragging and moving the pointer:** the
+  chat input measures once per frame instead of once per keystroke (U7);
+  terminal fits read every tile before writing to any, so a window-edge drag is
+  two layouts a frame instead of up to two per tile (U19); and the glass tilt's
+  per-frame `--rx/--ry` writes no longer wake the browser-view layout pass (U6).
+- Not changed after checking: U5. The gutter loop only reads, after a single
+  write, so the browser lays out once, not once per line. U12/U13 (filter
+  rebuilds the whole list per keystroke) are left for their own change: they
+  restructure how the lists render and want their own tests.
+
 ### Fixed
 
 - Dictating into a tile's AI input now sends a bubbling `input` event, like

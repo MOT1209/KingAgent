@@ -137,22 +137,22 @@ test('every Chromium browser on this platform is offered, each with its own layo
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
-test('each browser is asked for its own Keychain key, never Chrome\'s', () => {
+test('each browser is asked for its own Keychain key, never Chrome\'s', async () => {
   const asked = [];
-  const spy = (_cmd, args) => { asked.push(args[args.indexOf('-s') + 1]); return 'key-for-' + args[args.indexOf('-a') + 1]; };
+  const spy = (_cmd, args, _opts, cb) => { asked.push(args[args.indexOf('-s') + 1]); cb(null, 'key-for-' + args[args.indexOf('-a') + 1] + '\n'); };
   // Handing Brave's cookies Chrome's key is worse than finding no key at all:
   // the key is truthy, so the "allow Keychain access" hint is suppressed, and
   // every blob then fails its padding check and is silently counted as skipped.
-  assert.equal(chromeKeychainPassword('Brave', spy), 'key-for-Brave');
-  assert.equal(chromeKeychainPassword('Vivaldi', spy), 'key-for-Vivaldi');
-  assert.equal(chromeKeychainPassword('Opera', spy), 'key-for-Opera');
-  assert.equal(chromeKeychainPassword('Arc', spy), 'key-for-Arc');
-  assert.equal(chromeKeychainPassword('Chromium', spy), 'key-for-Chromium');
-  assert.equal(chromeKeychainPassword('Edge', spy), 'key-for-Microsoft Edge');
+  assert.equal(await chromeKeychainPassword('Brave', spy), 'key-for-Brave');
+  assert.equal(await chromeKeychainPassword('Vivaldi', spy), 'key-for-Vivaldi');
+  assert.equal(await chromeKeychainPassword('Opera', spy), 'key-for-Opera');
+  assert.equal(await chromeKeychainPassword('Arc', spy), 'key-for-Arc');
+  assert.equal(await chromeKeychainPassword('Chromium', spy), 'key-for-Chromium');
+  assert.equal(await chromeKeychainPassword('Edge', spy), 'key-for-Microsoft Edge');
   assert.deepEqual(asked, ['Brave Safe Storage', 'Vivaldi Safe Storage', 'Opera Safe Storage', 'Arc Safe Storage', 'Chromium Safe Storage', 'Microsoft Edge Safe Storage']);
   // Chrome's own channels share Google Chrome's item, which is the default.
   for (const channel of ['Chrome', 'Chrome Beta', 'Chrome Canary']) {
-    assert.equal(chromeKeychainPassword(channel, spy), 'key-for-Chrome');
+    assert.equal(await chromeKeychainPassword(channel, spy), 'key-for-Chrome');
   }
 });
 
@@ -233,4 +233,19 @@ test('SameSite=None is only ever written on a secure cookie', () => {
   // an ordinary lax cookie keeps whatever Chrome recorded
   const lax = cookieOptions({ host_key: '.example.com', name: 'a', value: 'b', path: '/', is_secure: 0, is_httponly: 0, samesite: 1, expires_utc: 0 });
   assert.equal(lax.secure, false);
+});
+
+test('a Keychain that is denied, times out or cannot be run gives no key, and never blocks', async () => {
+  assert.equal(await chromeKeychainPassword('Chrome', (_c, _a, _o, cb) => cb(new Error('user canceled'))), null);
+  assert.equal(await chromeKeychainPassword('Chrome', (_c, _a, _o, cb) => cb(null, '  \n')), null);
+  assert.equal(await chromeKeychainPassword('Chrome', () => { throw new Error('ENOENT'); }), null);
+  assert.equal(await chromeKeychainPassword('Chrome', undefined), null);
+  // Asking returns before the answer exists: the caller is not held while the user decides.
+  let answer;
+  const pending = chromeKeychainPassword('Chrome', (_c, _a, _o, cb) => { answer = cb; });
+  let settled = false; pending.then(() => { settled = true; });
+  await new Promise((r) => setImmediate(r));
+  assert.equal(settled, false);
+  answer(null, 'late-key');
+  assert.equal(await pending, 'late-key');
 });

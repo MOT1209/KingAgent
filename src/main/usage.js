@@ -207,8 +207,15 @@ function queryCodex(command, envPath, spawnFn = spawn) {
     send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'kingagent-usage', version: '1.0.0' }, capabilities: {} } });
   });
 }
-function claudeTokenFromKeychain() {
-  const { execFileSync } = require('node:child_process');
+// Asynchronous: `security` can wait on a Keychain dialog nobody has answered
+// (up to the timeout), and a synchronous call stopped the whole app meanwhile.
+function keychainRead(execFile, args) {
+  return new Promise((resolve) => {
+    try { execFile('security', args, { encoding: 'utf8', timeout: 4000 }, (err, stdout) => resolve(err ? '' : String(stdout || '').trim())); }
+    catch (_) { resolve(''); }
+  });
+}
+async function claudeTokenFromKeychain(execFile = require('node:child_process').execFile) {
   let user;
   try { user = os.userInfo().username; } catch { user = process.env.USER || ''; }
   const tries = [];
@@ -216,7 +223,7 @@ function claudeTokenFromKeychain() {
   tries.push(['find-generic-password', '-w', '-s', 'Claude Code-credentials']);
   for (const args of tries) {
     try {
-      const raw = String(execFileSync('security', args, { encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'] })).trim();
+      const raw = await keychainRead(execFile, args);
       if (!raw) continue;
       const data = JSON.parse(raw);
       const token = data?.claudeAiOauth?.accessToken;
@@ -228,7 +235,7 @@ function claudeTokenFromKeychain() {
   }
   return null;
 }
-function claudeToken(home) {
+async function claudeToken(home) {
   for (const file of [path.join(home, '.claude', '.credentials.json'), path.join(home, '.claude.json'), path.join(home, '.claude', 'credentials.json')]) {
     const data = readJsonFile(file);
     const token = data?.claudeAiOauth?.accessToken || data?.accessToken;
@@ -252,7 +259,7 @@ function claudeOauthUsage(data, now) {
       detail: row.status === 'stale' ? row.detail : 'Reported by the Claude account' + (row.resetsAt ? ' · resets ' + new Date(row.resetsAt).toLocaleString() : '') }));
 }
 async function fetchClaudeAccount(home, now, fetchFn) {
-  const token = claudeToken(home);
+  const token = await claudeToken(home);
   if (!token) return [];
   const data = await httpJson('https://api.anthropic.com/api/oauth/usage', {
     headers: { Authorization: 'Bearer ' + token, 'anthropic-beta': 'oauth-2025-04-20', 'User-Agent': 'claude-code/2.1.0' },
@@ -365,13 +372,16 @@ async function rowsFor(agent, { home, directory, envPath, now, spawnFn, fetchFn 
   if (agent.id === 'kimi') return fetchKimiAccount(home, now, agent, fetchFn);
   return [];
 }
-function missingDetail(agent, home) {
+async function missingDetail(agent, home) {
   if (agent.id === 'hermes') return signedInFile(home, '.hermes/auth.json') ? 'Hermes does not report a quota window.' : 'Sign in with Hermes';
   if (agent.id === 'opencode') return signedInFile(home, '.local/share/opencode/auth.json') ? 'OpenCode does not report a quota window.' : 'Sign in with OpenCode';
-  if (agent.id === 'claude' && claudeSkippedLocal(home)) return claudeToken(home)
-    ? 'Claude\u2019s local report is too large to scan, and the account did not answer.'
-    : 'Claude\u2019s local report is too large to scan. Sign in with Claude to read the account.';
-  if (agent.id === 'claude' && claudeToken(home)) return 'Could not read Claude usage.';
+  if (agent.id === 'claude') {
+    const token = await claudeToken(home);
+    if (claudeSkippedLocal(home)) return token
+      ? 'Claude\u2019s local report is too large to scan, and the account did not answer.'
+      : 'Claude\u2019s local report is too large to scan. Sign in with Claude to read the account.';
+    if (token) return 'Could not read Claude usage.';
+  }
   if (agent.id === 'grok' && grokSession(home)) return 'Could not read Grok usage.';
   if (agent.id === 'kimi' && kimiToken(home)) return signedInFile(home, '.kimi-code/credentials/kimi-code.json') ? 'Could not read Kimi usage.' : 'Kimi does not report a quota window for this login.';
   if ((agent.id === 'antigravity' || agent.id === 'gemini') && signedInFile(home, '.gemini/oauth_creds.json')) return 'Could not read Antigravity usage.';
@@ -385,7 +395,7 @@ async function readUsage({ agents, directory, envPath, home, now, spawnFn, fetch
     let rows;
     try { rows = await rowsFor(agent, { home, directory, envPath, now, spawnFn, fetchFn }); }
     catch (_) { rows = []; }
-    accounts.push(...(rows.length ? rows : unavailable(agent, missingDetail(agent, home))));
+    accounts.push(...(rows.length ? rows : unavailable(agent, await missingDetail(agent, home))));
   }
   return { accounts };
 }

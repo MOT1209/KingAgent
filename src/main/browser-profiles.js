@@ -281,12 +281,20 @@ const SAFE_STORAGE = {
   Arc: 'Arc',
   Chromium: 'Chromium',
 };
-function chromeKeychainPassword(browser, execFileSync) {
-  if (typeof execFileSync !== 'function') return null;
+// Asynchronous on purpose. The Keychain may put up an "allow access" dialog the
+// user has not answered yet, and `security` waits on it for up to the timeout;
+// a synchronous call here held Electron's main thread — every window, every
+// terminal's output — for that whole time. `execFile` is the injected
+// child_process.execFile (callback style), so tests answer without a Keychain.
+function chromeKeychainPassword(browser, execFile) {
+  if (typeof execFile !== 'function') return Promise.resolve(null);
   const label = SAFE_STORAGE[browser] || 'Chrome';
-  try {
-    return String(execFileSync('security', ['find-generic-password', '-w', '-s', label + ' Safe Storage', '-a', label], { encoding: 'utf8', timeout: 25000, stdio: ['ignore', 'pipe', 'ignore'] })).trim() || null;
-  } catch { return null; }
+  return new Promise((resolve) => {
+    try {
+      execFile('security', ['find-generic-password', '-w', '-s', label + ' Safe Storage', '-a', label],
+        { encoding: 'utf8', timeout: 25000 }, (err, stdout) => resolve(err ? null : (String(stdout || '').trim() || null)));
+    } catch { resolve(null); }
+  });
 }
 // How a Chrome row becomes a cookie Chromium will actually accept.
 //
@@ -325,7 +333,7 @@ async function importChromiumCookies({ session, sources, passwordFor, includeGoo
     let rows;
     try { rows = readChromeCookieRows(source.cookies); }
     catch (failure) { const f = readFailure(failure); locked = locked || f.locked; error = error || f.error; continue; }
-    const password = passwordFor ? passwordFor(source) : null;
+    const password = passwordFor ? await passwordFor(source) : null;
     const key = password ? deriveChromeKey(password) : null;
     const ready = [];
     for (const row of rows) {

@@ -35,7 +35,14 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
   window.addEventListener('resize', schedule); window.addEventListener('scroll', schedule, true);
   // Menus, rail folding, pane moves and zoom can move a native child without
   // resizing the browser viewport itself. Observe geometry-affecting DOM state.
-  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-glass', 'data-soft'] });
+  // The glass tilt (initGlassTilt in app.js) rewrites --rx/--ry on a session card
+  // on every frame the pointer moves over it, which is a `style` mutation, which
+  // used to run layout() — two rect reads per browser view and a JSON of the
+  // result — sixty times a second for nothing: a card's tilt moves no viewport.
+  // Those records are skipped; any other style change still counts.
+  new MutationObserver((records) => {
+    if (records.some((r) => !(r.type === 'attributes' && r.attributeName === 'style' && r.target.classList && r.target.classList.contains('nav-card')))) schedule();
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-glass', 'data-soft'] });
   function open(url = 'about:blank', filePath = null, owner = null, id = null, deferred = false, profileId = null) {
     const p = { id: id || uid('p_'), kind: 'browser', chipKind: 'viewer', code: 'WEB', title: filePath ? filePath.split('/').pop() : 'Browser', url, filePath, status: 'live', browserDeferred: deferred, profileId };
     pin(p, owner ? { owner } : {}); if (owner) { p.owner = owner; refresh(); } return p;

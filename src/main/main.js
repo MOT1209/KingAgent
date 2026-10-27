@@ -66,6 +66,11 @@ protocol.registerSchemesAsPrivileged([{
   privileges: { standard: true, secure: true, supportFetchAPI: false, corsEnabled: false },
 }]);
 
+// Electron before 43.5 let a page read a cross-origin response through a scheme
+// without corsEnabled (GHSA-j84w-jfhq-vhvj), which is how this scheme is
+// registered — so the cross-origin wall above is not what this relies on. The
+// load-bearing control is connect-src 'none' below, which holds on any version.
+//
 // The one policy every served response carries: the page may run and style
 // itself (agents inline both) and load its own assets, but connect-src 'none'
 // means it can open no socket, so anything it managed to read it cannot send
