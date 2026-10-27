@@ -1,3 +1,4 @@
+import { t } from './i18n.mjs';
 import { chipHtml, iconKeyFor, iconSvg, treeIcon } from './icons.mjs';
 import { resolveTool, originLine, sortKey, isMaster, reachOf } from './agent-reach.mjs';
 import { isPickerAgent } from './library-groups.mjs';
@@ -115,7 +116,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
   function statusLineFor(a) {
     const st = S.agentStatus[a.id];
     if (!st || st.signedIn === null) return { dot: 'ok', text: a.sub };
-    if (st.signedIn === false) return { dot: 'warn', text: 'signed out' };
+    if (st.signedIn === false) return { dot: 'warn', text: t('launcher.signedOut') };
     return { dot: 'ok', text: st.label || a.sub };
   }
   function openLauncher() { S.overlay = { type: 'launcher' }; renderOverlay(); refreshAgents(); }
@@ -123,8 +124,8 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     const companionOf = S.overlay.companionOf;
     const prevList = q('#lc-list');
     const prevScroll = prevList ? prevList.scrollTop : 0;
-    const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">＋</span><span style="font-weight:700">New session</span>
-      <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">${S.project ? esc(S.project.name) : 'no folder'}</span></div>
+    const modal = overlay('picker-box', `<div class="picker-input"><span class="prompt-mark">＋</span><span style="font-weight:700">${esc(t('launcher.newSession'))}</span>
+      <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">${S.project ? esc(S.project.name) : esc(t('footer.noFolder'))}</span></div>
       <div class="picker-list" id="lc-list"></div>`, { top: true });
     const list = q('#lc-list', modal);
     if (prevScroll) requestAnimationFrame(() => { list.scrollTop = prevScroll; });
@@ -137,7 +138,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
 
     if (!S.agents) {
       const row = document.createElement('div'); row.className = 'picker-row';
-      row.innerHTML = `<span class="col"><span class="desc">looking for agents on this Mac…</span></span>`;
+      row.innerHTML = `<span class="col"><span class="desc">${esc(t('launcher.looking'))}</span></span>`;
       list.appendChild(row);
     }
     for (const a of ready) {
@@ -151,9 +152,9 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
       if (fresh) row.classList.add('picker-row--new');
       row.innerHTML = `${chipHtml({ key: iconKeyFor(a.id), code: code2(a.name), kind: 'agent' })}
         <span class="col"><span class="name">${esc(a.name)}</span>
-        <span class="desc"><span class="ok${st.dot === 'warn' ? ' ok--warn' : ''}">●</span> ready · ${esc(st.text)}</span></span>
-        ${fresh ? '<span class="row-new">just added</span>' : ''}
-        ${manageable ? '<span class="chev" title="Manage this agent">›</span>' : ''}`;
+        <span class="desc"><span class="ok${st.dot === 'warn' ? ' ok--warn' : ''}">●</span> ${esc(t('launcher.ready'))} · ${esc(st.text)}</span></span>
+        ${fresh ? `<span class="row-new">${esc(t('launcher.justAdded'))}</span>` : ''}
+        ${manageable ? `<span class="chev" title="${esc(t('launcher.manage'))}">›</span>` : ''}`;
       const launch = () => {
         closeOverlay();
         withFolder(() => {
@@ -168,11 +169,11 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
       if (demoAcp) {
         const tail = document.createElement('span');
         tail.className = 'lc-acp';
-        tail.innerHTML = '<button class="lc-chat">Chat<span class="lc-beta">beta</span></button>';
+        tail.innerHTML = `<button class="lc-chat">${esc(t('launcher.chat'))}<span class="lc-beta">beta</span></button>`;
         row.appendChild(tail);
       }
       const manageChev = row.querySelector('.chev');
-      if (manageChev) { manageChev.setAttribute('aria-label', 'Manage ' + a.name); activateOnKey(manageChev, () => openAgentSheet(a)); }
+      if (manageChev) { manageChev.setAttribute('aria-label', t('launcher.manageNamed', { name: a.name })); activateOnKey(manageChev, () => openAgentSheet(a)); }
       row.onclick = async (e) => {
         if (manageable && e.target.closest('.chev')) { openAgentSheet(a); return; }
         if (demoAcp && e.target.closest('.lc-chat')) {
@@ -187,7 +188,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
           S.panels.unshift(np); S.activeId = np.id;
           renderGrid(); renderRail(); renderHeader();
           attachCompanion(np,companionOf);
-          toast(a.name + ' — new chat session');
+          toast(t('launcher.newChat', { name: a.name }));
           return;
         }
         launch();
@@ -204,12 +205,12 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     // add section: every not-yet-installed agent from the curated registry
     if (missing.length) {
       const div = document.createElement('div'); div.className = 'picker-divider';
-      div.textContent = 'add an agent to this Mac'; list.appendChild(div);
+      div.textContent = t('launcher.addAgent'); list.appendChild(div);
       const grid = document.createElement('div'); grid.className = 'add-grid'; list.appendChild(grid);
       for (const a of missing) {
         const card = document.createElement('div'); card.className = 'add-card'; card.tabIndex = 0;
         card.innerHTML = `${chipHtml({ key: iconKeyFor(a.id), code: code2(a.name), kind: 'agent' })}
-          <span class="ac-name">${esc(a.name)}</span><span class="ac-desc">${esc(a.sub)}</span><span class="ac-go">set up →</span>`;
+          <span class="ac-name">${esc(a.name)}</span><span class="ac-desc">${esc(a.sub)}</span><span class="ac-go">${esc(t('launcher.setUp'))}</span>`;
         card.onclick = () => { closeOverlay(); openAgentSetup(a); };
         activateOnKey(card, () => card.onclick());
         grid.appendChild(card);
