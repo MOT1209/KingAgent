@@ -5,6 +5,7 @@
 // available, a lightweight LLM-as-judge pass replaces the heuristic.
 
 const { isPlainObject } = require('../schema/validate');
+const { generateWithin } = require('../ai/provider');
 
 class Evaluator {
   constructor({ provider = null, logger = null } = {}) {
@@ -15,7 +16,7 @@ class Evaluator {
   async evaluateStep(task, step, result, _context) {
     if (this._provider) {
       try {
-        const r = await this._provider.generate({
+        const r = await generateWithin(this._provider, {
           system: 'Return { passed:boolean, reason:string, next:"continue"|"replan"|"fail" }. No prose.',
           messages: [{ role: 'user', content: formatForJudge(task, step, result) }],
           structured: true,

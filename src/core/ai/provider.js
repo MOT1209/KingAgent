@@ -58,4 +58,38 @@ function createProviderRegistry() {
   return { register, get, list, resolve };
 }
 
-module.exports = { createProviderRegistry, nullProvider, ModelError };
+// One bounded model call. A provider's generate() is an arbitrary network
+// request with no deadline of its own, and the runtime loop awaits it: a call
+// that never answers stopped the loop for good, and cancelling the task could
+// not help because the request had not been told. This races the call against
+// a timer and against the caller's AbortSignal, whichever comes first, and
+// passes the signal on so a well-behaved adapter can also stop its work.
+const DEFAULT_GENERATE_TIMEOUT_MS = 60_000;
+
+function generateWithin(provider, args = {}, { timeoutMs = DEFAULT_GENERATE_TIMEOUT_MS } = {}) {
+  const outer = args.signal;
+  if (outer && outer.aborted) return Promise.reject(new ModelError('model call was cancelled', { code: 'MODEL_CANCELLED', provider: provider && provider.id }));
+  const controller = new AbortController();
+  let timer = null, onAbort = null;
+  const bounded = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new ModelError(`model call timed out after ${timeoutMs} ms`, { code: 'MODEL_TIMEOUT', provider: provider && provider.id }));
+      controller.abort();
+    }, timeoutMs);
+    if (outer) {
+      onAbort = () => {
+        reject(new ModelError('model call was cancelled', { code: 'MODEL_CANCELLED', provider: provider && provider.id }));
+        controller.abort();
+      };
+      outer.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+  const call = Promise.resolve().then(() => provider.generate({ ...args, signal: controller.signal }));
+  call.catch(() => {}); // a late rejection after the race is decided is not unhandled
+  return Promise.race([call, bounded]).finally(() => {
+    clearTimeout(timer);
+    if (outer && onAbort) outer.removeEventListener('abort', onAbort);
+  });
+}
+
+module.exports = { createProviderRegistry, nullProvider, ModelError, generateWithin, DEFAULT_GENERATE_TIMEOUT_MS };

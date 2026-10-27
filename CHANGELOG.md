@@ -48,6 +48,15 @@ always the newest one below.
 
 ### Changed
 
+- **Defences that were written and never called (C1, C3, C9).** Model calls in
+  the reasoner, evaluator and planner go through `generateWithin()`: a 60 s
+  deadline, and the task's cancel signal now reaches the request, so a hung
+  provider no longer stalls the run loop and cancelling stops the call. A search
+  provider that implements `fetch()` must declare `ssrfChecked: true` to be
+  registered. The synthesizer fences the findings it puts in front of a model
+  with `wrapUntrusted`. No model or search provider is registered in the
+  shipped app today, so none of this changes behaviour yet; it is in place for
+  the day one is.
 - **No more native `confirm()` (U14).** Discarding unsaved edits and opening a
   file from outside the project use a themed sheet (`confirm-sheet.mjs`) with
   its own layer, Escape = no, and focus on the safe answer. The system dialog

@@ -52,6 +52,14 @@ function validateProvider(id, adapter) {
   if (adapter.fetch !== undefined && typeof adapter.fetch !== 'function') {
     return { ok: false, errors: [`search provider "${id}" has a non-function fetch()`] };
   }
+  // The two SSRF defences above cannot be enforced from here, so a provider
+  // that fetches must say it honours them. Declaring it is a statement the
+  // author makes after reading this file, not a check: it turns "nobody did
+  // it" into "somebody claimed to", which a reviewer can then hold to account.
+  // A provider with no fetch() never opens a socket on a fetched URL.
+  if (typeof adapter.fetch === 'function' && adapter.ssrfChecked !== true) {
+    return { ok: false, errors: [`search provider "${id}" implements fetch() and must declare ssrfChecked: true after screening the resolved address and every redirect hop (see the contract above)`] };
+  }
   if (adapter.sourceTypes !== undefined && !Array.isArray(adapter.sourceTypes)) {
     return { ok: false, errors: [`search provider "${id}" sourceTypes must be an array`] };
   }
