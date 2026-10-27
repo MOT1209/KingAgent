@@ -1791,6 +1791,9 @@ function watchTitle(id, wc, file, { pid = null, sid = null, cwd = null, agent = 
 const STORE_AGENT = { antigravity: 'agy' };
 ipcMain.handle('session:watch-title', (e, { id, agent, cwd, sid }) => {
   if (!id || !sid) return { ok: false };
+  // Every entry costs a stat and a read (or a SQLite query) every few seconds
+  // for as long as it lives; the renderer never has this many tiles open.
+  if (!titleWatch.has(id) && titleWatch.size >= 200) return { ok: false };
   const key = STORE_AGENT[agent] || agent || 'claude';
   watchTitle(id, e.sender, null, { agent: key, sid, cwd });
   return { ok: true };

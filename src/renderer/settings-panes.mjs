@@ -367,9 +367,10 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     const d = new Date(iso);
     if (isNaN(d)) return '';
     const day = d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
-    // hour12 forced: the machine's locale decides otherwise, and "18:55" next to a
-    // handwritten heading reads as a log line rather than a date on a page.
-    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    // The machine's own locale, for the time as well as the date: forcing en-US
+    // here put "6:55pm" beside an Arabic date. Compacted either way ("6:55pm",
+    // "18:55"), so the line still reads like a note rather than a log entry.
+    const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
       .toLowerCase().replace(/\s+/g, '');
     return `updated ${day} at ${time}`;
   }

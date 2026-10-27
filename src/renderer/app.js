@@ -1092,7 +1092,7 @@ function buildShell() {
           </div>
         </div>
       </div>
-      <div id="overlay-root"></div><div id="toast-root"></div>
+      <div id="overlay-root"></div><div id="toast-root" role="status" aria-live="polite" aria-atomic="true"></div>
     </div></div>`;
 
   // Object.assign onto the existing object, not a fresh one: updateBar (and
@@ -1197,7 +1197,11 @@ function buildShell() {
 function initGlassTilt() {
   let pane = null, raf = 0, lastEvent = null;
   const reset = (el) => { if (el) { el.style.setProperty('--rx', '0deg'); el.style.setProperty('--ry', '0deg'); } };
+  // A 3-D tilt that follows the pointer is exactly the motion the setting asks
+  // to be spared. Read at the event, so changing the OS setting takes effect now.
+  const calm = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.addEventListener('pointermove', (e) => {
+    if (calm()) { if (pane) { reset(pane); pane = null; } return; }
     if (!document.body.hasAttribute('data-glass')) { if (pane) { reset(pane); pane = null; } return; }
     const hit = e.target instanceof Element ? e.target.closest('.nav-card') : null;
     if (hit !== pane) { reset(pane); pane = hit; }

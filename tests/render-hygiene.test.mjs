@@ -51,3 +51,8 @@ test('terminal fits read for every tile before writing for any (U19)', () => {
   assert.ok(at(/getBoundingClientRect/) < at(/rec\.term\.resize\(rec\.term\.cols - drop/), 'overflow read before the clip');
   assert.match(s, /function drainFits\(\) \{[^}]*fitBatch\(batch\)/);
 });
+
+test('toasts are announced, and the glass tilt honours reduced motion (U27, U29)', () => {
+  assert.match(src('app.js'), /<div id="toast-root" role="status" aria-live="polite" aria-atomic="true">/);
+  assert.match(src('app.js'), /prefers-reduced-motion: reduce[\s\S]{0,200}pointermove|pointermove[\s\S]{0,300}calm\(\)/);
+});

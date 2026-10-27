@@ -181,3 +181,10 @@ test('engine: get() returns null for unknown instances', async () => {
   const { engine } = buildEngine({});
   assert.equal(engine.get('nope'), null);
 });
+test('definition: a node that is not an object is a validation failure, not a TypeError', () => {
+  for (const bad of [null, 7, 'x', []]) {
+    const r = validateWorkflow({ id: 'w', name: 'w', nodes: [bad], edges: [] });
+    assert.equal(r.ok, false);
+    assert.match(r.errors.join(' '), /every node must be an object/);
+  }
+});

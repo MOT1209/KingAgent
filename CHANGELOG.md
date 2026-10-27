@@ -48,6 +48,18 @@ always the newest one below.
 
 ### Changed
 
+Small items from batches P11–P13 of the audit fix plan.
+
+- Toasts are announced to screen readers (`role="status"`, `aria-live`) (U27),
+  and the glass tilt stays still under `prefers-reduced-motion` (U29).
+- The "updated …" line in Settings → About uses the machine's own time
+  format instead of forcing en-US next to a localised date (U36).
+- A repeated `agent:authorizeResponse` can no longer resolve an approval twice
+  (S15), and `session:watch-title` stops adding watchers past 200 (S12).
+- `defineWorkflow` reports a non-object node as an invalid workflow instead of
+  throwing a `TypeError` (C13); a dead `&& false` clause is removed from
+  "close finished" (U21).
+
 Batch P8 + P6 + P7 of the audit fix plan.
 
 - **A failed request no longer leaves a control stuck.** About twenty click

@@ -285,7 +285,7 @@ export function createPanelLifecycle({ api, state, tiles, browsers, toast, uid, 
     renderGrid(); renderRail(); renderHeader(); savePanels();
   }
   function closeFinished() {
-    const gone = S.panels.filter((p) => p.exited || (p.kind === 'editor' && !p.dirty && false));
+    const gone = S.panels.filter((p) => p.exited);
     for (const p of gone) closePanel(p.id);
     if (!gone.length) toast('Nothing finished to close.');
   }
