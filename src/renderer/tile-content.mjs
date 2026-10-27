@@ -1,5 +1,6 @@
 import { fileKind, fileUrl, docUrl } from './file-kinds.mjs';
 import { guarded, messageOf } from './guard.mjs';
+import { t } from './i18n.mjs';
 import { parseDoc, getField, setField, serializeDoc, editsAsFrontmatter, listItems, setListField, removeField } from './frontmatter.mjs';
 import { resolveOpen } from './peek-core.mjs';
 import { feedNameDraft, adoptTitle } from './session-name.mjs';
@@ -452,7 +453,7 @@ export function createTileContent({
       p.lastHash = res.hash || hashText(p.text || '');
       p.diskText = null;
       p.dirty = false; refreshTileHead(p); refreshRail(); refreshBrowserButtons(p);
-      toast('Saved ' + baseNameOf(p.filePath));
+      toast(t('toast.saved', { name: baseNameOf(p.filePath) }));
       return true;
     }
     toast('Save failed: ' + (res && res.error || '?'));
@@ -723,7 +724,7 @@ export function createTileContent({
     if (res && res.ok) {
       p.dirty = false;
       p.title = getField(p.doc, 'name') || p.item.slug;
-      refreshTileHead(p); refreshRail(); toast('Saved ' + p.title);
+      refreshTileHead(p); refreshRail(); toast(t('toast.saved', { name: p.title }));
       loadLibrary(true);
       // The block publishes each skill's description, so editing one here is a
       // reason to rewrite it — the announcement should not lag the file.

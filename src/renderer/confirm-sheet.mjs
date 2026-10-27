@@ -11,6 +11,7 @@
 // answer so a stray Enter cannot discard anything.
 
 import { makeDialog } from './dialog.mjs';
+import { t } from './i18n.mjs';
 
 export function askConfirm({ title = 'Are you sure?', message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false, safe = 'cancel' } = {}) {
   return new Promise((resolve) => {
@@ -43,4 +44,10 @@ export function askConfirm({ title = 'Are you sure?', message = '', confirmLabel
     document.body.appendChild(wrap);
     modal.querySelector(safe === 'confirm' ? '[data-a="yes"]' : '[data-a="no"]').focus({ preventScroll: true });
   });
+}
+
+// The one question asked in three places: leaving an editor with unsaved edits.
+export function confirmDiscard(name) {
+  return askConfirm({ title: t('confirm.discard.title'), message: t('confirm.discard.body', { name }),
+    confirmLabel: t('confirm.discard.yes'), cancelLabel: t('confirm.discard.no'), danger: true });
 }

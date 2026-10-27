@@ -2,6 +2,7 @@ import { usagePaneHtml, wireUsagePane as wireUsageContent } from './usage-pane.m
 import { OPEN_OUTPUT_COPY, SHORTCUT_GROUPS } from './shortcuts.mjs';
 import { GROK_API_KEY } from './grok-auth.mjs';
 import { guarded, messageOf } from './guard.mjs';
+import { t, getLanguage, LANGUAGES } from './i18n.mjs';
 
 // Extracted from app.js verbatim, as part of splitting that file into
 // smaller feature modules.
@@ -10,18 +11,18 @@ import { guarded, messageOf } from './guard.mjs';
 // browser-pane.mjs), Usage (delegates to usage-pane.mjs), Updates, About.
 export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overlay, closeOverlay, renderOverlay,
   rememberHelpFocus, getHelpFocusKey, refreshSttInfo, setSttInfo, transcribeBlob, setTheme, currentTheme, getThemeOptions,
-  setDirection, currentDirection, browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
+  setDirection, currentDirection, setLanguageUi, browsers, updateBar, REPO_URL, DOCS, makerUrl, teamsUrl }) {
   const S = state;
 
   const SET_SECTIONS = [
-    { id: 'voice', name: 'Voice', lead: 'how KingAgent hears you' },
-    { id: 'look', name: 'Look', lead: 'how KingAgent looks on this desk' },
-    { id: 'keys', name: 'Keys', lead: 'keys every session can use' },
-    { id: 'shortcuts', name: 'Shortcuts', lead: 'small moves that make your desk easier to use' },
-    { id: 'browser', name: 'Browser', lead: 'browser views your sessions can use' },
-    { id: 'usage', name: 'Usage', lead: 'remaining allowance by connected account' },
-    { id: 'updates', name: 'Updates', lead: 'how KingAgent checks for and installs new versions' },
-    { id: 'about', name: 'About', lead: 'about this copy of KingAgent' },
+    { id: 'voice', get name() { return t('settings.voice'); }, get lead() { return t('settings.voice.lead'); } },
+    { id: 'look', get name() { return t('settings.look'); }, get lead() { return t('settings.look.lead'); } },
+    { id: 'keys', get name() { return t('settings.keys'); }, get lead() { return t('settings.keys.lead'); } },
+    { id: 'shortcuts', get name() { return t('settings.shortcuts'); }, get lead() { return t('settings.shortcuts.lead'); } },
+    { id: 'browser', get name() { return t('settings.browser'); }, get lead() { return t('settings.browser.lead'); } },
+    { id: 'usage', get name() { return t('settings.usage'); }, get lead() { return t('settings.usage.lead'); } },
+    { id: 'updates', get name() { return t('settings.updates'); }, get lead() { return t('settings.updates.lead'); } },
+    { id: 'about', get name() { return t('settings.about'); }, get lead() { return t('settings.about.lead'); } },
   ];
   function openSettings(section) {
     rememberHelpFocus();
@@ -38,7 +39,7 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
     const sec = SET_SECTIONS.find((s) => s.id === o.section) || SET_SECTIONS[0];
     const modal = overlay('modal modal--settings' + (sec.id === 'shortcuts' ? ' modal--shortcuts' : ''), `
       <div class="modal-head"><span class="col">
-        <span class="title">Settings</span>
+        <span class="title">${esc(t('settings.title'))}</span>
         <span class="sub">${esc(sec.lead)}</span></span></div>
       <div class="modal-body"><div class="set-wrap">
         <div class="set-nav">${SET_SECTIONS.map((s) =>
@@ -49,8 +50,8 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
               : sec.id === 'browser' ? browsers.settingsHtml() : sec.id === 'usage' ? usagePaneHtml()
                 : sec.id === 'updates' ? updatesPaneHtml() : sec.id === 'about' ? aboutPaneHtml() : sec.id === 'shortcuts' ? shortcutsPaneHtml() : keysPaneHtml()}</div>
       </div></div>
-      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : '<span class="note">Saved on this Mac only, nothing syncs.</span>'}
-        <button class="btn btn--go" id="set-done">Done</button></div>`);
+      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : `<span class="note">${esc(t('settings.localOnly'))}</span>`}
+        <button class="btn btn--go" id="set-done">${esc(t('settings.done'))}</button></div>`);
 
     modal.querySelectorAll('.set-nav .rail-tab').forEach((b) => {
       b.onclick = () => { keepDraft(modal); o.section = b.dataset.sec; renderOverlay(); };
@@ -276,17 +277,24 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   // ---- Look ------------------------------------------------------------------
   // Direction mirrors the layout, not the words: the strings stay English, and
   // chat, documents and file names find their own direction either way.
-  const DIRECTION_OPTIONS = [
-    { id: 'ltr', name: 'Left to right', desc: 'the sidebar and every row start on the left' },
-    { id: 'rtl', name: 'Right to left', desc: 'mirrored for Arabic: the sidebar and every row start on the right' },
+  const DIRECTION_OPTIONS = () => [
+    { id: 'ltr', name: t('look.ltr'), desc: t('look.ltr.desc') },
+    { id: 'rtl', name: t('look.rtl'), desc: t('look.rtl.desc') },
   ];
+  // Language names are shown in their own language, whichever one is active.
+  const LANGUAGE_OPTIONS = () => LANGUAGES.map((id) => ({ id, name: t('look.lang.' + id), desc: t('look.lang.' + id + '.desc') }));
   function lookPaneHtml() {
-    return `<div class="field-label">appearance</div>` + getThemeOptions().map((t) =>
+    return `<div class="field-label">${esc(t('look.appearance'))}</div>` + getThemeOptions().map((t) =>
       `<button class="theme-opt set-opt${currentTheme() === t.id ? ' picked' : ''}" data-theme-id="${t.id}" aria-pressed="${currentTheme() === t.id}">
         <span class="theme-dot"></span>
         <span class="set-opt-col"><span class="theme-name">${esc(t.name)}</span>
           <span class="set-opt-desc">${esc(t.desc)}</span></span></button>`).join('')
-      + `<div class="field-label">layout direction</div>` + DIRECTION_OPTIONS.map((d) =>
+      + `<div class="field-label">${esc(t('look.language'))}</div>` + LANGUAGE_OPTIONS().map((d) =>
+      `<button class="theme-opt set-opt${getLanguage() === d.id ? ' picked' : ''}" data-lang-id="${d.id}" aria-pressed="${getLanguage() === d.id}">
+        <span class="theme-dot"></span>
+        <span class="set-opt-col"><span class="theme-name">${esc(d.name)}</span>
+          <span class="set-opt-desc">${esc(d.desc)}</span></span></button>`).join('')
+      + `<div class="field-label">${esc(t('look.direction'))}</div>` + DIRECTION_OPTIONS().map((d) =>
       `<button class="theme-opt set-opt${currentDirection() === d.id ? ' picked' : ''}" data-dir-id="${d.id}" aria-pressed="${currentDirection() === d.id}">
         <span class="theme-dot"></span>
         <span class="set-opt-col"><span class="theme-name">${esc(d.name)}</span>
@@ -299,6 +307,13 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
         setTheme(theme);
         // setTheme rebuilds Settings; keep keyboard navigation on the new row.
         q(`.set-opt[data-theme-id="${theme}"]`)?.focus({ preventScroll: true });
+      };
+    });
+    modal.querySelectorAll('[data-lang-id]').forEach((b) => {
+      b.onclick = () => {
+        const lang = b.dataset.langId;
+        setLanguageUi(lang);
+        q(`.set-opt[data-lang-id="${lang}"]`)?.focus({ preventScroll: true });
       };
     });
     modal.querySelectorAll('[data-dir-id]').forEach((b) => {

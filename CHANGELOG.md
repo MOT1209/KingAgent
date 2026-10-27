@@ -46,6 +46,20 @@ always the newest one below.
   sheet that looks the same on every theme by design. The skills pane's
   hard-coded red is now the `--red-body` token.
 
+### Added
+
+- **Arabic interface, first slice.** `src/renderer/i18n.mjs` with English and
+  Arabic dictionaries (`locales/en.mjs`, `locales/ar.mjs`). Settings → Look has a
+  Language picker; choosing Arabic also mirrors the layout, and the direction can
+  still be changed on its own. Translated: the app shell (tabs, top bar, footer,
+  live badge, view switch), Settings (title, every section name and lead, the Look
+  pane, Done and the footer note), the unsaved-changes and outside-project
+  confirmations, and the "Saved" toast. Everything else is still English and falls
+  back to it; `tests/i18n.test.mjs` fails if Arabic lacks a key English has, if a
+  placeholder differs, or if the app draws a key that does not exist. Commands,
+  file names, agent output and the terminal are never translated. `--lang=ar`
+  forces it for screenshots. Setting: `language` in settings.json.
+
 ### Changed
 
 - **Orchestration limits in one place (C7).** Depth, task and delegation

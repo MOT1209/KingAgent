@@ -16,7 +16,8 @@
     if (t === 'soft' || t === 'dusk') document.body.setAttribute('data-soft', '');
     // Layout direction, for the same reason: app.js sets it again from boot
     // data, but a mirrored window must not paint one frame the wrong way round.
-    if (localStorage.getItem('kingagent-dir') === 'rtl') { document.documentElement.dir = 'rtl'; document.documentElement.lang = 'ar'; }
+    if (localStorage.getItem('kingagent-dir') === 'rtl') document.documentElement.dir = 'rtl';
+    if (localStorage.getItem('kingagent-lang') === 'ar') document.documentElement.lang = 'ar';
   } catch (_) {
     // localStorage may be unavailable (file:// privacy modes): fall back to the
     // default theme rather than failing the window.

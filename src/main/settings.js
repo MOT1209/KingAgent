@@ -109,6 +109,8 @@ function normalizeView(name) { return VIEWS.includes(name) ? name : 'desk'; }
 // Which edge the interface reads from. The strings stay English either way;
 // rtl mirrors the layout for someone who reads Arabic first. Content (chat,
 // documents, file names) finds its own direction regardless of this.
+const LANGUAGES = ['en', 'ar'];
+function normalizeLanguage(l) { return LANGUAGES.includes(l) ? l : 'en'; }
 const DIRECTIONS = ['ltr', 'rtl'];
 function normalizeDirection(d) { return DIRECTIONS.includes(d) ? d : 'ltr'; }
 function themeBackground(name) { return THEME_BG[normalizeTheme(name)]; }
@@ -183,6 +185,6 @@ function researchConfig(settings) {
 
 module.exports = {
   readSettings, writeSettings, fsIo, normalizeTheme, themeBackground, THEMES, DEFAULT_THEME,
-  normalizeView, VIEWS, normalizeDirection, DIRECTIONS, researchConfig, RESEARCH_DEFAULTS, RESEARCH_MODES,
+  normalizeView, VIEWS, normalizeDirection, DIRECTIONS, normalizeLanguage, LANGUAGES, researchConfig, RESEARCH_DEFAULTS, RESEARCH_MODES,
   SECRET_KEYS, ENC_PREFIX,
 };
