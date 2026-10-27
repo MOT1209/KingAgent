@@ -190,3 +190,4 @@ to it. What that means in practice:
 
 MIT licensed · [Repository](https://github.com/MOT1209/KingAgent) ·
 [Issues](https://github.com/MOT1209/KingAgent/issues)
+factory test
