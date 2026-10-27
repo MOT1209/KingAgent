@@ -28,11 +28,11 @@ test('newBrowser opens about:blank immediately and never summons the New browser
 });
 
 test('address row is back, forward, reload, field, Annotate pill and menu, without a header annotate pin', () => {
-  assert.match(pane, /button\('back', 'Back', 'back'\)/);
-  assert.match(pane, /button\('forward', 'Forward', 'forward'\)/);
-  assert.match(pane, /button\('refresh', 'Reload', 'reload'\)/);
+  assert.match(pane, /button\('back', t\('browser\.back'\), 'back'\)/);
+  assert.match(pane, /button\('forward', t\('browser\.forward'\), 'forward'\)/);
+  assert.match(pane, /button\('refresh', t\('browser\.reload'\), 'reload'\)/);
   assert.match(pane, /class="browser-annotate"/);
-  assert.match(pane, /button\('more', 'Browser menu', 'menu'\)/);
+  assert.match(pane, /button\('more', t\('browser\.menu'\), 'menu'\)/);
   assert.match(pane, /\.t-mic.*hidden\s*=\s*true/);
   assert.match(css, /\.browser-annotate\.is-on\s*\{[^}]*var\(--green\)/);
   assert.match(css, /\.browser-annotate[^{]*\{[^}]*font-size:\s*11px/);

@@ -41,7 +41,7 @@ test('pinning an HTML peek pins the rendered page, not its source', () => {
 
 test('the browser tile menu and the split tab strip carry the tile menu', () => {
   const pane = fs.readFileSync(path.resolve(dir, '../src/renderer/browser-pane.mjs'), 'utf8');
-  assert.match(pane, /const actions = \[\s*\['Open in Chrome \\u2197', \(\) => openOutside\(p\)\]/);
+  assert.match(pane, /const actions = \[\s*\[t\('lib\.openChrome'\), \(\) => openOutside\(p\)\]/);
   assert.match(pane, /b\.oncontextmenu=[\s\S]{0,160}tileMenu\(x\)/);
   assert.match(tileShell, /if \(isFilePanel\(p\)\) head\.oncontextmenu = [^\n]*tileMenu\(p\)/);
 });
