@@ -98,6 +98,9 @@
     ]
   },
   "overrides": {
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "micromark-extension-math": {
+      "katex": "0.19.1"
+    }
   }
 }
