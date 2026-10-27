@@ -23,8 +23,26 @@ class TaskManager {
     const task = createTask(spec);
     this._machines.set(task.id, new StateMachine({ initial: STATES.CREATED, onChange: this._onChange(task) }));
     this._tasks.set(task.id, task);
+    this._evict();
     this._bus.emit(TYPES.TASK_CREATED, { taskId: task.id, agentId: task.agentId }, { request: task.request, mode: task.mode });
     return task;
+  }
+
+  // A finished task carries its whole trace (up to 500 entries) and nothing
+  // ever removed it, so a long-lived host grew with every task it ever ran. Past
+  // MAX_FINISHED, the oldest finished ones go first, in creation order; a task
+  // that is still doing anything is never evicted, so there is no cap on live
+  // work, only on history.
+  _evict() {
+    let over = this._tasks.size - TaskManager.MAX_TASKS;
+    if (over <= 0) return;
+    for (const [id, task] of this._tasks) {
+      if (over <= 0) break;
+      const machine = this._machines.get(id);
+      const done = machine && (machine.terminal || task.state === STATES.FAILED);
+      if (!done) continue;
+      this._tasks.delete(id); this._machines.delete(id); over--;
+    }
   }
 
   // Returns the current task view.
@@ -150,5 +168,8 @@ class TaskManager {
 function isTerminal(s) {
   return s === STATES.COMPLETED || s === STATES.CANCELLED || s === STATES.FAILED;
 }
+
+// History kept for finished tasks; see _evict.
+TaskManager.MAX_TASKS = 500;
 
 module.exports = { TaskManager };

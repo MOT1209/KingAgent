@@ -27,9 +27,9 @@ body[data-theme="glass"] {
   --paper-3: rgba(255, 255, 255, 0.3);
   --ink: #1d1d22;
   --muted: #6f7079;
-  --muted-2: #7d7e88;
-  --muted-3: #8a8b94;
-  --faint: #b4b5be;
+  --muted-2: #6f7079;
+  --muted-3: #6e6f79;
+  --faint: #6d6f7e;
   --line: rgba(29, 29, 34, 0.16);
   --dash: rgba(29, 29, 34, 0.1);
   --dash-dark: rgba(29, 29, 34, 0.2);

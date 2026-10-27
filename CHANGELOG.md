@@ -48,6 +48,18 @@ always the newest one below.
 
 ### Changed
 
+- **Contrast (U26).** `--muted`, `--muted-2`, `--muted-3` and `--faint` now
+  reach 4.5:1 against their theme's surface in all six themes (the worst were
+  glass `--faint` at 1.9:1 and paper at 2.4:1). The cost is visible and
+  intended: the four tones sit closer together, so "secondary" and "tertiary"
+  text differ less than before.
+- **Memory caps (C8, S14).** `TaskManager` keeps at most 500 tasks, evicting the
+  oldest finished first; `Orchestrator` keeps 200 runs; the harness
+  orchestrator's write-only run map is gone; the agent-discovery `claimed` set is
+  capped at 500. Live work is never evicted.
+- `escapeRe` and `safeRead`, each written twice, live in `src/main/text-util.js`
+  (S25); the unused `defaultTerminalShell` re-export is removed (S24).
+
 Small items from batches P11–P13 of the audit fix plan.
 
 - Toasts are announced to screen readers (`role="status"`, `aria-live`) (U27),

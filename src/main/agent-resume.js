@@ -300,6 +300,10 @@ function sweepDiscovery() {
       .find((m) => !e.baseline.has(m.id) && !claimed.has(m.id));
     if (!hit) continue;
     claimed.add(hit.id);
+    // Only a recent handout can be raced for, and baseline already hides older
+    // ids from a new tile, so the oldest ones can go: one id per agent session
+    // ever started would otherwise stay for the life of the process.
+    if (claimed.size > 500) claimed.delete(claimed.values().next().value);
     pending.delete(e.id);
     try { e.onFound(hit.id); } catch (_) {}
   }

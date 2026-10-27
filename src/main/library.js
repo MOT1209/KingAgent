@@ -3,6 +3,7 @@
 // and normalizes to the common item shape; adding a platform later = one more adapter here.
 
 const fs = require('fs');
+const { escapeRe } = require('./text-util.js');
 const path = require('path');
 const os = require('os');
 
@@ -441,7 +442,6 @@ function duplicateItem({ filePath, type, projectPath }) {
 // An item references another when its file mentions the target's slug. To keep noise out,
 // a plain mention only counts for hyphenated slugs (distinctive); single-word slugs need an
 // explicit [[wiki-link]]. Self and same-slug (other scopes/versions) never link.
-function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function extractEdges(items, { maxBytes = 65536 } = {}) {
   const edges = [];
   const targets = items.map((t) => ({

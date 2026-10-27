@@ -6,6 +6,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, protocol, net, Me
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const { safeRead: safeReadText } = require('./text-util.js');
 const { pathToFileURL } = require('url');
 const { rememberBins, knownBin, resolveClaudeExecutable, resolveRunCommand, withSpawnFlags } = require('./bin-cache');
 const { claudeSpawnArgs, projectSlug, shellQuote } = require('./claude-args');
@@ -1392,7 +1393,6 @@ function projectSkills(dir) {
     .filter((i) => i.type === 'skill' && i.scope === 'project' && !i.broken)
     .map((i) => ({ slug: i.slug, description: i.description }));
 }
-function safeReadText(p) { try { return p ? fs.readFileSync(p, 'utf8') : ''; } catch (_) { return ''; } }
 
 // ---- IPC: quick look / files ----------------------------------------------
 ipcMain.handle('file:read', (e, file) => {

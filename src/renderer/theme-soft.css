@@ -20,9 +20,9 @@ body[data-theme="soft"] {
   --paper-3: #e5e5e5;
   --ink: #2c2a33;
   --muted: #5e636c;
-  --muted-2: #6a6f78;
-  --muted-3: #7a7f88;
-  --faint: #7a7f88;
+  --muted-2: #62676f;
+  --muted-3: #63676e;
+  --faint: #63676e;
   --line: rgba(44, 42, 51, 0.16);
   --dash: rgba(44, 42, 51, 0.12);
   --dash-dark: rgba(44, 42, 51, 0.22);

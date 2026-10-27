@@ -75,7 +75,6 @@ class Orchestrator {
     this._evaluate = evaluate;
     this._config = { taskTimeoutMs: 10 * 60 * 1000, ...config };
     this._traces = new Map(); // taskId -> ring of trace entries
-    this._runs = new Map();   // taskId -> run record
   }
 
   // --- the main entry point -------------------------------------------------
@@ -183,7 +182,6 @@ class Orchestrator {
       if (sandbox && this._sandboxes) await this._sandboxes.stop(sandbox.id, 'run failed').catch(() => {});
       if (this._sessions) this._sessions.fail(session.id, err.message);
       traceOf({ step: 'failed', error: err.message });
-      this._finish(session.id, null);
       return { ok: false, sessionId: session.id, taskId: taskId || null, decision, artifacts: [], error: err.message };
     }
 
@@ -220,7 +218,6 @@ class Orchestrator {
       await this._sandboxes.stop(sandbox.id, 'run complete').catch(() => {});
       traceOf({ step: 'sandbox.stopped', sandboxId: sandbox.id });
     }
-    this._finish(session.id, outcome.taskId || taskId);
 
     return {
       ok: evaluation.passed,
@@ -446,9 +443,6 @@ class Orchestrator {
     return ring ? ring.map((e) => ({ ...e })) : [];
   }
 
-  _finish(sessionId, taskId) {
-    this._runs.set(sessionId, { sessionId, taskId, at: Date.now() });
-  }
 
   // Pause/resume/cancel delegate to whichever backend is running the work.
   async pause({ sessionId, taskId = null }) {

@@ -11,9 +11,9 @@ body[data-theme="dusk"] {
   --paper-3: #262a31;
   --ink: #e8eaee;
   --muted: #8d939e;
-  --muted-2: #7a808a;
-  --muted-3: #6a707a;
-  --faint: #5c6370;
+  --muted-2: #8b9199;
+  --muted-3: #8b919a;
+  --faint: #89919e;
   --line: rgba(232, 234, 238, 0.16);
   --dash: rgba(232, 234, 238, 0.12);
   --dash-dark: rgba(232, 234, 238, 0.22);

@@ -12,9 +12,9 @@ body[data-theme="graphite"] {
   --paper-3: rgba(64, 66, 78, 0.3);
   --ink: #ececf1;
   --muted: #b4b6c4;   /* was #a2a3ae — unreadable on the dark ground (Calvin) */
-  --muted-2: #91929d;
-  --muted-3: #85868f;
-  --faint: #8a8c9a;   /* was #5d5e68 */
+  --muted-2: #a2a3ac;
+  --muted-3: #a3a4aa;
+  --faint: #a2a4af;   /* was #5d5e68 */
   --line: rgba(255, 255, 255, 0.24);
   --dash: rgba(255, 255, 255, 0.17);
   --dash-dark: rgba(255, 255, 255, 0.2);
