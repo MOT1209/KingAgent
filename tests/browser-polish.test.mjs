@@ -80,6 +80,6 @@ test('the popup switch the screen shows is the one the engine reads', () => {
 
 test('the permissions list is named for what it holds', () => {
   const settings = read('src/renderer/browser-settings.mjs');
-  assert.match(settings, /Site permissions/);
+  assert.match(settings, /bset\.sitePerms/);
   assert.doesNotMatch(settings, /Camera &amp; microphone<\/h3>/);
 });

@@ -1,3 +1,4 @@
+import { t } from './i18n.mjs';
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const validPercent = (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100;
 const validTime = (n) => Number.isFinite(n) && !Number.isNaN(new Date(n).valueOf());
@@ -82,14 +83,14 @@ function unavailableBlock(rows) {
 
 export function usageContent(result = {}) {
   const { groups, unavailable } = groupUsage(result.accounts);
-  return `<div class="usage-tools"><p class="bs-note">Allowance from CLIs installed on this Mac.</p><button class="btn btn--small" id="usage-refresh">Refresh</button></div>
+  return `<div class="usage-tools"><p class="bs-note">${esc(t('usage.lead'))}</p><button class="btn btn--small" id="usage-refresh">${esc(t('usage.refresh'))}</button></div>
     ${groups.map(cardHtml).join('')}
     ${unavailableBlock(unavailable)}
-    ${!groups.length && !unavailable.length ? '<p class="bs-note">No coding CLI is installed yet.</p>' : ''}`;
+    ${!groups.length && !unavailable.length ? `<p class="bs-note">${esc(t('usage.none'))}</p>` : ''}`;
 }
 
 export function usagePaneHtml() {
-  return '<div id="usage-body" class="usage-settings"><p class="bs-note" role="status">Checking account usage…</p></div>';
+  return `<div id="usage-body" class="usage-settings"><p class="bs-note" role="status">${esc(t('usage.checking'))}</p></div>`;
 }
 
 export async function wireUsagePane(modal, { api, toast }) {
@@ -98,7 +99,7 @@ export async function wireUsagePane(modal, { api, toast }) {
   const token = {}; host._usageRequest = token;
   const current = () => host.isConnected && host._usageRequest === token;
   const refresh = host.querySelector('#usage-refresh');
-  if (refresh) { refresh.disabled = true; refresh.textContent = 'Checking…'; }
+  if (refresh) { refresh.disabled = true; refresh.textContent = t('usage.checkingShort'); }
   try {
     const result = await api.usageRead();
     if (result?.error) throw new Error(result.error);
@@ -107,7 +108,7 @@ export async function wireUsagePane(modal, { api, toast }) {
     host.querySelector('#usage-refresh').onclick = () => wireUsagePane(modal, { api, toast });
   } catch (_) {
     if (!current()) return;
-    host.innerHTML = '<p class="bs-note" role="alert">Could not read usage.</p><button class="btn btn--small">Retry</button>';
+    host.innerHTML = `<p class="bs-note" role="alert">${esc(t('usage.error'))}</p><button class="btn btn--small">${esc(t('usage.retry'))}</button>`;
     host.querySelector('button').onclick = () => wireUsagePane(modal, { api, toast });
   }
 }
