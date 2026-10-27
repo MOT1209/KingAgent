@@ -274,3 +274,34 @@ test('persisted workflow history carries no credentials (§20)', async () => {
   // The non-secret parts survive, so history is still worth keeping.
   assert.match(persisted, /out:first/);
 });
+
+test('cancel() on a run whose in-flight node then throws an ordinary error still ends cancelled, not failed', async () => {
+  let releaseFirst;
+  const firstStarted = new Promise((resolve) => { releaseFirst = resolve; });
+  let failFirst;
+  const firstBlocked = new Promise((_resolve, reject) => { failFirst = reject; });
+
+  const { bus, engine } = buildEngine({
+    shellRun: async (command) => {
+      if (command === 'first') { releaseFirst(); await firstBlocked; }
+      return { exitCode: 0, stdout: `out:${command}` };
+    },
+  });
+  const events = [];
+  bus.on('*', (ev) => events.push(ev));
+
+  const run = engine.run(slowWorkflow(), { id: 'inst-cancel-err' });
+  await firstStarted;
+  const report = engine.cancel('inst-cancel-err', 'user pressed stop');
+  assert.equal(report.cancelled, true);
+
+  // The aborted work surfaces as an ordinary error (e.g. an AbortError from a
+  // socket), not as a WorkflowCancelledError.
+  failFirst(new Error('socket hang up'));
+  const final = await run;
+
+  assert.equal(final.status, INSTANCE_STATUS.CANCELLED, 'cancel() said cancelled, so the run must end cancelled');
+  assert.equal(final.error, null);
+  assert.equal(events.some((e) => e.type === TYPES.WORKFLOW_FAILED), false);
+  assert.equal(events.filter((e) => e.type === TYPES.WORKFLOW_CANCELLED).length, 1);
+});

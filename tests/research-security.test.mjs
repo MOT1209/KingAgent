@@ -279,3 +279,79 @@ test('boundary: evidence from an unscreened source is impossible by construction
   assert.equal(raw.safety, null);
   assert.throws(() => new EvidenceExtractor().extract({ source: raw, question: 'anything' }), /never security-screened/);
 });
+
+// --- C1: the safe fetch loop ------------------------------------------------
+
+import { createRequire as createRequireC1 } from 'node:module';
+const requireC1 = createRequireC1(import.meta.url);
+const { safeFetch } = requireC1('../src/core/research/security/safeFetch.js');
+const { MAX_REDIRECTS: C1_MAX_REDIRECTS } = requireC1('../src/core/research/security/researchSecurity.js');
+
+const dnsOf = (table) => async (host) => {
+  if (!(host in table)) throw new Error('ENOTFOUND');
+  return table[host].map((address) => ({ address, family: address.includes(':') ? 6 : 4 }));
+};
+const ok = (body = 'hi') => ({ status: 200, headers: {}, body });
+
+test('safeFetch: a public name that resolves to a private address is refused before any request', async () => {
+  let called = 0;
+  const r = await safeFetch('https://sneaky.example.com/x', {
+    lookup: dnsOf({ 'sneaky.example.com': ['93.184.216.34', '10.0.0.5'] }),
+    request: async () => { called++; return ok(); },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /private|loopback/);
+  assert.equal(called, 0);
+});
+
+test('safeFetch: the transport is handed the screened address, not the hostname to re-resolve', async () => {
+  let seen;
+  const r = await safeFetch('https://good.example.com/', {
+    lookup: dnsOf({ 'good.example.com': ['93.184.216.34'] }),
+    request: async (req) => { seen = req; return ok(); },
+  });
+  assert.equal(r.ok, true);
+  assert.equal(seen.address, '93.184.216.34');
+});
+
+test('safeFetch: a redirect from an allowed host to the metadata endpoint is refused', async () => {
+  const r = await safeFetch('https://good.example.com/', {
+    lookup: dnsOf({ 'good.example.com': ['93.184.216.34'] }),
+    request: async () => ({ status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data' } }),
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /redirect/);
+});
+
+test('safeFetch: a redirect hop whose name resolves privately is refused at that hop', async () => {
+  const r = await safeFetch('https://good.example.com/', {
+    lookup: dnsOf({ 'good.example.com': ['93.184.216.34'], 'evil.example.org': ['127.0.0.1'] }),
+    request: async ({ url }) => (url.includes('good')
+      ? { status: 301, headers: { location: 'https://evil.example.org/' } }
+      : ok()),
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.hops, 1);
+});
+
+test('safeFetch: follows legitimate redirects and reports the final url', async () => {
+  const r = await safeFetch('https://a.example.com/', {
+    lookup: dnsOf({ 'a.example.com': ['93.184.216.34'], 'b.example.com': ['93.184.216.35'] }),
+    request: async ({ url }) => (url.endsWith('/next')
+      ? ok()
+      : { status: 302, headers: { location: '/next' } }),
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.url, 'https://a.example.com/next');
+});
+
+test('safeFetch: stops at MAX_REDIRECTS', async () => {
+  let n = 0;
+  const r = await safeFetch('https://loop.example.com/', {
+    lookup: dnsOf({ 'loop.example.com': ['93.184.216.34'] }),
+    request: async () => { n++; return { status: 302, headers: { location: `/r${n}` } }; },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /redirects/);
+  assert.equal(n, C1_MAX_REDIRECTS + 1);
+});

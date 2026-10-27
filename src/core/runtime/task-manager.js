@@ -102,28 +102,45 @@ class TaskManager {
     return this._transition(id, STATES.EXECUTING, { note: 'resumed', emit: { type: TYPES.TASK_RESUMED } });
   }
 
-  cancel(id, reason = 'user requested') {
+  // Cancellation is cooperative. With `settle: false` (the runtime passes it
+  // while a run loop is still alive) the task only moves to CANCELLING: the
+  // loop has been told to stop but may still be inside a step, so it is not yet
+  // "cancelled" and callers waiting on a terminal state keep waiting. The loop
+  // then calls settleCancel() from its finally. With the default `settle: true`
+  // (nothing is running) both transitions happen at once.
+  cancel(id, reason = 'user requested', { settle = true } = {}) {
     const task = this._tasks.get(id);
     if (!task) throw new Error(`No task with id ${id}`);
-    task.cancellation = { requestedAt: Date.now(), reason };
-    // Cancellation is valid from nearly anywhere; go via CANCELLING.
     if (task.state === STATES.CANCELLED || task.state === STATES.COMPLETED) return task;
+    if (!task.cancellation || !task.cancellation.requestedAt) task.cancellation = { requestedAt: Date.now(), reason };
+    // Cancellation is valid from nearly anywhere; go via CANCELLING.
     const machine = this._machines.get(id);
-    if (machine.can(STATES.CANCELLING)) {
+    if (task.state !== STATES.CANCELLING && machine.can(STATES.CANCELLING)) {
       this._transition(id, STATES.CANCELLING, { note: `cancel: ${reason}` });
-      this._transition(id, STATES.CANCELLED, {
-        note: 'cancelled',
-        emit: { type: TYPES.TASK_CANCELLED, payload: { reason } },
-      });
     }
+    if (settle) this.settleCancel(id);
     return this._tasks.get(id);
+  }
+
+  // CANCELLING -> CANCELLED, once nothing is running for the task any more.
+  settleCancel(id) {
+    const task = this._tasks.get(id);
+    if (!task || task.state !== STATES.CANCELLING) return task || null;
+    const reason = task.cancellation && task.cancellation.reason;
+    this._transition(id, STATES.CANCELLED, {
+      note: 'cancelled',
+      emit: { type: TYPES.TASK_CANCELLED, payload: { reason } },
+    });
+    return task;
   }
 
   // The executor/runtime calls this when a task has not yet completed moving on
   // its own. Idempotent: repeated calls only emit once.
   fail(id, error) {
     const task = this._tasks.get(id);
-    if (task.state === STATES.FAILED || isTerminal(task.state)) return task;
+    // A task being cancelled stays cancelled: the step that threw because it was
+    // aborted must not turn the cancellation into a failure.
+    if (task.state === STATES.FAILED || task.state === STATES.CANCELLING || isTerminal(task.state)) return task;
     this._transition(id, STATES.FAILED, {
       note: 'failed',
       emit: { type: TYPES.TASK_FAILED, payload: { error: error && error.message } },

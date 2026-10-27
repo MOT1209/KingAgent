@@ -63,6 +63,7 @@ const ALLOWED_ROOT = new Set([
   'CHANGELOG.md', 'CODE_OF_CONDUCT.md',
   'KINGAGENT-WINDOWS-PORT-REPORT.md',
   'eslint.config.mjs',
+  '.prettierrc.json',
   // The renderer's coverage scope. A build config, here for the same reason
   // eslint.config.mjs is: it is read by a person who wants to know what the
   // numbers in the CI log actually measured.

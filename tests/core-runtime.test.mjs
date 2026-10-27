@@ -175,3 +175,33 @@ test('runtime: listTasks and getTask are queryable during execution', async () =
     t.dispose();
   }
 });
+test('runtime: cancel is cooperative — the task is "cancelling" until the run loop has actually stopped', async () => {
+  const t = await seedWorkspace();
+  try {
+    const platform = createPlatform({ io: { fs, root: t.root, cwd: () => t.root, runShell: stubShell } });
+    const { runtime } = platform;
+    // A step that does not look at the abort signal: the loop cannot stop until it returns.
+    let analyzeFinished = false;
+    runtime._reasoner.analyze = async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      analyzeFinished = true;
+      return { goal: 'slow' };
+    };
+    const task = await runtime.runAgentTask(
+      { request: 'slow', agentId: 'analyst', workspace: { root: t.root, cwd: t.root } },
+      { mode: 'auto' },
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    runtime.cancel(task.id, 'stop now');
+    assert.equal(runtime.get(task.id).state, STATES.CANCELLING, 'not reported cancelled while the loop still runs');
+    assert.equal(analyzeFinished, false);
+    const done = await waitUntil(() => {
+      const tsk = runtime.get(task.id);
+      return tsk && tsk.state === STATES.CANCELLED ? tsk : null;
+    }, { timeout: 10_000 });
+    assert.equal(analyzeFinished, true, 'cancelled only after the loop stopped');
+    assert.equal(done.cancellation.reason, 'stop now');
+  } finally {
+    t.dispose();
+  }
+});
