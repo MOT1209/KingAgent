@@ -53,8 +53,9 @@ always the newest one below.
   deadline, and the task's cancel signal now reaches the request, so a hung
   provider no longer stalls the run loop and cancelling stops the call. A search
   provider that implements `fetch()` must declare `ssrfChecked: true` to be
-  registered. The synthesizer fences the findings it puts in front of a model
-  with `wrapUntrusted`. No model or search provider is registered in the
+  registered. The synthesizer, the reviewer's question-drift check and the
+  evidence extractor's ranking pass fence the retrieved text they put in front
+  of a model with `wrapUntrusted` (the query planner never sees retrieved text). No model or search provider is registered in the
   shipped app today, so none of this changes behaviour yet; it is in place for
   the day one is.
 - **No more native `confirm()` (U14).** Discarding unsaved edits and opening a
