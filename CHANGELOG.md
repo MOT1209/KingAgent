@@ -46,6 +46,18 @@ always the newest one below.
   sheet that looks the same on every theme by design. The skills pane's
   hard-coded red is now the `--red-body` token.
 
+### Security
+
+- `npm audit` is at 0 vulnerabilities (it was 7). `@modelcontextprotocol/sdk`
+  1.27.1 → 1.32.2 (five advisories: credentials and request bodies re-sent across
+  origins, OAuth to a server-chosen authorization server, session-less tasks, a
+  memory-exhaustion request, bearer tokens accepted across services); `sharp` pin
+  0.35.4 → 0.35.5; and `micromark-extension-math`'s nested KaTeX 0.16 is overridden
+  to 0.19.1, outside the prototype-pollution range. The Markdown editor bundle was
+  rebuilt so the shipped copy carries the fixed KaTeX. Nothing needed
+  `--force` or a breaking upgrade of `@huggingface/transformers` or
+  `@milkdown/crepe` after all: the audit's suggested fixes were the broad ones.
+
 ### Added
 
 - **Arabic interface, first slice.** `src/renderer/i18n.mjs` with English and
