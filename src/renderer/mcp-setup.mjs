@@ -3,6 +3,7 @@
 // Gmail/Drive session. KingAgent Browser is not a catalog entry and is never
 // written to connections.json from here.
 
+import { t } from './i18n.mjs';
 import { knowsCopy } from './receivers.mjs';
 import { guarded, messageOf } from './guard.mjs';
 import { activateOnKey } from './a11y.mjs';
@@ -42,9 +43,9 @@ export function connectDoneView(result, svc) {
 export function connectCatalogHtml({ catalog, connectedIds, esc }) {
   const cat = catalogServices(catalog);
   return `<div class="picker-input"><span class="prompt-mark">⚡</span>
-    <span style="font-weight:700">Connect MCP</span>
-    <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">pick one to start</span></div>
-    ${cat.length ? '' : '<div class="rail-empty" style="padding:14px">Loading the catalog…</div>'}
+    <span style="font-weight:700">${esc(t('mcp.title'))}</span>
+    <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)">${esc(t('mcp.pick'))}</span></div>
+    ${cat.length ? '' : `<div class="rail-empty" style="padding:14px">${esc(t('mcp.loading'))}</div>`}
     <div class="svc-grid">${cat.map((s) => `
       <div class="svc-card${connectedIds.has(s.id) ? ' connected' : ''}" data-id="${esc(s.id)}" tabindex="0">
         <span class="code" data-kind="service">${esc(s.code)}</span>
@@ -55,13 +56,13 @@ export function connectCatalogHtml({ catalog, connectedIds, esc }) {
       </div>`).join('')}</div>
     <div class="svc-custom" id="svc-own" tabindex="0">
       <span class="code" data-kind="service">＋</span>
-      <span class="col"><span class="sv-name">Already have one? Add it yourself</span>
+      <span class="col"><span class="sv-name">${esc(t('mcp.own'))}</span>
       <span class="sv-desc">paste an address or command — or choose a .mcpb bundle file</span></span>
       <span class="sv-go">add it →</span>
     </div>
     <div class="svc-custom" id="svc-custom" tabindex="0">
       <span class="code" data-kind="service">✳</span>
-      <span class="col"><span class="sv-name">Something else? It gets built for you</span>
+      <span class="col"><span class="sv-name">${esc(t('mcp.built'))}</span>
       <span class="sv-desc">say it in plain words, watch it happen</span></span>
       <span class="sv-go">build it →</span>
     </div>`;
@@ -79,8 +80,8 @@ export function connectDoneHtml({ svc, result, esc }) {
     <details class="sv-fold"><summary>curious what got written? peek here</summary>
       <div class="sv-fold-body"><div class="setup-note">${(result.files || []).map(esc).join(' · ') || 'nothing yet'}</div>${extra}</div></details>
     <div class="setup-actions">
-      <button class="btn btn--go" id="sv-done">Done</button>
-      <button class="btn" id="sv-more">Connect another</button></div>`;
+      <button class="btn btn--go" id="sv-done">${esc(t('settings.done'))}</button>
+      <button class="btn" id="sv-more">${esc(t('mcp.another'))}</button></div>`;
 }
 
 export function createMcpSetup(deps) {
@@ -159,12 +160,12 @@ export function createMcpSetup(deps) {
     const b = o.bundle;
     const modal = overlay('setup-box', `
     <div class="setup-head"><span class="code" data-kind="service">＋</span>
-      <span class="col"><span class="name">Add your own</span><span class="desc">an address, a command, or a bundle file</span></span></div>
+      <span class="col"><span class="name">${esc(t('mcp.addOwn'))}</span><span class="desc">${esc(t('mcp.addOwnDesc'))}</span></span></div>
     ${b ? `<p class="setup-copy"><b>${esc(b.name)}</b>${b.version ? ' · v' + esc(b.version) : ''} — ${esc(b.description || 'unpacked and ready')}</p>`
-        : `<p class="setup-copy">Paste what the service gave you — a URL (https://…) or the command line from its README.</p>`}
-    <div class="frow" style="display:flex;gap:10px;align-items:baseline;margin:0 0 10px"><span class="sv-lab" style="width:64px;flex:none">Name</span>
-      <input class="text-input" id="own-name" style="flex:1" placeholder="what your agents should call it" spellcheck="false" /></div>
-    ${b ? '' : `<div class="frow" style="display:flex;gap:10px;align-items:baseline;margin:0 0 10px"><span class="sv-lab" style="width:64px;flex:none">It is</span>
+        : `<p class="setup-copy">${esc(t('mcp.paste'))}</p>`}
+    <div class="frow" style="display:flex;gap:10px;align-items:baseline;margin:0 0 10px"><span class="sv-lab" style="width:64px;flex:none">${esc(t('mcp.name'))}</span>
+      <input class="text-input" id="own-name" style="flex:1" placeholder="${esc(t('mcp.namePh'))}" spellcheck="false" /></div>
+    ${b ? '' : `<div class="frow" style="display:flex;gap:10px;align-items:baseline;margin:0 0 10px"><span class="sv-lab" style="width:64px;flex:none">${esc(t('mcp.itIs'))}</span>
       <input class="text-input" id="own-addr" style="flex:1" placeholder="https://mcp.example.com/mcp  ·  or:  npx -y some-mcp-server" spellcheck="false" /></div>`}
     ${(b ? b.fields : []).map((f) => `<div class="frow" style="display:flex;gap:10px;align-items:baseline;margin:0 0 10px"><span class="sv-lab" style="width:64px;flex:none">${esc(f.label)}</span>
       <input class="text-input own-field" data-k="${esc(f.id)}" style="flex:1" type="${f.sensitive ? 'password' : 'text'}" placeholder="${esc(f.description || (f.default ? 'default: ' + f.default : ''))}" spellcheck="false" /></div>`).join('')}
@@ -173,8 +174,8 @@ export function createMcpSetup(deps) {
       <span class="pick-chip${o.scope === 'project' ? ' picked' : ''}" data-v="project">this project</span>
       <span class="pick-chip${o.scope === 'user' ? ' picked' : ''}" data-v="user">this Mac</span></div>
     <div class="setup-actions">
-      <button class="btn btn--go" id="own-go">Connect</button>
-      ${b ? '<button class="btn" id="own-clear">Different bundle</button>' : '<button class="btn" id="own-bundle">Choose a bundle…</button>'}</div>`);
+      <button class="btn btn--go" id="own-go">${esc(t('mcp.connect'))}</button>
+      ${b ? `<button class="btn" id="own-clear">${esc(t('mcp.diffBundle'))}</button>` : `<button class="btn" id="own-bundle">${esc(t('mcp.chooseBundle'))}</button>`}</div>`);
     const nameIn = q('#own-name', modal), addrIn = q('#own-addr', modal);
     nameIn.value = o.name; if (addrIn) addrIn.value = o.address;
     const keep = () => {
@@ -199,11 +200,11 @@ export function createMcpSetup(deps) {
     if (clearBtn) clearBtn.onclick = () => { o.bundle = null; o.values = {}; renderOverlay(); };
     q('#own-go', modal).onclick = async () => {
       keep();
-      if (!o.name.trim()) { toast('Give it a name first.'); return; }
-      if (!b && !o.address.trim()) { toast('Paste an address or command first — or choose a bundle.'); return; }
+      if (!o.name.trim()) { toast(t('mcp.needName')); return; }
+      if (!b && !o.address.trim()) { toast(t('mcp.needAddr')); return; }
       const missing = b ? b.fields.filter((f) => f.required && !o.values[f.id]) : [];
-      if (missing.length) { toast(`Fill in ${missing[0].label} first.`); return; }
-      q('#own-go', modal).textContent = 'Connecting…';
+      if (missing.length) { toast(t('mcp.fillIn', { label: missing[0].label })); return; }
+      q('#own-go', modal).textContent = t('mcp.connecting');
       // A rejection lands on the same "didn't connect" sheet as a refusal,
       // instead of leaving the button on "Connecting…".
       let res;
@@ -246,7 +247,7 @@ export function createMcpSetup(deps) {
       </div></details>
     <div class="setup-actions">
       <button class="btn btn--go" id="sv-connect">${guided ? 'Set it up with my agent' : 'Connect'}</button>
-      <button class="btn" id="sv-docs">Guide</button></div>`);
+      <button class="btn" id="sv-docs">${esc(t('mcp.guide'))}</button></div>`);
     const saveKeys = () => { modal.querySelectorAll('.sv-key').forEach((inp) => { o.values[inp.dataset.k] = inp.value.trim(); }); };
     modal.querySelectorAll('.sv-key').forEach((inp) => { inp.value = o.values[inp.dataset.k] || ''; });
     modal.querySelectorAll('.sv-help').forEach((el) => { el.onclick = () => api.openUrl(el.dataset.url); });
@@ -260,7 +261,7 @@ export function createMcpSetup(deps) {
     const install = svc.kind === 'install';
     const installDirOf = () => '~/.kingagent/connectors/' + svc.docs.split('/').pop();
     if (install && o.installed === undefined) {
-      q('#sv-connect', modal).textContent = 'Install first';
+      q('#sv-connect', modal).textContent = t('mcp.installFirst');
       api.statPath({ token: installDirOf() + '/dist/index.js' }).then((st) => {
         o.installed = !!(st && st.exists);
         const btn = q('#sv-connect', modal);
@@ -276,13 +277,13 @@ export function createMcpSetup(deps) {
         closeOverlay();
         startPanel({ kind: 'run', title: 'install ' + svc.name, code: svc.code,
           command: 'git clone ' + svc.docs + ' ' + dir + ' && cd ' + dir + ' && npm install && npm run build' });
-        toast('When the install finishes, open Connect again: one more click.');
+        toast(t('mcp.afterInstall'));
         return;
       }
       saveKeys();
       if (install) o.values.installDir = installDirOf();
       if (svc.keys.some((k) => !o.values[k.id]) || (folder && !o.values.folder)) { toast(folder ? 'Choose a folder first.' : 'Paste your key first.'); return; }
-      q('#sv-connect', modal).textContent = 'Connecting…';
+      q('#sv-connect', modal).textContent = t('mcp.connecting');
       let res;
       try { res = await api.connectService({ id: svc.id, values: o.values, scope: o.scope, agentIds: installedAgentIds(), projectPath: projectPathOf() }); }
       catch (err) { res = { ok: false, error: messageOf(err) }; }
@@ -306,8 +307,8 @@ export function createMcpSetup(deps) {
       <span class="col"><span class="name">${esc(sv.name)}</span>
       <span class="desc"><span class="ok">●</span> connected · ${esc(sv.platforms.join(' + '))} · ${esc(sv.scopes.map((s) => s === 'project' ? 'this project' : 'your Mac').join(', '))}</span></span></div>
     <div class="setup-actions">
-      <button class="btn" id="sv-disc">Disconnect</button>
-      <button class="btn btn--go" id="sv-ok">Done</button></div>`);
+      <button class="btn" id="sv-disc">${esc(t('mcp.disconnect'))}</button>
+      <button class="btn btn--go" id="sv-ok">${esc(t('settings.done'))}</button></div>`);
     q('#sv-ok', modal).onclick = closeOverlay;
     q('#sv-disc', modal).onclick = guarded(async () => {
       await api.disconnectService({ id: sv.id, projectPath: projectPathOf() });
@@ -320,13 +321,13 @@ export function createMcpSetup(deps) {
     const worker = chosenAgent(o);
     const modal = overlay('setup-box', `
     <div class="setup-head"><span class="code" data-kind="service">✳</span>
-      <span class="col"><span class="name">Built for you</span><span class="desc">describe it like you would to a person</span></span></div>
-    <input class="text-input" id="svc-desc" placeholder="our internal wiki at wiki.acme.dev, read-only is fine" spellcheck="false" />
+      <span class="col"><span class="name">${esc(t('mcp.builtName'))}</span><span class="desc">${esc(t('mcp.builtDesc'))}</span></span></div>
+    <input class="text-input" id="svc-desc" placeholder="${esc(t('mcp.descPh'))}" spellcheck="false" />
     <div class="ni-agent">${worker
       ? `a new session with <select class="agent-pick" id="svc-agent">${agentOptionsHtml(worker.id)}</select> builds it for you`
       : 'No agent is installed yet. Press ⌘N to add one first.'}</div>
-    <div class="setup-actions" style="margin-top:12px"><button class="btn btn--go" id="svc-go" ${worker ? '' : 'disabled'}>Go</button></div>
-    <p class="setup-note">Watch it work, talk to it if you want. It appears under MCP in the Library when it lands.</p>`);
+    <div class="setup-actions" style="margin-top:12px"><button class="btn btn--go" id="svc-go" ${worker ? '' : 'disabled'}>${esc(t('mcp.go'))}</button></div>
+    <p class="setup-note">${esc(t('mcp.watch'))}</p>`);
     const agentSel = q('#svc-agent', modal);
     if (agentSel) agentSel.onchange = () => { o.workerId = agentSel.value; };
     const input = q('#svc-desc', modal); input.value = o.text; setTimeout(() => input.focus(), 30);
@@ -337,17 +338,17 @@ export function createMcpSetup(deps) {
       closeOverlay();
       const onExit = state.project ? deliverOnExit : undefined;
       agentSession(w, { title: 'build: connector', code: 'BC', seed: customSetupSeed(o.text), onExit });
-      toast('Your agent is on it. It appears under MCP in the Library when it lands.');
+      toast(t('mcp.onIt'));
     };
   }
 
   function startGuidedSetup(svc, worker) {
     worker = worker || bestAgent();
-    if (!worker) { toast('No agent is installed yet. Press ⌘N to add one first.'); return; }
+    if (!worker) { toast(t('mcp.noAgent')); return; }
     closeOverlay();
     const onExit = state.project ? deliverOnExit : undefined;
     agentSession(worker, { title: 'set up ' + svc.name, code: svc.code, seed: guidedSetupSeed(svc), onExit });
-    toast('Your agent will walk you through it, right in the tile.');
+    toast(t('mcp.walk'));
   }
 
   function render() {
