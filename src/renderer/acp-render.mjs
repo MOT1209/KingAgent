@@ -5,6 +5,7 @@
 // Copy rules (spec 7b): plain words only, no protocol vocabulary, no
 // self-narration. Everything readable is selectable; code gets a copy button.
 
+import { t } from './i18n.mjs';
 import { renderMarkdown, renderInline } from './acp-markdown.mjs';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -85,11 +86,11 @@ export function createTranscript(container, opts) {
       el.addEventListener('click', (e) => { e.stopPropagation(); if (o.onOpenFile) o.onOpenFile(el.dataset.open); });
     });
   }
-  function closeStreams() { openMsg = null; openUser = null; if (openThought) { openThought.btnLabel.textContent = 'Thought'; openThought = null; } }
+  function closeStreams() { openMsg = null; openUser = null; if (openThought) { openThought.btnLabel.textContent = t('acp.thought'); openThought = null; } }
 
   // ---- event renderers ------------------------------------------------------
   function message(text) {
-    if (openThought) { openThought.btnLabel.textContent = 'Thought'; openThought = null; }
+    if (openThought) { openThought.btnLabel.textContent = t('acp.thought'); openThought = null; }
     if (!openMsg) {
       const el = block('<div class="cw-a cw-md"></div>');
       openMsg = el.querySelector('.cw-a'); openMsg._raw = '';
@@ -100,7 +101,7 @@ export function createTranscript(container, opts) {
     toBottom();
   }
   function userChunk(text) {
-    openMsg = null; if (openThought) { openThought.btnLabel.textContent = 'Thought'; openThought = null; }
+    openMsg = null; if (openThought) { openThought.btnLabel.textContent = t('acp.thought'); openThought = null; }
     if (!openUser) { const el = block('<div class="cw-u cw-md"></div>'); openUser = el.querySelector('.cw-u'); openUser._raw = ''; }
     openUser._raw += text;
     openUser.innerHTML = renderMarkdown(openUser._raw);
@@ -109,7 +110,7 @@ export function createTranscript(container, opts) {
   function thought(text) {
     openMsg = null;
     if (!openThought) {
-      const el = block('<button class="cw-think"><span class="tw">Thinking…</span></button><div class="cw-think-body cw-md" hidden></div>');
+      const el = block(`<button class="cw-think"><span class="tw">${esc(t('acp.thinking'))}</span></button><div class="cw-think-body cw-md" hidden></div>`);
       const btn = el.querySelector('.cw-think');
       const bodyEl = el.querySelector('.cw-think-body');
       btn.onclick = (e) => { e.stopPropagation(); bodyEl.hidden = !bodyEl.hidden; toBottom(); };
@@ -181,7 +182,7 @@ export function createTranscript(container, opts) {
   }
   function plan(ev) {
     const done = ev.entries.filter((x) => x.status === 'completed').length;
-    const html = `<div class="cw-card cw-plan"><div class="cw-card-hd"><span class="k">Plan</span><span class="f">${done}/${ev.entries.length}</span></div>
+    const html = `<div class="cw-card cw-plan"><div class="cw-card-hd"><span class="k">${esc(t('acp.plan'))}</span><span class="f">${done}/${ev.entries.length}</span></div>
       <ul>${ev.entries.map((x) => `<li class="${x.status === 'completed' ? 'don' : 'tod'}${x.status === 'in_progress' ? ' cur' : ''}">${esc(x.text)}</li>`).join('')}</ul></div>`;
     if (planEl) planEl.innerHTML = html;
     else planEl = block(html);
@@ -226,9 +227,9 @@ export function createTranscript(container, opts) {
       closeStreams();
       const tcId = params.toolCall && params.toolCall.toolCallId;
       const owned = tcId && tools.get(tcId);
-      const title = (params.toolCall && params.toolCall.title) || 'Approve this?';
+      const title = (params.toolCall && params.toolCall.title) || t('acp.approve');
       const opts = params.options || [];
-      const el = block(`<div class="cw-perm"><div class="q">Waiting on you</div>${owned ? '' : `<code>${esc(title)}</code>`}
+      const el = block(`<div class="cw-perm"><div class="q">${esc(t('acp.waiting'))}</div>${owned ? '' : `<code>${esc(title)}</code>`}
         <div class="col">${(() => { const primary = opts.findIndex((x) => x.kind === 'allow_once'); return opts.map((op, i) => `<button class="cw-btn ${i === primary ? 'ap' : 'row'}" data-i="${i}">${esc(op.name)}</button>`).join(''); })()}</div></div>`);
       const state2 = { answered: false };
       el.querySelectorAll('.cw-btn').forEach((b) => {
@@ -269,15 +270,15 @@ export function createTranscript(container, opts) {
       }
       for (const k of textKeys) {
         const pr = props[k];
-        inner += `<input class="cw-q-in" data-k="${esc(k)}" type="text" placeholder="${esc(pr.title || pr.description || 'Type an answer')}">`;
+        inner += `<input class="cw-q-in" data-k="${esc(k)}" type="text" placeholder="${esc(pr.title || pr.description || t('acp.typeAnswer'))}">`;
       }
       if (!keys.length) inner = '<input class="cw-q-in" data-k="answer" type="text" placeholder="Type an answer">';
-      const el = block(`<div class="cw-perm cw-question"><div class="q">Question</div><div class="cw-q-msg">${esc(params.message || '')}</div>${inner}
-        <div class="row">${textKeys.length || !keys.length ? '<button class="cw-btn ap cw-q-send">Send</button>' : ''}<button class="cw-btn row cw-q-skip">Skip</button></div></div>`);
+      const el = block(`<div class="cw-perm cw-question"><div class="q">${esc(t('acp.question'))}</div><div class="cw-q-msg">${esc(params.message || '')}</div>${inner}
+        <div class="row">${textKeys.length || !keys.length ? `<button class="cw-btn ap cw-q-send">${esc(t('composer.send'))}</button>` : ''}<button class="cw-btn row cw-q-skip">${esc(t('acp.skip'))}</button></div></div>`);
       let done = false;
       const settle = (text) => {
         done = true;
-        el.querySelector('.cw-perm').outerHTML = `<div class="cw-settle ok"><b>✓</b> ${esc(params.message || 'Question')} — ${esc(text)}</div>`;
+        el.querySelector('.cw-perm').outerHTML = `<div class="cw-settle ok"><b>✓</b> ${esc(params.message || t('acp.question'))} — ${esc(text)}</div>`;
       };
       const sendContent = (content, label) => {
         if (done) return;
@@ -306,7 +307,7 @@ export function createTranscript(container, opts) {
         if (done) return;
         done = true;
         reply({ action: 'decline' });
-        el.querySelector('.cw-perm').outerHTML = '<div class="cw-settle">Question skipped</div>';
+        el.querySelector('.cw-perm').outerHTML = `<div class="cw-settle">${esc(t('acp.skipped'))}</div>`;
       };
       return el;
     },

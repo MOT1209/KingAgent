@@ -2,6 +2,7 @@
 // a live tile. This is the only file that knows about both the protocol side
 // and the app side (attention, openFile, toast, renaming).
 
+import { t } from './i18n.mjs';
 import { createAcpClient, normalizeUpdate } from './acp-client.mjs';
 import { createTranscript } from './acp-render.mjs';
 import { createComposer } from './acp-composer.mjs';
@@ -76,7 +77,7 @@ export function mountChatPane(p, rec, hooks) {
     cwd: p.cwd,
     home: (p.cwd.match(/^\/(Users|home)\/[^/]+/) || [''])[0],
     onLink: (url) => { if (/^https?:/.test(url)) api.openLink(url); else hooks.open(url); },
-    onCopy: (text) => { api.copyText(text); hooks.toast('Copied'); },
+    onCopy: (text) => { api.copyText(text); hooks.toast(t('acp.copied')); },
     onOpenFile: (path) => openSmart(path),
     onCommands: (list) => { state.commands = list; composer.setCommands(list); },
     onUsage: (used, size) => composer.setUsage(used, size),
@@ -118,13 +119,13 @@ export function mountChatPane(p, rec, hooks) {
       await client.setMode(next.id);
       state.modes.currentModeId = next.id;
       syncChips();
-    } catch (_) { hooks.toast('Could not switch mode'); }
+    } catch (_) { hooks.toast(t('acp.modeFail')); }
   }
 
   async function sendPrompt(text, view = {}) {
     if (state.busy) return false;
     if (!state.connected) {
-      transcript.error('The agent isn’t connected yet. Wait a moment, or close this pane and start a new session.');
+      transcript.error(t('acp.notConnected'));
       return false;
     }
     state.busy = true; composer.setBusy(true); transcript.setBusy(true);
@@ -144,9 +145,9 @@ export function mountChatPane(p, rec, hooks) {
       contextRecord.user(view.display !== undefined ? view.display : text); publishContext();
       const r = await client.prompt(prompt, { images });
       sent = true;
-      if (r && r.stopReason === 'refusal') transcript.note('The agent declined that request.');
+      if (r && r.stopReason === 'refusal') transcript.note(t('acp.declined'));
     } catch (err) {
-      transcript.error((err && err.message) || 'That didn’t go through — try again.');
+      transcript.error((err && err.message) || t('acp.retry'));
     } finally {
       state.busy = false; composer.setBusy(false); transcript.setBusy(false);
       p.working = false; if (hooks.status) hooks.status(p);
@@ -180,8 +181,8 @@ export function mountChatPane(p, rec, hooks) {
     onModelPick: () => route('model'),
     getBuiltins: () => {
       const rows = state.configOptions.map((co) => ({ name: co.id, description: co.name + ' — picker' }));
-      rows.push({ name: 'config', description: 'Session settings' });
-      rows.push({ name: 'resume', description: 'Pick up a past session' });
+      rows.push({ name: 'config', description: t('acp.cmdConfig') });
+      rows.push({ name: 'resume', description: t('acp.cmdResume') });
       return rows;
     },
     isPicker: (name) => ['config', 'settings', 'resume'].includes(name) || state.configOptions.some((co) => co.id === name && co.type === 'select'),
@@ -202,8 +203,8 @@ export function mountChatPane(p, rec, hooks) {
   rec.acpCapabilities = () => ({ connected: state.connected, ...client.capabilities });
   rec.sessionContext = () => contextRecord.snapshot();
   rec.insertSessionDraft = ({ text = '', images = [] } = {}) => {
-    if (disposed) return { ok: false, error: 'That chat session is closed.' };
-    if (images.length > 12) return { ok: false, error: 'Insert at most 12 images at a time.' };
+    if (disposed) return { ok: false, error: t('acp.closed') };
+    if (images.length > 12) return { ok: false, error: t('acp.maxImages') };
     const imageMode = images.length ? state.connected && client.capabilities.image ? 'image' : 'file-reference' : 'none';
     if (imageMode === 'file-reference' && images.some(image => !image.path)) return { ok: false, error: 'This agent needs an image file reference, but the capture is unavailable.' };
     composer.input.value = appendDraft(composer.input.value, String(text));
@@ -224,12 +225,12 @@ export function mountChatPane(p, rec, hooks) {
     try {
       const r = await client.listSessions(p.cwd);
       const rows = (r.sessions || []).slice(0, 20).map((x) => ({
-        name: (x.title || 'Untitled').slice(0, 52),
+        name: (x.title || t('acp.untitled')).slice(0, 52),
         description: new Date(x.updatedAt || Date.now()).toLocaleString(),
         value: x.sessionId,
       }));
-      if (!rows.length) { transcript.note('No past sessions here yet.'); return; }
-      composer.openSelect('Past sessions', rows, async (row) => {
+      if (!rows.length) { transcript.note(t('acp.noPast')); return; }
+      composer.openSelect(t('acp.past'), rows, async (row) => {
         if (!client.capabilities.loadSession) { transcript.error('This agent does not support loading past sessions.'); return; }
         if (state.busy) { transcript.error('Wait for the current response before switching sessions.'); return; }
         state.busy = true; composer.setBusy(true);

@@ -10,7 +10,7 @@ const src = fs.readFileSync(path.join(root, 'src/renderer/acp-pane.mjs'), 'utf8'
 test('Chat names it when a send arrives before the agent is connected', () => {
   assert.doesNotMatch(src, /if \(!state.connected \|\| state.busy\) return;/);
   assert.match(src, /if \(!state.connected\)/);
-  assert.match(src, /The agent isn.t connected yet/);
+  assert.match(src, /acp\.notConnected/);
 });
 
 test('a sent message names the card once, through the prompt hook', () => {

@@ -1,4 +1,5 @@
 // Pending annotation content exists only in the trusted KingAgent renderer.
+import { t } from './i18n.mjs';
 export function annotationBatch(notes) {
   return notes.map((n, i) => [`${i + 1}. ${n.title || 'Browser'}`, n.url,
     n.stale ? 'Snapshot — the original selection has changed.' : '',
@@ -15,7 +16,7 @@ export function createAnnotationStore() {
     save(p, value) {
       const old = value.id && notes.find((n) => n.id === value.id && n.scope === scope(p));
       if (old) { Object.assign(old, value); return old; }
-      if (notes.length >= 200) throw new Error('Review or clear pending notes before adding more.');
+      if (notes.length >= 200) throw new Error(t('annot.tooMany'));
       const note = { ...value, id: 'annotation-' + (++sequence), panelId: p.id, scope: scope(p) };
       notes.push(note); return note;
     },
@@ -42,7 +43,7 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
   let editing = null, generation = 0, microphone = null;
   const q = (s, el) => el.querySelector(s);
   const selectionLabel = (n) => n.stale ? 'Snapshot annotation' : n.kind === 'region' ? 'Visual region' : /^h[1-6]$/.test(n.label) ? 'Heading' : ({ button: 'Button', a: 'Link', img: 'Image', iframe: 'Frame · select a region for visual feedback', p: 'Text', div: 'Page component', span: 'Text' }[n.label] || n.label || 'Page selection');
-  const action = (id, action, value) => api.browserAction({ id, action, value }).then((r) => { if (!r?.ok) toast(r?.error || 'Browser selection failed.'); }).catch((e) => toast(e.message));
+  const action = (id, action, value) => api.browserAction({ id, action, value }).then((r) => { if (!r?.ok) toast(r?.error || t('annot.selFailed')); }).catch((e) => toast(e.message));
   const touch = () => onChange();
   const pending = (n) => !n.inserted;
   const draftPending = (id) => editing?.panelId === id && !editing.inserted && !store.tab(id).some((n) => n.id === editing.id && pending(n)) ? 1 : 0;
@@ -78,7 +79,7 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
       if (!rec.active || n.stale || !r || r.x + r.width < 0 || r.y + r.height < 0 || r.x > rec.host.clientWidth || r.y > rec.host.clientHeight) return '';
       const x = Math.min(Math.max(2, r.x + r.width - 10), Math.max(2, rec.host.clientWidth - 24));
       const y = Math.min(Math.max(2, r.y - 10), Math.max(2, rec.host.clientHeight - 24));
-      return outlines(rec, n) + `<button class="browser-annotation-pin browser-annotation-surface" data-note-id="${esc(n.id)}" style="left:${x}px;top:${y}px" aria-label="Edit annotation ${number}" title="Edit annotation ${number}">${number}</button>`; // physical: page coordinates over the browser view
+      return outlines(rec, n) + `<button class="browser-annotation-pin browser-annotation-surface" data-note-id="${esc(n.id)}" style="left:${x}px;top:${y}px" aria-label="${esc(t('annot.edit', { n: number }))}" title="${esc(t('annot.edit', { n: number }))}">${number}</button>`; // physical: page coordinates over the browser view
     }).join('');
     rec.pins.querySelectorAll('[data-note-id]').forEach((b) => b.onclick = () => edit(p, store.tab(p.id).find((n) => n.id === b.dataset.noteId)));
     touch();
@@ -104,8 +105,8 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
     rec.active = true; render(p);
     const bubble = document.createElement('section');
     bubble.className = 'browser-annotation-bubble browser-annotation-surface';
-    bubble.setAttribute('aria-label', 'Annotation comment');
-    bubble.innerHTML = `<div class="browser-annotation-caption">${esc(selectionLabel(value))}<button class="t-btn" data-comment="cancel" aria-label="Cancel comment" title="Cancel">${icon('close')}</button></div><div class="browser-annotation-content">${insertAnnotation ? '<div class="browser-annotation-image" aria-live="polite"></div>' : ''}<textarea id="browser-comment" aria-label="Annotation comment" placeholder="Add a comment…" rows="3" maxlength="16000">${esc(editing.note)}</textarea><div class="browser-annotation-status" role="status"></div></div>${insertAnnotation ? '<div class="browser-annotation-destinations"></div>' : ''}<div class="browser-annotation-actions"><button class="t-btn" data-comment="mic" aria-label="Dictate comment" title="Dictate comment">${icon('voice')}</button>${value.id ? '<button class="btn btn--small" data-comment="delete">Delete</button>' : ''}<button class="btn btn--small btn--go" data-comment="save">${insertAnnotation ? 'Add to session' : 'Save note'}</button></div>`;
+    bubble.setAttribute('aria-label', t('annot.comment'));
+    bubble.innerHTML = `<div class="browser-annotation-caption">${esc(selectionLabel(value))}<button class="t-btn" data-comment="cancel" aria-label="${esc(t('annot.cancelComment'))}" title="${esc(t('confirm.cancel'))}">${icon('close')}</button></div><div class="browser-annotation-content">${insertAnnotation ? '<div class="browser-annotation-image" aria-live="polite"></div>' : ''}<textarea id="browser-comment" aria-label="${esc(t('annot.comment'))}" placeholder="${esc(t('annot.addComment'))}" rows="3" maxlength="16000">${esc(editing.note)}</textarea><div class="browser-annotation-status" role="status"></div></div>${insertAnnotation ? '<div class="browser-annotation-destinations"></div>' : ''}<div class="browser-annotation-actions"><button class="t-btn" data-comment="mic" aria-label="${esc(t('annot.dictate'))}" title="${esc(t('annot.dictate'))}">${icon('voice')}</button>${value.id ? '<button class="btn btn--small" data-comment="delete">' + esc(t('bp.delete')) + '</button>' : ''}<button class="btn btn--small btn--go" data-comment="save">${esc(insertAnnotation ? t('annot.addToSession') : t('annot.saveNote'))}</button></div>`;
     rec.bubble = bubble; rec.host.appendChild(bubble); positionBubble(rec);
     const input = q('textarea', bubble);
     input.oninput = () => { if (editing) { editing.note = input.value; editing.inserted = false; } touch(); };
@@ -125,11 +126,11 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
     q('[data-comment="mic"]', bubble).onclick = () => {
       if (microphone) { microphone.stop(); return; }
       const status = q('[role="status"]', bubble), mic = q('[data-comment="mic"]', bubble);
-      if (!dictation?.start) { status.textContent = 'Dictation is unavailable. Configure Voice in Settings.'; touch(); return; }
+      if (!dictation?.start) { status.textContent = t('annot.noDictation'); touch(); return; }
       const epoch = ++generation;
       const valid = () => epoch === generation && bubble.isConnected;
       microphone = dictation.start({
-        onState(state) { if (!valid()) return; status.textContent = state === 'recording' ? 'Listening… click microphone to finish.' : state === 'transcribing' ? 'Transcribing…' : ''; mic.disabled = state === 'transcribing'; mic.classList.toggle('rec', state === 'recording'); touch(); },
+        onState(state) { if (!valid()) return; status.textContent = state === 'recording' ? t('annot.listening') : state === 'transcribing' ? t('annot.transcribing') : ''; mic.disabled = state === 'transcribing'; mic.classList.toggle('rec', state === 'recording'); touch(); },
         onText(text) { if (!valid()) return; input.value += (input.value && text ? ' ' : '') + text; editing.note = input.value; editing.inserted = false; microphone = null; status.textContent = ''; mic.disabled = false; mic.classList.remove('rec'); touch(); },
         onError(error) { if (!valid()) return; microphone = null; status.textContent = String(error?.message || error); mic.disabled = false; mic.classList.remove('rec'); touch(); }
       });
@@ -140,12 +141,12 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
   function renderDestinations(p, rec) {
     const target = q('.browser-annotation-destinations', rec.bubble);
     const choices = sessions().filter((session) => session.id && session.id !== p.id);
-    if (!choices.some((session) => session.id === (p.owner || p.id))) choices.unshift({ id: p.owner || p.id, title: 'This session' });
-    target.innerHTML = `<details><summary>To: <span>${esc(choices.filter((session) => editing.recipients.includes(session.id)).map((session) => session.title || 'Session').join(', ') || 'Choose session')}</span></summary><div>${choices.map((session) => `<label><input type="checkbox" value="${esc(session.id)}" ${editing.recipients.includes(session.id) ? 'checked' : ''}>${esc(session.title || 'Session')}</label>`).join('')}</div></details>`;
+    if (!choices.some((session) => session.id === (p.owner || p.id))) choices.unshift({ id: p.owner || p.id, title: t('annot.thisSession') });
+    target.innerHTML = `<details><summary>${esc(t('annot.to'))} <span>${esc(choices.filter((session) => editing.recipients.includes(session.id)).map((session) => session.title || t('annot.session')).join(', ') || t('annot.chooseSession'))}</span></summary><div>${choices.map((session) => `<label><input type="checkbox" value="${esc(session.id)}" ${editing.recipients.includes(session.id) ? 'checked' : ''}>${esc(session.title || t('annot.session'))}</label>`).join('')}</div></details>`;
     target.querySelectorAll('input').forEach((input) => input.onchange = () => {
       editing.recipients = [...target.querySelectorAll('input:checked')].map((el) => el.value);
       editing.inserted = !!editing.recipients.length && editing.recipients.every((id) => editing.delivered.includes(id));
-      q('summary span', target).textContent = choices.filter((session) => editing.recipients.includes(session.id)).map((session) => session.title || 'Session').join(', ') || 'Choose session';
+      q('summary span', target).textContent = choices.filter((session) => editing.recipients.includes(session.id)).map((session) => session.title || t('annot.session')).join(', ') || t('annot.chooseSession');
       positionBubble(rec); touch();
     });
     q('details', target).ontoggle = () => { positionBubble(rec); touch(); };
@@ -153,7 +154,7 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
   function renderImage(rec) {
     const image = editing?.image, target = q('.browser-annotation-image', rec.bubble);
     if (!target) return;
-    target.innerHTML = image ? `<img src="${esc(image.thumbnail || image.dataUrl || '')}" alt="Selected browser area"><span>Selected area · screenshot</span>` : '<span>Capturing selected area…</span>';
+    target.innerHTML = image ? `<img src="${esc(image.thumbnail || image.dataUrl || '')}" alt="${esc(t('annot.areaAlt'))}"><span>${esc(t('annot.areaShot'))}</span>` : `<span>${esc(t('annot.capturing'))}</span>`;
     positionBubble(rec); touch();
   }
   async function capture(rec, draft) {
@@ -161,7 +162,7 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
     const button = q('[data-comment="save"]', rec.bubble); button.disabled = true;
     try {
       const result = await api.browserAction({ id: rec.panel.id, action: 'capture-annotation', value: { selectionId: draft.selectionId, documentId: draft.documentId, rect: draft.rect, viewport: draft.viewport } });
-      if (!result?.ok || !result.image) throw new Error(result?.error || 'Screenshot could not be captured. Select the area again.');
+      if (!result?.ok || !result.image) throw new Error(result?.error || t('annot.shotFail'));
       if (editing !== draft) { discardImage({ image: result.image }); return; }
       draft.image = result.image; renderImage(rec);
     } catch (error) {
@@ -182,11 +183,11 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
     if (draft.lastPayload && draft.lastPayload !== content) draft.delivered = [];
     draft.lastPayload = content;
     const recipients = draft.recipients.filter((id) => !draft.delivered.includes(id));
-    if (!recipients.length) { status.textContent = draft.recipients.length ? 'Already added to these sessions.' : 'Choose a destination session.'; touch(); return; }
+    if (!recipients.length) { status.textContent = draft.recipients.length ? t('annot.already') : t('annot.chooseDest'); touch(); return; }
     try { editing = store.save(p, draft); } catch (error) { status.textContent = error.message; touch(); return; }
     const saved = editing; saved.sending = true;
     rec.bubble.querySelectorAll('button,input,textarea').forEach((el) => el.disabled = true);
-    status.textContent = 'Adding to session input…'; touch();
+    status.textContent = t('annot.adding'); touch();
     try {
       const result = await insertAnnotation({ ...saved, reference: 'Browser annotation · one-time insertion', text: content }, recipients);
       const inserted = (result?.inserted || []).filter((id) => recipients.includes(id));
@@ -195,10 +196,10 @@ export function createBrowserAnnotations({ api, esc, icon, selection, insertAnno
       if (saved.inserted) {
         saved.sending = false; if (editing === saved) cancel(); renderAll();
         if (rec.active && !editing) action(p.id, 'annotate', { active: true });
-        toast('Annotation added to session input.'); return;
+        toast(t('annot.added')); return;
       }
-      if (editing === saved) status.textContent = result?.error || result?.failed?.map((item) => item.error).filter(Boolean).join(' · ') || 'Some sessions could not receive this annotation. Retry sends only to remaining sessions.';
-    } catch (error) { if (editing === saved) status.textContent = error.message || 'Insertion failed. Your annotation is saved.'; }
+      if (editing === saved) status.textContent = result?.error || result?.failed?.map((item) => item.error).filter(Boolean).join(' · ') || t('annot.partial');
+    } catch (error) { if (editing === saved) status.textContent = error.message || t('annot.insertFail'); }
     finally {
       saved.sending = false;
       if (editing === saved && rec.bubble) { rec.bubble.querySelectorAll('button,input,textarea').forEach((el) => el.disabled = false); positionBubble(rec); }
