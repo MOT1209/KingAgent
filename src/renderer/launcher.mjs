@@ -1144,7 +1144,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
     const modal = overlay('qs-box', `<div class="qs-head"><span class="title">Quick start</span></div>
       <div class="qs-body">${body}</div>
       <div class="qs-foot"><span>Stuck? <a class="qs-link" href="#" data-url="${REPO_URL}/issues">Ask on GitHub</a></span>
-      <a class="qs-link" href="#" data-url="${DOCS.start}">Full guide ↗</a></div>`, { top: true });
+      <a class="qs-link" href="#" data-url="${DOCS.start}">${esc(t('sc.guide'))}</a></div>`, { top: true });
 
     wireHelpDialog(modal);
     modal.querySelectorAll('[data-act]').forEach((b) => {

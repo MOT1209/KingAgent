@@ -13,6 +13,7 @@
 // vocabulary of operational facts — so this panel cannot start showing
 // deliberation by accident.
 
+import { t } from './i18n.mjs';
 import { reduceActivity, renderProgress, statusDot } from './agent-activity.mjs';
 import { buildOrgTree, orgRows, agentDetail } from './agent-org.mjs';
 import { mountResearch } from './research-panel.mjs';
@@ -27,7 +28,7 @@ function mountAgentPlatform() {
 
   const root = document.createElement('div');
   root.className = 'agent-platform-toggle';
-  root.textContent = '🤖 Agent Platform';
+  root.textContent = '🤖 ' + t('platform.title');
   root.setAttribute('role', 'button');
   root.setAttribute('tabindex', '0');
   root.setAttribute('aria-expanded', 'false');
@@ -126,7 +127,7 @@ function mountAgentPlatform() {
       || '<div class="muted">No activity yet.</div>';
 
     panel.innerHTML = `
-      <header><h1>Agent Platform</h1><button class="agent-platform-close" title="Close">✕</button></header>
+      <header><h1>${t('platform.title')}</h1><button class="agent-platform-close" title="${t('platform.close')}">✕</button></header>
       <div class="agent-platform-scroll">
         <section>
           <h2>New task</h2>

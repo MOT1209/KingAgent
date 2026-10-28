@@ -51,20 +51,20 @@ export function connectCatalogHtml({ catalog, connectedIds, esc }) {
         <span class="code" data-kind="service">${esc(s.code)}</span>
         <span class="sv-name">${esc(s.name)}</span>
         <span class="sv-desc">${esc(s.desc)}</span>
-        ${s.id === 'kie' ? '<span class="sv-by">by KingAgent</span>' : ''}
-        <span class="sv-go">${connectedIds.has(s.id) ? '<span class="ok">●</span> connected' : 'connect →'}</span>
+        ${s.id === 'kie' ? '<span class="sv-by">'+t('mcp.byKing')+'</span>' : ''}
+        <span class="sv-go">${connectedIds.has(s.id) ? '<span class="ok">●</span> ' + t('mcp.connected') : t('mcp.connectGo')}</span>
       </div>`).join('')}</div>
     <div class="svc-custom" id="svc-own" tabindex="0">
       <span class="code" data-kind="service">＋</span>
       <span class="col"><span class="sv-name">${esc(t('mcp.own'))}</span>
-      <span class="sv-desc">paste an address or command — or choose a .mcpb bundle file</span></span>
-      <span class="sv-go">add it →</span>
+      <span class="sv-desc">${esc(t('mcp.ownDesc'))}</span></span>
+      <span class="sv-go">${esc(t('mcp.addIt'))}</span>
     </div>
     <div class="svc-custom" id="svc-custom" tabindex="0">
       <span class="code" data-kind="service">✳</span>
       <span class="col"><span class="sv-name">${esc(t('mcp.built'))}</span>
-      <span class="sv-desc">say it in plain words, watch it happen</span></span>
-      <span class="sv-go">build it →</span>
+      <span class="sv-desc">${esc(t('mcp.builtDesc2'))}</span></span>
+      <span class="sv-go">${esc(t('mcp.buildIt'))}</span>
     </div>`;
 }
 
