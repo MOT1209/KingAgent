@@ -28,7 +28,8 @@ function mountAgentPlatform() {
 
   const root = document.createElement('div');
   root.className = 'agent-platform-toggle';
-  root.textContent = '🤖 ' + t('platform.title');
+  root.textContent = t('platform.toggle');
+  root.setAttribute('data-i18n', 'platform.toggle');
   root.setAttribute('role', 'button');
   root.setAttribute('tabindex', '0');
   root.setAttribute('aria-expanded', 'false');

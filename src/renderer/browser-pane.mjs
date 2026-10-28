@@ -16,7 +16,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     frame = 0;
     for (const [id,rec] of tiles) if(rec.browserViewport) {
       const b=q('.browser-annotate',rec.body),active=annotations.isActive(id);
-      if(b){b.classList.toggle('is-on',active);b.setAttribute('aria-pressed',String(active));b.textContent=active?'Annotating':'Annotate';}
+      if(b){b.classList.toggle('is-on',active);b.setAttribute('aria-pressed',String(active));b.textContent=active?t('browser.annotating'):t('browser.annotate');}
     }
     const hidden = !!state.overlay;
     const items = [];

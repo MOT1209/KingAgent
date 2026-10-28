@@ -813,6 +813,8 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     if (S.overlay && S.overlay.type === 'connect') renderOverlay();
   }
   const TYPE_CHIP = { agent: { code: 'AG', kind: 'agent' }, skill: { code: 'SK', kind: 'skill' }, command: { code: 'CM', kind: 'command' } };
+  // Key prefixes live here so a missing translation shows up as a key, not a blank.
+  const LIB_KEY = 'lib.make.', GROUP_KEY = 'lg.';
   const LIB_MAKE = [
     { key: 'agent', icon: 'agent', code: 'AG', kind: 'agent', name: 'Agent', sub: 'build', title: 'Create an agent' },
     { key: 'skill', icon: 'skill', code: 'SK', kind: 'skill', name: 'Skill', sub: 'teach', title: 'Create a skill' },
@@ -987,9 +989,9 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       refreshRail();
     };
     const make = document.createElement('div'); make.className = 'lib-new-grid';
-    make.innerHTML = LIB_MAKE.map((m) => `<div class="add-card lib-new" data-make="${esc(m.key)}" tabindex="0" role="button" title="${esc(m.title)}">
+    make.innerHTML = LIB_MAKE.map((m) => `<div class="add-card lib-new" data-make="${esc(m.key)}" tabindex="0" role="button" title="${esc(t(LIB_KEY + m.key + '.title'))}">
         ${chipHtml({ key: m.icon, code: m.code, kind: m.kind })}
-        <span class="ac-name">${esc(m.name)}</span><span class="ac-desc">${esc(m.sub)}</span></div>`).join('');
+        <span class="ac-name">${esc(t(LIB_KEY + m.key + '.name'))}</span><span class="ac-desc">${esc(t(LIB_KEY + m.key + '.sub'))}</span></div>`).join('');
     c.appendChild(make);
     make.querySelectorAll('.lib-new').forEach((el) => {
       const go = () => (el.dataset.make === 'mcp' ? openConnect() : openCreate(el.dataset.make));
@@ -1023,7 +1025,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
       const sect = document.createElement('div'); sect.className = 'lib-sect'; list.appendChild(sect);
       const lab = document.createElement('div'); lab.className = 'lib-group';
       const count = pendingMac ? macCountLabel({ loaded: false, n: items.length }) : items.length;
-      lab.innerHTML = `<span class="lg-caret">${open ? '▾' : '▸'}</span><span>${esc(g.label)}</span><span class="lg-count">${esc(String(count))}</span>`;
+      lab.innerHTML = `<span class="lg-caret">${open ? '▾' : '▸'}</span><span>${esc(t(GROUP_KEY + g.key))}</span><span class="lg-count">${esc(String(count))}</span>`;
       lab.onclick = () => toggleLibGroup(g.key);
       lab.setAttribute('aria-expanded', String(!!open));
       activateOnKey(lab, () => toggleLibGroup(g.key));
@@ -1040,7 +1042,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
         if (g.key === 'services') {
           const add = document.createElement('div'); add.className = 'agent-row';
           add.innerHTML = `<span class="code" data-kind="service">⚡</span>
-            <span class="col"><span class="name">connect MCP</span><span class="tools">Notion, Slack, a folder…</span></span><span class="chev">›</span>`;
+            <span class="col"><span class="name">${esc(t('lib.connectMcp'))}</span><span class="tools">${esc(t('lib.connectMcpDesc'))}</span></span><span class="chev">›</span>`;
           add.onclick = () => openConnect();
           activateOnKey(add, () => openConnect());
           sect.appendChild(add);
