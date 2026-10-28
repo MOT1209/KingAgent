@@ -1,5 +1,5 @@
 import { usagePaneHtml, wireUsagePane as wireUsageContent } from './usage-pane.mjs';
-import { OPEN_OUTPUT_COPY, SHORTCUT_GROUPS } from './shortcuts.mjs';
+import { openOutputCopy, shortcutGroups } from './shortcuts.mjs';
 import { GROK_API_KEY } from './grok-auth.mjs';
 import { guarded, messageOf } from './guard.mjs';
 import { t, getLanguage, LANGUAGES } from './i18n.mjs';
@@ -92,13 +92,13 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
   function shortcutsPaneHtml() {
     const row = ([label, keys, sub]) => `<div class="shortcut-row"><span>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>
       <span class="shortcut-keys">${keys.map((key) => key === 'click' ? '<span>+ click</span>' : `<kbd>${esc(key)}</kbd>`).join('')}</span></div>`;
-    return `<h1 class="shortcuts-title">Shortcuts &amp; gestures</h1>
-      <p class="shortcuts-intro">Small moves that make your desk easier to use.</p>
-      <div class="shortcuts-hero">${helpIcon('link')}<div><h2>Open what your agent makes.</h2>
-        <p>${esc(OPEN_OUTPUT_COPY)}</p><button class="shortcuts-link" id="shortcuts-back">Back to my desk →</button></div></div>
-      ${SHORTCUT_GROUPS.map((group) => `<section class="shortcut-group"><h2>${helpIcon(group.icon)}${esc(group.title)}</h2>
+    return `<h1 class="shortcuts-title">${esc(t('sc.title'))}</h1>
+      <p class="shortcuts-intro">${esc(t('sc.intro'))}</p>
+      <div class="shortcuts-hero">${helpIcon('link')}<div><h2>${esc(t('sc.heroTitle'))}</h2>
+        <p>${esc(openOutputCopy())}</p><button class="shortcuts-link" id="shortcuts-back">${esc(t('sc.back'))}</button></div></div>
+      ${shortcutGroups().map((group) => `<section class="shortcut-group"><h2>${helpIcon(group.icon)}${esc(group.title)}</h2>
         ${group.rows.map(row).join('')}${group.note ? `<p class="shortcuts-note">${esc(group.note)}</p>` : ''}</section>`).join('')}
-      <p class="shortcuts-note">Shortcuts inside an agent’s terminal can vary by agent. This reference covers KingAgent’s controls.</p>`;
+      <p class="shortcuts-note">${esc(t('sc.footnote'))}</p>`;
   }
 
   // ---- Voice -----------------------------------------------------------------
