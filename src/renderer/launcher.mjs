@@ -9,7 +9,7 @@ import { grokAuthActions, GROK_API_KEY } from './grok-auth.mjs';
 import { CHAT_READY } from './acp-pane.mjs';
 import { createMcpSetup } from './mcp-setup.mjs';
 import { isSession as isSessionPanel } from './desk-view.mjs';
-import { OPEN_OUTPUT_COPY } from './shortcuts.mjs';
+import { openOutputCopy } from './shortcuts.mjs';
 import { tailPath } from './file-kinds.mjs';
 import { guarded, messageOf } from './guard.mjs';
 import { activateOnKey } from './a11y.mjs';
@@ -1118,7 +1118,7 @@ export function createLauncher({ api, state, tiles, browsers, toast, overlay, cl
       },
       {
         n: 6, title: 'Open what your agent makes',
-        sub: OPEN_OUTPUT_COPY,
+        sub: openOutputCopy(),
         acts: [{ label: '⌘ Shortcuts & gestures', run: () => openSettings('shortcuts') }],
       },
     ];
