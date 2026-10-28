@@ -159,7 +159,7 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
   }
   async function renderProfiles() {
     const o=state.overlay;
-    const modal=dialog('modal modal--browser', '<div class="modal-head"><span class="title">Browser profiles</span></div><div class="modal-body browser-profile-body">Loading…</div><div class="modal-foot"><button class="btn btn--go browser-profile-done" id="profiles-done">Done</button></div>');
+    const modal=dialog('modal modal--browser', `<div class="modal-head"><span class="title">${t('bp.title')}</span></div><div class="modal-body browser-profile-body">${t('bp.loading')}</div><div class="modal-foot"><button class="btn btn--go browser-profile-done" id="profiles-done">${t('settings.done')}</button></div>`);
     q('#profiles-done',modal).onclick=close;
     const r=await api.browserProfiles({action:'list'}); if(state.overlay!==o||!check(r))return;
     const status=await api.browserStatus(); if(state.overlay!==o)return;
@@ -168,10 +168,10 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
     if(!chosen)return;
     o.profileId=chosen.id;
     const host=q('.browser-profile-body',modal);
-    host.innerHTML=`<label class="field-label">Profile<select id="profile-choice">${r.profiles.map(p=>`<option value="${esc(p.id)}"${p.id===chosen.id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label><div class="browser-profile-actions"><button class="btn btn--small" id="profile-new">New</button><button class="btn btn--small" id="profile-rename">Rename</button>${view?'<button class="btn btn--small" id="profile-switch">Use for this tab</button>':''}<button class="btn btn--small" id="profile-remove">Remove…</button></div><div class="browser-profile-actions"><button class="btn btn--small" id="profile-import-cookies">Import from Chrome…</button><button class="btn btn--small" id="profile-import">Import password CSV…</button></div><details${o.section==='clear'?' open':''}><summary>Clear browsing data</summary><label class="browser-check"><input type="checkbox" id="clear-signins"><span>Site data and sign-ins</span></label><label class="browser-check"><input type="checkbox" id="clear-passwords"><span>Saved passwords</span></label><div class="browser-profile-clear"><button class="btn btn--small" id="profile-clear">Clear</button></div></details><details><summary>Saved passwords</summary><div id="profile-credentials"></div></details><div class="browser-profile-contents" role="status">Counting\u2026</div><div class="browser-profile-result" role="status"></div>`;
+    host.innerHTML=`<label class="field-label">${t('bp.profile')}<select id="profile-choice">${r.profiles.map(p=>`<option value="${esc(p.id)}"${p.id===chosen.id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label><div class="browser-profile-actions"><button class="btn btn--small" id="profile-new">${t('bp.new')}</button><button class="btn btn--small" id="profile-rename">${t('bp.rename')}</button>${view?`<button class="btn btn--small" id="profile-switch">${t('bp.useTab')}</button>`:''}<button class="btn btn--small" id="profile-remove">${t('bp.remove')}</button></div><div class="browser-profile-actions"><button class="btn btn--small" id="profile-import-cookies">${t('browser.importChrome')}</button><button class="btn btn--small" id="profile-import">${t('bp.importCsv')}</button></div><details${o.section==='clear'?' open':''}><summary>${t('bp.clearTitle')}</summary><label class="browser-check"><input type="checkbox" id="clear-signins"><span>${t('bp.siteData')}</span></label><label class="browser-check"><input type="checkbox" id="clear-passwords"><span>${t('bp.savedPasswords')}</span></label><div class="browser-profile-clear"><button class="btn btn--small" id="profile-clear">${t('bp.clear')}</button></div></details><details><summary>${t('bp.savedPasswords')}</summary><div id="profile-credentials"></div></details><div class="browser-profile-contents" role="status">Counting\u2026</div><div class="browser-profile-result" role="status"></div>`;
     const result=q('.browser-profile-result',host);
     const run=async args=>{const out=await api.browserProfiles({profileId:chosen.id,...args});if(!check(out))return null;return out;};
-    const ask=(title,action)=>{ const row=document.createElement('div');row.className='browser-profile-confirm';row.innerHTML=`<p class="note">${esc(title)}</p><button class="btn btn--small">Cancel</button><button class="btn btn--small btn--go">Confirm</button>`;result.replaceChildren(row);const [cancel,confirm]=row.querySelectorAll('button');cancel.onclick=()=>row.remove();confirm.onclick=async()=>{confirm.disabled=true;await action();};};
+    const ask=(title,action)=>{ const row=document.createElement('div');row.className='browser-profile-confirm';row.innerHTML=`<p class="note">${esc(title)}</p><button class="btn btn--small">${t('confirm.cancel')}</button><button class="btn btn--small btn--go">${t('bp.confirm')}</button>`;result.replaceChildren(row);const [cancel,confirm]=row.querySelectorAll('button');cancel.onclick=()=>row.remove();confirm.onclick=async()=>{confirm.disabled=true;await action();};};
     // What is in this profile, said plainly and left on screen. Counted from
     // the live session, because session cookies — most sign-ins — never reach
     // the file on disk, and a count taken from there reads as empty when it is
@@ -181,52 +181,52 @@ export function createBrowserPane({ api, state, tiles, uid, esc, helpIcon, isFil
       const out=await api.browserProfiles({action:'contents',profileId:chosen.id}).catch(()=>null);
       if(!contents.isConnected)return;
       const c=out&&out.contents;
-      if(!c){contents.textContent='Could not read what is in this profile.';return;}
+      if(!c){contents.textContent=t('bp.readErr');return;}
       const n=(v,one,many)=>v.toLocaleString()+' '+(v===1?one:many);
       contents.textContent=[n(c.cookies,'cookie','cookies')+(c.session?' ('+c.session+' sign-in)':''),
         n(c.passwords,'password','passwords'), n(c.history,'history row','history rows')].join(' \u00b7 ');
     })();
     q('#profile-choice',host).onchange=e=>show({...o,profileId:e.target.value});
-    const nameForm=(action)=>{result.innerHTML=`<label class="field-label">Profile name<input id="profile-name" value="${action==='rename'?esc(chosen.name):''}"></label><button class="btn btn--small" id="profile-name-save">Save</button>`;q('#profile-name-save',result).onclick=async()=>{const out=await run({action,name:q('#profile-name',result).value});if(out)show({...o});};q('input',result).focus();};
+    const nameForm=(action)=>{result.innerHTML=`<label class="field-label">${t('bp.profileName')}<input id="profile-name" value="${action==='rename'?esc(chosen.name):''}"></label><button class="btn btn--small" id="profile-name-save">${t('bp.save')}</button>`;q('#profile-name-save',result).onclick=async()=>{const out=await run({action,name:q('#profile-name',result).value});if(out)show({...o});};q('input',result).focus();};
     q('#profile-new',host).onclick=()=>nameForm('create');q('#profile-rename',host).onclick=()=>nameForm('rename');
-    if(view)q('#profile-switch',host).onclick=()=>ask('Use '+chosen.name+' for this tab?',async()=>{if(await run({action:'switch',id:view.id})){close();toast('Profile changed.');}});
+    if(view)q('#profile-switch',host).onclick=()=>ask('Use '+chosen.name+' for this tab?',async()=>{if(await run({action:'switch',id:view.id})){close();toast(t('bp.changed'));}});
     q('#profile-remove',host).onclick=()=>ask('Remove '+chosen.name+' and close its tabs?',async()=>{if(await run({action:'remove',confirmed:true}))show({...o});});
     q('#profile-import-cookies',host).onclick=()=>show({type:'browser-import',profileId:chosen.id,panelId:o.panelId});
-    q('#profile-import',host).onclick=()=>ask('Import a password CSV into '+chosen.name+'?',async()=>{const out=await run({action:'import-passwords'});if(out)result.textContent=out.canceled?'Cancelled.':out.message||('Imported '+(out.imported??0)+' passwords.');});
-    q('#profile-clear',host).onclick=()=>{const siteData=q('#clear-signins',host).checked,credentials=q('#clear-passwords',host).checked;if(!siteData&&!credentials){result.textContent='Choose data to clear.';return;}ask('Clear selected data from '+chosen.name+'?',async()=>{if(await run({action:'clear',siteData,credentials,confirmed:true})){result.textContent='Cleared.';}});};
+    q('#profile-import',host).onclick=()=>ask('Import a password CSV into '+chosen.name+'?',async()=>{const out=await run({action:'import-passwords'});if(out)result.textContent=out.canceled?t('bp.cancelled'):out.message||('Imported '+(out.imported??0)+' passwords.');});
+    q('#profile-clear',host).onclick=()=>{const siteData=q('#clear-signins',host).checked,credentials=q('#clear-passwords',host).checked;if(!siteData&&!credentials){result.textContent=t('bp.chooseClear');return;}ask('Clear selected data from '+chosen.name+'?',async()=>{if(await run({action:'clear',siteData,credentials,confirmed:true})){result.textContent=t('bp.cleared');}});};
     const canFill=!!view && chosen.id===view.profileId;
-    q('#profile-import',host).disabled=!r.capabilities?.passwordCsv; if(!r.capabilities?.passwordCsv) q('#profile-import',host).title='Unlock macOS Keychain to import saved passwords.';
+    q('#profile-import',host).disabled=!r.capabilities?.passwordCsv; if(!r.capabilities?.passwordCsv) q('#profile-import',host).title=t('bp.unlock');
     let currentOrigin=''; try{currentOrigin=new URL(view?.url).origin;}catch{}
     const saved=await run({action:'credentials'});if(state.overlay!==o||!saved)return;
-    q('#profile-credentials',host).innerHTML=(saved.credentials||[]).map(c=>`<div class="browser-credential"><span>${esc(c.origin)}<small>${esc(c.username)}</small></span>${canFill&&c.origin===currentOrigin?`<button class="btn btn--small" data-fill="${esc(c.id)}">Fill</button>`:''}<button class="btn btn--small" data-delete="${esc(c.id)}">Delete</button></div>`).join('')||'<p class="note">No saved passwords.</p>';
-    host.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>ask('Delete this saved password from KingAgent?',async()=>{if(await run({action:'delete-credential',credentialId:b.dataset.delete}))show({...o});}));
-    host.querySelectorAll('[data-fill]').forEach(b=>b.onclick=async()=>{if(await run({action:'autofill',id:view.id,credentialId:b.dataset.fill})){close();toast('Filled matching fields. Review the page before submitting.');}});
+    q('#profile-credentials',host).innerHTML=(saved.credentials||[]).map(c=>`<div class="browser-credential"><span>${esc(c.origin)}<small>${esc(c.username)}</small></span>${canFill&&c.origin===currentOrigin?`<button class="btn btn--small" data-fill="${esc(c.id)}">${t('bp.fill')}</button>`:''}<button class="btn btn--small" data-delete="${esc(c.id)}">${t('bp.delete')}</button></div>`).join('')||`<p class="note">${t('bp.noPasswords')}</p>`;
+    host.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>ask(t('bp.deleteAsk'),async()=>{if(await run({action:'delete-credential',credentialId:b.dataset.delete}))show({...o});}));
+    host.querySelectorAll('[data-fill]').forEach(b=>b.onclick=async()=>{if(await run({action:'autofill',id:view.id,credentialId:b.dataset.fill})){close();toast(t('bp.filled'));}});
   }
   async function renderImport() {
     const o=state.overlay;
-    const modal=dialog('modal modal--browser', `<div class="modal-head"><span class="title">Import from your browser</span></div>
-      <div class="modal-body browser-profile-body">Loading…</div>
-      <div class="modal-foot"><button class="btn" id="import-cancel">Cancel</button><button class="btn btn--go" id="import-go">Import</button></div>`);
+    const modal=dialog('modal modal--browser', `<div class="modal-head"><span class="title">${t('bp.importTitle')}</span></div>
+      <div class="modal-body browser-profile-body">${t('bp.loading')}</div>
+      <div class="modal-foot"><button class="btn" id="import-cancel">${t('confirm.cancel')}</button><button class="btn btn--go" id="import-go">${t('bp.import')}</button></div>`);
     q('#import-cancel',modal).onclick=close;
     const r=await api.browserProfiles({action:'list'}); if(state.overlay!==o||!check(r))return;
     const sources=r.capabilities?.cookieImport?.browsers||[];
     const host=q('.browser-profile-body',modal);
     const dest=r.profiles.find(p=>p.id===(o.profileId))||r.profiles[0];
-    if(!dest){host.textContent='Create a KingAgent profile first.';return;}
-    host.innerHTML=`<label class="field-label">From<select id="import-source">${sources.map((s,i)=>`<option value="${i}">${esc(s.browser)} · ${esc(s.name)}</option>`).join('')||'<option value="">No Chrome profile found</option>'}</select></label>
-      <p class="note">Allow Keychain access if macOS asks.</p>
-      <label class="browser-check"><input type="checkbox" id="import-passwords" checked><span>Saved passwords</span></label>
-      <label class="browser-check"><input type="checkbox" id="import-cookies" checked><span>Cookies</span></label>
-      <label class="browser-check"><input type="checkbox" id="import-history" checked><span>Browsing history</span></label>
+    if(!dest){host.textContent=t('bp.needProfile');return;}
+    host.innerHTML=`<label class="field-label">${t('bp.from')}<select id="import-source">${sources.map((s,i)=>`<option value="${i}">${esc(s.browser)} · ${esc(s.name)}</option>`).join('')||`<option value="">${t('bp.noChrome')}</option>`}</select></label>
+      <p class="note">${t('bp.keychainNote')}</p>
+      <label class="browser-check"><input type="checkbox" id="import-passwords" checked><span>${t('bp.savedPasswords')}</span></label>
+      <label class="browser-check"><input type="checkbox" id="import-cookies" checked><span>${t('bp.cookies')}</span></label>
+      <label class="browser-check"><input type="checkbox" id="import-history" checked><span>${t('bp.history')}</span></label>
       <div class="browser-profile-result" role="status"></div>`;
     const go=q('#import-go',modal), result=q('.browser-profile-result',host);
     go.disabled=!sources.length;
     go.onclick=async()=>{
-      go.disabled=true; result.textContent='Importing…';
+      go.disabled=true; result.textContent=t('bp.importing');
       const out=await api.browserProfiles({action:'import-browser',profileId:dest.id,sourceIndex:Number(q('#import-source',host).value)||0,passwords:q('#import-passwords',host).checked,cookies:q('#import-cookies',host).checked,history:q('#import-history',host).checked});
       go.disabled=false;
       if(!check(out))return;
-      result.textContent=out.message||'Import finished.';
+      result.textContent=out.message||t('bp.importDone');
     };
   }
   function settingsHtml() { return browserSettingsHtml(); }

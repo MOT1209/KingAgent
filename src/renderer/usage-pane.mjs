@@ -27,8 +27,8 @@ function metaHtml(row) {
   const reported = row.status !== 'stale' && validPercent(row.remaining);
   const metadata = [];
   if (row.source) metadata.push(esc(row.source));
-  if (validTime(row.resetsAt)) metadata.push('Resets ' + esc(new Date(row.resetsAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })));
-  if (validTime(row.checkedAt)) metadata.push('Checked ' + esc(new Date(row.checkedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })));
+  if (validTime(row.resetsAt)) metadata.push(t('usage.resets') + ' ' + esc(new Date(row.resetsAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })));
+  if (validTime(row.checkedAt)) metadata.push(t('usage.checked') + ' ' + esc(new Date(row.checkedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })));
   if (!reported && row.detail) metadata.push(esc(row.detail));
   if (!row.source && reported && row.detail) metadata.push(esc(row.detail));
   return metadata.length ? `<div class="usage-meta">${metadata.map((text) => `<span>${text}</span>`).join('')}</div>` : '';
@@ -37,7 +37,7 @@ function metaHtml(row) {
 function windowHtml(row) {
   const reported = row.status !== 'stale' && validPercent(row.remaining);
   const label = row.windowLabel || row.name;
-  const value = reported ? `${row.remaining}% left` : row.status === 'stale' ? 'Stale report' : 'Unavailable';
+  const value = reported ? t('usage.left', { n: row.remaining }) : row.status === 'stale' ? t('usage.stale') : t('usage.unavailable');
   return `<div class="usage-window"><div class="usage-window-head"><span class="usage-window-label">${esc(label)}${row.scopeLabel ? `<small>${esc(row.scopeLabel)}</small>` : ''}</span><span class="usage-value${row.status === 'stale' ? ' usage-stale' : ''}">${value}</span></div>${reported ? meter(row) : ''}${metaHtml(row)}</div>`;
 }
 
@@ -65,19 +65,19 @@ function cardHtml(group) {
   const open = rest.filter((row) => !secondaryWindow(row));
   const folded = rest.filter(secondaryWindow);
   const reported = tightest.status !== 'stale' && validPercent(tightest.remaining);
-  const value = reported ? `${tightest.remaining}% left` : tightest.status === 'stale' ? 'Stale report' : 'Unavailable';
+  const value = reported ? t('usage.left', { n: tightest.remaining }) : tightest.status === 'stale' ? t('usage.stale') : t('usage.unavailable');
   return `<section class="usage-card"><div class="usage-card-head"><strong>${esc(group.name)}</strong><span class="usage-value${tightest.status === 'stale' ? ' usage-stale' : ''}">${esc(labelOf(tightest))} · ${value}</span></div>${reported ? meter(tightest) : ''}${metaHtml(tightest)}${open.length ? `<div class="usage-windows">${open.map(windowHtml).join('')}</div>` : ''}${folded.length ? `<details class="usage-more"><summary>${esc(foldedSummary(folded))}</summary>${folded.map(windowHtml).join('')}</details>` : ''}</section>`;
 }
 
 function quietCard(row) {
-  return `<section class="usage-card usage-card--quiet"><div class="usage-card-head"><strong>${esc(row.providerName || row.name)}</strong><span class="usage-value">${esc(row.detail || 'No quota on this Mac yet')}</span></div></section>`;
+  return `<section class="usage-card usage-card--quiet"><div class="usage-card-head"><strong>${esc(row.providerName || row.name)}</strong><span class="usage-value">${esc(row.detail || t('usage.noQuota'))}</span></div></section>`;
 }
 
 function unavailableBlock(rows) {
   if (!rows.length) return '';
   const label = rows.length === 1
-    ? (rows[0].detail || `Sign in with ${rows[0].providerName || rows[0].name}`)
-    : `${rows.length} CLIs have nothing to show yet`;
+    ? (rows[0].detail || t('usage.signIn', { name: rows[0].providerName || rows[0].name }))
+    : t('usage.nothingYet', { n: rows.length });
   return `<details class="usage-unavailable"><summary>${esc(label)}</summary>${rows.map(quietCard).join('')}</details>`;
 }
 
