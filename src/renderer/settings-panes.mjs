@@ -50,7 +50,7 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
               : sec.id === 'browser' ? browsers.settingsHtml() : sec.id === 'usage' ? usagePaneHtml()
                 : sec.id === 'updates' ? updatesPaneHtml() : sec.id === 'about' ? aboutPaneHtml() : sec.id === 'shortcuts' ? shortcutsPaneHtml() : keysPaneHtml()}</div>
       </div></div>
-      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? '<span class="note">⌘ Command · ⌥ Option · ⇧ Shift</span><button class="shortcuts-link" id="shortcuts-guide">Full guide ↗</button>' : `<span class="note">${esc(t('settings.localOnly'))}</span>`}
+      <div class="modal-foot">${sec.id === 'voice' ? voiceFootHtml() : sec.id === 'shortcuts' ? `<span class="note">${esc(t('sc.legend'))}</span><button class="shortcuts-link" id="shortcuts-guide">${esc(t('sc.guide'))}</button>` : `<span class="note">${esc(t('settings.localOnly'))}</span>`}
         <button class="btn btn--go" id="set-done">${esc(t('settings.done'))}</button></div>`);
 
     modal.querySelectorAll('.set-nav .rail-tab').forEach((b) => {
@@ -91,7 +91,7 @@ export function createSettingsPanes({ api, state, toast, esc, helpIcon, q, overl
 
   function shortcutsPaneHtml() {
     const row = ([label, keys, sub]) => `<div class="shortcut-row"><span>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>
-      <span class="shortcut-keys">${keys.map((key) => key === 'click' ? '<span>+ click</span>' : `<kbd>${esc(key)}</kbd>`).join('')}</span></div>`;
+      <span class="shortcut-keys">${keys.map((key) => key === 'click' ? `<span>+ ${esc(t('sc.click'))}</span>` : `<kbd>${esc(key)}</kbd>`).join('')}</span></div>`;
     return `<h1 class="shortcuts-title">${esc(t('sc.title'))}</h1>
       <p class="shortcuts-intro">${esc(t('sc.intro'))}</p>
       <div class="shortcuts-hero">${helpIcon('link')}<div><h2>${esc(t('sc.heroTitle'))}</h2>

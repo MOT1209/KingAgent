@@ -19,6 +19,7 @@
 //     tool, a file, an approval). No event type carries a model's deliberation,
 //     and this view adds none.
 
+import { t } from './i18n.mjs';
 import { describe as describeActivity } from './agent-activity.mjs';
 
 // The organization's two named system agents, plus the human. A specialist is
@@ -197,7 +198,7 @@ function mountConversationView({ api, document: injected = null } = {}) {
 
   const toggle = doc.createElement('div');
   toggle.className = 'ka-conversation-toggle';
-  toggle.textContent = '💬 Conversation';
+  toggle.textContent = '💬 ' + t('conv.title');
   toggle.setAttribute('role', 'button');
   toggle.setAttribute('aria-expanded', 'false');
   doc.body.appendChild(toggle);
@@ -206,7 +207,7 @@ function mountConversationView({ api, document: injected = null } = {}) {
   panel.className = 'ka-conversation';
   panel.style.display = 'none';
   panel.innerHTML = `
-    <header><h1>Conversation</h1><button class="ka-conversation-close" title="Close">✕</button></header>
+    <header><h1>${t('conv.title')}</h1><button class="ka-conversation-close" title="${t('platform.close')}">✕</button></header>
     <div class="scroll"></div>
     <form><input type="text" placeholder="Tell the organization what you want…" aria-label="Objective" />
       <button type="submit">Send</button></form>`;

@@ -977,9 +977,9 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
   function refreshLibraryRail(c) {
     if (!S.library.loaded) loadLibrary();
     const head = document.createElement('div'); head.className = 'rail-head';
-    head.innerHTML = `<span class="title">Library</span>
-      <span class="racts"><button type="button" class="lib-exp">expand all</button>
-      <button type="button" class="lib-col">close all</button></span>`;
+    head.innerHTML = `<span class="title">${esc(t('rail.library'))}</span>
+      <span class="racts"><button type="button" class="lib-exp">${esc(t('lib.expandAll'))}</button>
+      <button type="button" class="lib-col">${esc(t('lib.closeAll'))}</button></span>`;
     c.appendChild(head);
     q('.lib-exp', head).onclick = () => { S.library.collapsed.clear(); maybeLoadMac(); refreshRail(); };
     q('.lib-col', head).onclick = () => {
@@ -998,7 +998,7 @@ export function createWorkspaceLibrary({ api, state, tiles, els, overlay, toast,
     });
     const top = document.createElement('div'); top.className = 'lib-top';
     const search = document.createElement('input');
-    search.className = 'lib-search'; search.placeholder = 'Filter the library…'; search.value = S.library.q;
+    search.className = 'lib-search'; search.placeholder = t('lib.filter'); search.value = S.library.q;
     // Typing refills the list and leaves the search box — the same node, with
     // its focus, caret and IME composition — alone. The whole rail used to be
     // torn down and rebuilt per keystroke, then the caret put back by hand (U12).
