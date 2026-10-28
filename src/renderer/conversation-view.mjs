@@ -198,7 +198,8 @@ function mountConversationView({ api, document: injected = null } = {}) {
 
   const toggle = doc.createElement('div');
   toggle.className = 'ka-conversation-toggle';
-  toggle.textContent = '💬 ' + t('conv.title');
+  toggle.textContent = t('conv.toggle');
+  toggle.setAttribute('data-i18n', 'conv.toggle');
   toggle.setAttribute('role', 'button');
   toggle.setAttribute('aria-expanded', 'false');
   doc.body.appendChild(toggle);
