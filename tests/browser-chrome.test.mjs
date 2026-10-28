@@ -63,8 +63,8 @@ test('quiet new-tab page is blank, not a product tour', () => {
   assert.match(css, /\.browser-profile-result:empty/);
   assert.match(css, /\.browser-profile-result[^{]*\{[^}]*padding-top:\s*12px/);
   assert.match(css, /\.browser-check[^{]*\{[^}]*grid-template-columns:\s*16px/);
-  assert.match(pane, /<span>Site data and sign-ins<\/span>/);
-  assert.match(pane, /Allow Keychain access if macOS asks/);
+  assert.match(pane, /<span>\${t\('bp\.siteData'\)}<\/span>/);
+  assert.match(pane, /bp\.keychainNote/);
   assert.doesNotMatch(pane, /Quit Chrome first/);
   assert.match(pane, /p\.url && p\.url !== 'about:blank'/);
 });
@@ -125,5 +125,5 @@ test('plus opens a new browser tab and does not offer a companion Agent', () => 
   assert.doesNotMatch(pane, /'Agent'/);
   assert.doesNotMatch(pane, /addAgent/);
   assert.match(pane, /type:'browser-import'/);
-  assert.match(pane, /Import from your browser/);
+  assert.match(pane, /bp\.importTitle/);
 });
