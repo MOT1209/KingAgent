@@ -72,6 +72,8 @@ const ALLOWED_ROOT = new Set([
   // at what content hash. Present so an upgrade can tell a real change from a
   // re-download of the same bytes.
   'skills-lock.json',
+  // The install config that keeps `npm ci` from downloading CUDA binaries on CI.
+  '.npmrc',
 ]);
 
 test('nothing is published from outside the folders that make KingAgent', { skip: notStandalone }, () => {
