@@ -192,3 +192,4 @@ MIT licensed · [Repository](https://github.com/MOT1209/KingAgent) ·
 [Issues](https://github.com/MOT1209/KingAgent/issues)
 factory test
 opencode test
+factory test 2
