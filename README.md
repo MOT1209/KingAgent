@@ -193,3 +193,4 @@ MIT licensed · [Repository](https://github.com/MOT1209/KingAgent) ·
 factory test
 opencode test
 factory test 2
+hello
