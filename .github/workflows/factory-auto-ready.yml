@@ -1,0 +1,29 @@
+name: Auto-start factory for new issues
+
+# Lives in each app repo, next to factory-ready.yml. When an issue is opened by
+# someone on the allowed list, this adds the ready label. Adding the label with
+# the factory token (a personal token, not GITHUB_TOKEN) fires the "labeled"
+# event, so factory-ready.yml starts the factory through its single code path.
+#
+# Opt out for one issue by giving it the "no-factory" label when you open it.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    if: >-
+      github.event.issue.state == 'open' &&
+      contains(fromJSON('["MOT1209"]'), github.actor) &&
+      !contains(github.event.issue.labels.*.name, 'ready') &&
+      !contains(github.event.issue.labels.*.name, 'no-factory')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add the ready label
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "ready"
